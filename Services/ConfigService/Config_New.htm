@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+		<link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css" />
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.5?join=true"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/SysUtils/NodeEnvironment.js"></script>
+		<script type="text/javascript" src="http://modules.web-manufacture.net/Channels.js"></script>
+		<script src="/socket.io/socket.io.js"></script>
+		
+		<title>Конфигурация сервера</title>
+		
+		<style type="text/css">
+			body{
+				background-color: #fff;  				
+			} 
+			
+			.block {
+				background: rgba(255, 255, 255, 0.6);
+				border: solid 1px #ccc;
+				border-radius: 10px;
+				padding: 10px;
+				width: 85%;
+				height: auto;
+			}
+					
+			.header.toolbar .menuitem.disabled{
+				background-color: gray;	
+				opacity: 0.2;
+			}
+			
+			#Notify{
+				background-color: white;
+				border: 1px solid navy;
+				border-radius: 10px 10px 10px 10px;
+				cursor: default;
+				font-size: 16px;
+				text-align: left;
+				opacity: 0.5;
+				top: 1%;
+				right: 1%;
+				z-index: 20;
+				padding: 7px;
+				font-size: 12px;
+				overflow: hidden;
+			}
+			
+			#Notify .event{
+				color: #333;
+			}
+			
+			#Notify .event.first{
+				background-color:yellow;
+			}
+			
+			#Notify .event.error{
+				color: red;
+			}
+			
+			.js-entity .path{
+				width: 200px;
+				color: black;
+				font-size: 120%;
+			}
+			
+			#NodesBlock .object-item{
+				display: inline-block;
+				border: solid 1px gray;
+				border-radius: 5px;
+				margin: 10px;
+				padding: 5px;
+				overflow: hidden;
+				opacity: 0.6;				
+				font-family: monospace;				
+				font-size: 12px;
+				-moz-box-sizing: border-box;
+				box-sizing: border-box;
+			}
+			
+			#NodesBlock .object-item .inner-wrapper{
+				background-color: white;
+				padding: 15px;
+				border-radius: 3px;				
+			}
+			
+			#NodesBlock .object-item:hover{
+				opacity: 1;
+			}
+			
+			#NodesBlock .object-item:hover>.inner-wrapper{
+				opacity: 1;
+				padding: 13px;
+				border: solid 2px navy;
+			}
+			
+			#NodesBlock .object-item:active>.inner-wrapper{
+				padding: 13px;
+				border: solid 2px red;
+			}
+			
+			#NodesBlock .object-item:not(.node-group)[status='working']{
+				background-color: rgba(100,255,0,0.7);
+			}
+			#NodesBlock .object-item:not(.node-group)[status='unloaded'],
+			#NodesBlock .object-item:not(.node-group)[status='stopped']{
+				background-color: rgba(62, 112, 203, 0.5);
+			}
+			
+			#NodesBlock .object-item:not(.node-group)[status="exception"]{
+				background-color: rgba(255,0,0,0.5);
+			}
+			
+			#NodesBlock .object-item:not(.node-group)[status='initialized']{
+				background-color: rgba(100,100,100,0.5);
+			}
+						
+			#NodesBlock .object-item:not(.node-group)[status='null']{
+				background-color: rgba(166,155,0,0.5);
+			}
+						
+			#NodesBlock .object-item .node-id{
+				white-space: nowrap;
+				overflow: hidden;
+				width: 100%;
+				height: 18px;
+				color: black;
+				font-size: 18px;
+				font-weight: bold;
+			}
+			
+			#NodesBlock .object-item .node-host{
+				white-space: nowrap;
+				overflow: hidden;
+				width: 100%;
+				height: 16px;
+				color: navy;
+				font-size: 14px;
+			}
+			
+			#NodesBlock .object-item .node-icon{
+				width: 100%;
+				height: 100px;
+			}
+			
+			#NodesBlock .object-item.managed .node-icon, 
+			#NodesBlock .object-item.internal .node-icon,
+			#NodesBlock .object-item.service .node-icon{
+				background: url("http://www.iconsearch.ru/uploads/icons/realistik-new/128x128/memory.png") no-repeat center;
+				background-size: 90px;
+			}
+			
+			#NodesBlock .object-item.isolated .node-icon{
+				background: url("http://www.iconsearch.ru/uploads/icons/crystalclear/128x128/network_local.png") no-repeat center;
+				background-size: 90px;
+			}
+			
+			#NodesBlock .object-item.external .node-icon{
+				background: url("http://www.iconsearch.ru/uploads/icons/glaze/128x128/network.png") no-repeat center;
+				
+				background-size: 90px;
+			}
+			
+			#NodesBlock .object-item .node-controls .mini-btn{
+				width: 34px;
+				height: 34px;
+				display: inline-block;
+			}
+			
+			#NodesBlock .object-item .node-controls .mini-btn.log{
+				background: url(' http://cdn1.iconfinder.com/data/icons/fatcow/32/file_extension_log.png') no-repeat center;
+				background-size: 30px 30px;
+			}
+			
+			#NodesBlock .object-item .node-controls .mini-btn:hover{
+				border-radius: 3px;
+				background-color: yellow!important;
+			}
+			
+			#NodesBlock .object-item .node-controls .mini-btn.start{
+				background: url('http://www.iconsearch.ru/uploads/icons/nuove/32x32/player_play.png') no-repeat center;
+				display: none;
+			}
+			
+			#NodesBlock .object-item[data-status='stopped'] .node-controls .mini-btn.start,
+			#NodesBlock .object-item[data-status='loaded'] .node-controls .mini-btn.start
+			#NodesBlock .object-item[data-status='sleep'] .node-controls .mini-btn.start
+			{
+				display: inline-block;
+			}
+			
+			#NodesBlock .object-item .node-controls .mini-btn.stop{
+				background: url('http://www.iconsearch.ru/uploads/icons/humano2/32x32/gtk-media-stop.png') no-repeat center;
+				display: none;
+			}
+			
+			#NodesBlock .object-item[data-status='working'] .node-controls .mini-btn.stop,
+			#NodesBlock .object-item[data-status='sleep'] .node-controls .mini-btn.stop
+			{
+				display: inline-block;
+			}
+			
+			#NodesBlock .object-item .node-controls .mini-btn.load{
+				background: url('http://www.iconsearch.ru/uploads/icons/humano2/32x32/gtk-media-stop.png') no-repeat center;
+				display: none;
+			}
+			
+			#NodesBlock .object-item[data-status='initialized'] .node-controls .mini-btn.load,
+			#NodesBlock .object-item[data-status='unloaded'] .node-controls .mini-btn.load
+			#NodesBlock .object-item[data-status='exception'] .node-controls .mini-btn.load
+			{
+				display: inline-block;
+			}
+			
+			#NodesBlock .object-item .node-controls .mini-btn.unload{
+				background: url('http://www.iconsearch.ru/uploads/icons/humano2/32x32/gtk-media-stop.png') no-repeat center;
+				display: none;
+			}
+			
+			#NodesBlock .object-item[data-status='working'] .node-controls .mini-btn.unload,
+			#NodesBlock .object-item[data-status='sleep'] .node-controls .mini-btn.unload
+			#NodesBlock .object-item[data-status='stopped'] .node-controls .mini-btn.unload
+			#NodesBlock .object-item[data-status='loaded'] .node-controls .mini-btn.unload
+			{
+				display: inline-block;
+			}
+			
+			#NodesBlock .object-item .node-controls .mini-btn.remove{
+				background: url('http://www.iconsearch.ru/uploads/icons/softwaredemo/32x32/deletered.png') no-repeat center;
+			}
+			
+		</style>
+	</head>
+	<body>
+		<include url='http://services.web-manufacture.net/UI/UiUtils.htm'></include>
+		<include url='http://services.web-manufacture.net/UI/HtmlElements.htm'></include>
+		<include url="http://services.web-manufacture.net/ui/Toolbars.htm"></include>
+		<include url='http://services.web-manufacture.net/UI/JsonEditor.htm'></include>
+		<script src='http://services.web-manufacture.net/Grids/SimpleGrids.js'></script>
+		<div id='serverVer'></div>
+		<div class='object-item prototype' id='NodeTemplate'>
+			<div class="inner-wrapper">
+				<div class='node-controls'>
+					<div class='mini-btn load' onclick='event.stopPropagation(); NodeItem.Load(this.get("^.object-item"));'></div>
+					<div class='mini-btn start' onclick='event.stopPropagation(); NodeItem.Start(this.get("^.object-item")); event.stopPropagation();'></div>
+					<div class='mini-btn stop' onclick='event.stopPropagation(); NodeItem.Stop(this.get("^.object-item")); event.stopPropagation();'></div>
+					<div class='mini-btn unload' onclick='event.stopPropagation(); NodeItem.Unload(this.get("^.object-item")); event.stopPropagation();'></div>
+					<div class='mini-btn remove' onclick='event.stopPropagation(); NodeItem.Remove(this.get("^.object-item")); event.stopPropagation();'></div>
+					<div class='mini-btn log'  onclick=' event.stopPropagation(); ConfManager.ShowLogs(this.get("^.object-item")); event.stopPropagation();'></div>
+				</div>
+				<div class='node-info'>
+					<div class='node-id' item-field='key'>
+					</div>
+					<div class='node-host' config-field='host'>
+					</div>
+					<div class='node-path' config-field='Node'>
+					</div>
+					<div class='node-file' config-field='File'>
+					</div>
+					<div class='node-service' config-field='Service'>
+					</div>
+				</div>
+				<div class='node-icon'></div>
+				<div class='child-nodes'></div>
+			</div>
+		</div>
+		
+		<div class="nodes-block" id="NodesBlock">
+			
+		</div>
+		<div id="Notify">
+		</div>
+		<div class="header toolbar" id="Toolbar">
+			<div onclick="ConfManager.ShowLogs();" icon="http://cdn1.iconfinder.com/data/icons/fatcow/32/file_extension_log.png" tooltip="Логи" class="menuitem save">
+			</div>
+			<div onclick="ConfManager.ShowConfigs();" icon="http://cdn2.iconfinder.com/data/icons/stilllife/48x48/apps/gnome-server-config.png" tooltip="Конфиги" class="menuitem save">
+			</div>
+		</div>
+		
+		<script key="TextEditor" type="text/javascript">
+			
+			Notify = {};
+			
+			Notify.Show = function (message) {
+				var nf = DOM("#Notify");
+				var ev = nf.div(".event.first", (new Date()).formatTime() + " " + message);
+				nf.show();
+				nf.ins(ev);
+				Notify.setTimeout();
+			};
+			
+			Notify.ShowMessage = function (message) {
+				var nf = DOM("#Notify");
+				var ev = nf.div(".event.first", (new Date()).formatTime() + " " + JSON.stringify(message));
+				nf.show();
+				nf.ins(ev);
+				Notify.setTimeout();
+			};
+			
+			Notify.Error = function (error) {
+				var nf = DOM("#Notify");
+				var ev = nf.div(".event.error.first", (new Date()).formatTime() + " " + error);
+				nf.show();
+				nf.ins(ev);
+				Notify.setTimeout();
+			};
+			
+			Notify.setTimeout = function () {
+				if (Notify.timeout) {
+					window.clearTimeout(Notify.timeout);
+				}
+				Notify.timeout = window.setTimeout(Notify.clearFirst, 3000);
+			};
+			
+			Notify.clearFirst = function () {
+				DOM.all("#Notify .event.first").del(".first");
+			};
+			
+			function XH() {
+				var xmlhttp;
+				xmlhttp = new XMLHttpRequest();
+				return xmlhttp;
+			};
+			
+			ConfManager = {};
+			
+			NodeItem = {};
+			
+			NodeItem.Colors = ["#FFFFFF","#FF0000","#FF33FF","#99CCFF","#0099FF","#33FFCC","#99FF33","#CCFF33","#FFFF00","#FFCC00","#FF6633","#9966FF"];
+			
+						
+			NodeItem.NodeClick = function(){
+				JsonEditor.EditObject(this.config, this.key);
+			};
+			
+			
+			ConfManager.Init = function(){
+				Server = {};
+				//Server.channel = new HttpChannel("/channels/*/state", true);
+				/*Server.channel.onRead.subscribe(function(messages, arg){
+					Notify.ShowMessage(messages);
+				});*/
+				//Tunnel = Server.serverTunnel;
+				//Tunnel.OnMessage.subscribe(ConfManager.OnServerMessage);
+								
+				Net.SEARCH("/Nodes/", null, function(result){
+					if (this.contentType.start("text/json")){
+						ConfManager.InitNodesBlock(result);
+					}
+					else{
+						Notify.Error(result);
+					}
+				})
+				
+				var send = function(path, data){
+					socket.send(JSON.stringify({path : path, data: data}));
+				}
+				
+				Node.Start = function(item){
+					if (item && item.writeChannel){
+						item.writeChannel.send(".start");
+					}
+					send("/" + item.key + "/control.start");
+					//Server.add("/forks?key=" + key, null, ConfManager.stateChanged)
+				}
+				Node.Stop = function(item){
+					if (item && item.writeChannel){
+						item.writeChannel.send(".stop");
+					}
+					send("/" + item.key + "/control.stop");
+					//Server.del("/forks?key=" + key, ConfManager.stateChanged)
+				}
+				Node.Reset = function(item){
+					if (item && item.writeChannel){
+						item.writeChannel.send(".reset");
+					}
+					send("/" + item.key + "/control.reset");
+					//Server.set("/forks?key=" + key, null, ConfManager.stateChanged)
+				}				
+				Node.Remove = function(item){
+					Server.del("/nodes?key=" + key, ConfManager.stateChanged);
+					send("/" + item.key + ".delete");
+				}
+					
+				//ConfManager.Channel = new Net.HMCH("./");
+				Channels.on("/log", function(message,arg){
+					Notify.ShowMessage(arg);
+				});
+				/*
+				var socket = io.connect('');
+				socket.on('connect', function(s){
+					console.log('connected');
+				});
+					
+				socket.on('message', function(messages){
+					console.log(messages);
+					if (messages.length >= 2 ){
+						var message = messages[0];
+						var node = messages[1];
+						var item = ConfManager.GetNode(node.key);
+						if (item){
+							ConfManager.UpdateItem(item, node);				
+						}
+						Notify.ShowMessage(node);
+					}
+				});*/
+			};
+			
+			ConfManager.stateChanged = function(result){
+				//var data = JSON.parse(result);
+				//ConfManager.UpdateItem(DOM("#obj" + data.key), data);
+			}
+			
+			ConfManager.OnServerMessage = function(message){
+				if (message.key){
+					ConfManager.UpdateItem(DOM("#obj" + message.key), message);				
+				}
+				if (message.forkId){
+					Notify.Show(DOM("#obj" + message.forkId).get("@data-host") + "\n" + message.text);
+				}
+			}
+			
+			ConfManager.UpdateItem = function(item, data){
+				item.set("@data-state", data.state);
+			}
+			
+			ConfManager.ShowLogs = function(item){
+				window.open("Monitoring.htm?fork=" + item.key);
+			};
+			
+			ConfManager.GetNode = function(nodeId){
+				return DOM("#node_" + nodeId);
+			};
+			
+			ConfManager.CreateNodeItem = function(node){
+				var item = NodeTemplate.clone();
+				item.node = node; 
+				item.config = node.config; 
+				item.add("." + node.nodeType.toLowerCase());
+				if (node.Nodes){
+					item.add(".node-group");
+				}
+				item.key = node.key;
+				item.id = "node_" + node.id;
+				item.add("." + node.status);
+				item.state = node.state;
+				if (!node.Nodes) item.style.backgroundColor = NodeItem.Colors[node.state];
+				item.set("@data-status", node.status);
+				item.set("@status", node.status);
+				var fields = item.all("[item-field]");
+				fields.each(function(field){
+					var key = field.get("@item-field");
+					if (node[key]){
+						field.textContent = node[key];
+					}
+					else{
+						field.add(".empty");
+					}
+				});
+				var fields = item.all("[config-field]");				
+				fields.each(function(field){
+					var key = field.get("@config-field");
+					if (node.config[key]){
+						field.textContent = node.config[key];
+					}
+					else{
+						field.add(".empty");
+					}
+				});
+				
+				ConfManager.Channel.subscribe(node.id + ".state", "/states/");
+				ConfManager.Channel.subscribe("/log/" + node.id, "/");
+				//ConfManager.Channel.subscribe("/log.info,log.warn,log.error/" + node.id, "/");
+				
+				item.onclick = NodeItem.NodeClick;
+				//item.readChannel = new HttpChannel("/channels/" + item.key + "/state", true);
+				//item.writeChannel = new HttpChannel("/channels/" + item.key + "/control", false);
+				//Server.Nodes[item.key] = item.channel;
+				return item;
+			};
+			
+			ConfManager.LogsLoaded = function(result, status){
+				if (status == 200){
+					var logs = JSON.parse(result);
+					for (var i = 0; i < logs.length; i++){
+						var log = logs[i];	
+						DOM("#Logs").div("." + log.type, log.message);
+					}
+					
+				}
+				else{
+					Notify.Error("Logs not loaded: " + status);	
+				}				
+			};
+			
+			ConfManager.InitNodesBlock = function(node, parent){
+				if (!parent) parent = NodesBlock;
+				var nitem = parent.add(ConfManager.CreateNodeItem(node));
+				if (node.Nodes){
+					var citems = nitem.get(".child-nodes");
+					if (!citems) citems = nitem.div(".child-nodes");
+					for (var id in node.Nodes){
+						ConfManager.InitNodesBlock(node.Nodes[id], citems);
+					}
+				};
+			}
+			
+			ConfManager.ConfigsLoaded = function(result, status){
+				if (status == 200){					
+					ConfManager.DisplayConfigs(JSON.parse(result));
+					//DOM("#Config").add(" " + result);
+				}
+				else{
+					Notify.Error("Logs not loaded: " + status);	
+				}		
+			};
+			
+			ConfManager.DisplayConfigs = function(result){
+				var configsSorted = result.sort(ConfManager.SortByPath);
+				for (var i=0; i < configsSorted.length; i++){
+					var configPath = configsSorted[i].path;
+					var configID = configsSorted[i]._id;
+					delete configsSorted[i].path;
+					delete configsSorted[i]._id;
+					var data = JSON.stringify(configsSorted[i]);
+					var pathObj = DOM.formatJSON(data);
+					pathObj.AttrProperty('key');							 
+					pathObj.id = 'id' + configID;
+					pathObj.key = configID;
+					ConfManager.FormatNodeItem(pathObj, data);
+					//var pathDiv = DOM.div('.path', configPath);
+					pathObj.ins(DOM.div('.path', configPath));
+					DOM("#Config").add(DOM.div(pathObj));
+				};
+			};
+			
+			ConfManager.SortByPath = function(a, b){
+				return a.path > b.path ? 1 : -1;
+			};
+			
+			WS.DOMload(ConfManager.Init);
+			
+		</script>
+		
+	</body>
+</html>
