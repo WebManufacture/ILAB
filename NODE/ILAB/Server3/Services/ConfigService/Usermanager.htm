@@ -1,0 +1,492 @@
+<!DOCTYPE HTML>
+
+<html>
+	<head>
+		<title>Usermanager</title>
+		<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+		<link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css" />
+		
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.5/?join=true"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Utils/HTTPErrors.js"></script>
+		
+		<script>
+			Usermanager = {};
+			
+			Usermanager.Init = function(){				
+				Usermanager.Server = new Storages.Server(window.Config.authUrl);	
+			};
+			
+			Usermanager.Init();
+			
+			Usermanager.PostLoad = function(){	
+				Usermanager.userProto = DOM.get('#userProto');
+				Usermanager.usersBrowser = DOM.get('#users-browser');
+				var sync = new Sync();
+				M.WaitModule("http://services.web-manufacture.net/ui/dragging.htm", sync.check());
+				Usermanager.Server.all('group', sync.add(function(rte, stat){
+					Usermanager.ShowSecurityGroups(rte);
+				}));
+				Usermanager.Server.all('user', sync.add(function(rt, stat){
+					if (stat != 200){
+						Usermanager.Error(stat);
+					}else{
+						Usermanager.ShowUsers(rt);	
+					};
+				}));
+				Usermanager.sgForUser = DOM.get("#SecurityGroup4user" );
+				sync.callThere(function(){
+					C.Process(Usermanager.sgForUser, "drag");
+					C.Process(Usermanager.usersBrowser, "drag");
+				});
+				Usermanager.sgForUser.objectReceived = Usermanager.DelSecurityGroup;
+			};
+			//Usermanager.Server.get('http://web-manufacture.net:12249/222', function(rt){
+			//	var userDataResponse = JSON.parse(rt);
+			//	Usermanager.ShowUser(userDataResponse);
+			//});
+			
+			Usermanager.Del = function(){
+				if (arguments[0].parentElement.key){
+					var parentDiv = arguments[0].parentElement;
+					parentDiv.add('.delited');
+				}else{
+					arguments[0].parentElement.del();
+				};	
+			};
+			
+			Usermanager.Pass = function(){
+				var newPass = prompt('type new password', '');
+				if (!newPass) return;
+				var parentDiv = arguments[0].parentElement;
+				parentDiv.add('.repassed');
+				parentDiv.set('@repassed', JSON.stringify({pass: newPass}));
+				return;
+			};
+			
+			Usermanager.Enable = function(){
+				var parentDiv = arguments[0].parentElement;
+				parentDiv.del('.disabled');
+				parentDiv.add('.statused');
+				parentDiv.set('@status', '{"status": false}');
+				return;
+			};
+			
+			Usermanager.Disable = function(){
+				var parentDiv = arguments[0].parentElement;
+				parentDiv.add('.disabled');
+				parentDiv.add('.statused');
+				parentDiv.set('@status', '{"status": true}');
+				return;
+			};
+			
+			
+			Usermanager.AddNewUser = function(){
+				var newUser = {};
+				var newUserFields = DOM.all('.new-user-field');
+				newUser.login = newUserFields[0].value;
+				newUser.pass = newUserFields[1].value;
+				newUser.name = newUserFields[2].value;
+				newUser.status = newUserFields[3].checked;
+				var newUserString = JSON.stringify(newUser);
+				Usermanager.HideNewUserPanel();
+				var userDiv = Usermanager.userProto.clone();
+				userDiv.add('.added');
+				userDiv.add('@changingParams', newUserString);
+				if (newUser.status == true){
+					userDiv.add('.disabled');
+				};				
+				
+				var userInfo = userDiv.get('.user-name').set(newUser.login + '  ' + newUser.name);
+				Usermanager.usersBrowser.ins(userDiv);
+				
+			};
+			
+			
+			
+			Usermanager.Users = {};
+			
+			Usermanager.ShowUsers = function(userDataResponse){
+				for (var i = 0; i < userDataResponse.length; i++){
+					var oneUserData = userDataResponse[i];
+					var id = oneUserData['_id'];
+					Usermanager.Users[id] = oneUserData['path'];
+					var userDiv = Usermanager.userProto.clone();
+					if (oneUserData.status == true){
+						userDiv.add('.disabled');
+					};
+					userDiv.key = id;
+					userDiv.set("@key", id);
+					userDiv.id = "user" + id;
+					var userInfo = userDiv.get('.user-name').set(oneUserData.login + '  ' + oneUserData.name);
+					var ur = userDiv.get(".user-SecurityGroup" );
+					var ug = oneUserData['securitygroup'];
+					if(ug != null){
+						var securityGroup4user = DOM.get('#SecurityGroup4user');
+						var sg = securityGroup4user.get('#' + 'id' + ug);
+						var newUSG = sg.innerHTML;
+						var newSG = DOM.div('.SecurityGroup');						
+						newSG.set(null, newUSG);
+						ur.add(newSG);
+						userDiv.add('@SecurityGroup', ug);
+					}else{
+						userDiv.add(".no-security-group");
+						ur.set(null, 'Без группы');
+					}
+					
+					ur.objectReceived = Usermanager.AddSecurityGroup;
+					Usermanager.usersBrowser.add(userDiv);
+				};
+				return;
+			};
+			
+			Usermanager.ShowSecurityGroups = function(SecurityGroupsBD){
+				var GroupsContainer = DOM.get('#SecurityGroup4user');
+				var GroupProto = DOM.get('#securityGroupPrototype');
+				for (var i=0; i < SecurityGroupsBD.length; i++){
+					var newGroup = 	GroupProto.clone();
+					//Drag.MakeDraggable(newGroup);
+					newGroup.set(null, SecurityGroupsBD[i]['group']);
+					newGroup.set('#' + 'id' + SecurityGroupsBD[i]['_id']);
+					GroupsContainer.add(newGroup);
+				};
+				return;
+			};
+			
+			Usermanager.NewUser = function(){
+				var newUserPanel = DOM.get('#new-user-panel');
+				var SecurityGroup4user = DOM.get('#SecurityGroup4user');
+				SecurityGroup4user.add('.hiden');
+				newUserPanel.del('.hiden');
+				return;
+			};
+			
+			
+			Usermanager.HideNewUserPanel = function(){
+				var newUserPanel = DOM.get('#new-user-panel');
+				var SecurityGroup4user = DOM.get('#SecurityGroup4user');
+				var newUserFields = newUserPanel.all('.new-user-field');
+				for ( var i = 0; i < (newUserFields.length -1); i++){
+					newUserFields[i].value = '';
+				};
+				newUserPanel.add('.hiden');
+				SecurityGroup4user.del('.hiden');
+				return;
+			};
+			
+			Usermanager.ApplyChanges = function(){
+				
+				DOM.all('.delited').each(function(delitedUsersDiv){
+					Usermanager.Server.del("user#" + delitedUsersDiv.key, function(rt, stat){
+						if (stat != 200){
+							Usermanager.Error(stat);
+						}else{
+							delitedUsersDiv.del();
+						};
+					});	
+					
+				});			
+				
+				DOM.all('.added').each(function(addedUserDiv){
+					var newUserString = addedUserDiv.get('@changingParams');
+					var user = {
+						
+					}
+					Usermanager.Server.add('user#' + user.login, newUserString, function(rt, stat){
+						if (stat != 200){
+							Usermanager.Error(stat);
+						}else{
+							addedUserDiv.del('.added');
+						};
+					});
+				});
+				
+				DOM.all('.statused').each(function(restatusetUserDiv){
+					var status = restatusetUserDiv.get('@status');
+					Usermanager.Server.set("user#" + restatusetUserDiv.key, status, function(rt, stat){
+						if (stat != 200){
+							Usermanager.Error(stat);
+						}else{
+							restatusetUserDiv.del('.statused');
+							restatusetUserDiv.del('@status');
+						};
+					});
+				});
+				
+				DOM.all('.regrouped').each(function(regroupedUserDiv){
+					var group = regroupedUserDiv.get('@SecurityGroup');
+					group = group.slice(2);
+					var regroupedUserPath = Request.GetUrl('/users/', {_id: regroupedUserDiv.key});
+					Usermanager.Server.set("user#" + regroupedUserDiv.key, group, function(rt, stat){
+						if (stat != 200){
+							Usermanager.Error(stat);
+						}else{
+							regroupedUserDiv.del('.regrouped');
+							//regroupedUserDiv.del('@SecurityGroup');
+						};
+					});
+				});
+				
+				DOM.all('.repassed').each(function(repassedUserDiv){
+					var repass = repassedUserDiv.get('@repassed');
+					Usermanager.Server.set("user#" + repassedUserDiv.key, repass, function(rt, stat){
+						if (stat != 200){
+							Usermanager.Error(stat);
+						}else{
+							repassedUserDiv.del('.repassed');
+							repassedUserDiv.del('@repassed');	
+						};
+					});
+				});
+				return;
+				
+				
+			};
+			
+			
+			Usermanager.AddSecurityGroup = function(elem){
+				var parent = this.get('^.user-info');
+				var  addingSecurityGroup = elem.id;
+				
+				if(parent.is(".no-security-group")){
+					this.clear();
+					parent.del(".no-security-group");
+					
+				}
+				
+				if (parent.is("[SecurityGroup~='" + addingSecurityGroup + "']")){
+					return false;	
+				}
+				
+				else{
+					parent.add(".regrouped");
+					this.clear();
+					parent.del("@SecurityGroup");
+					parent.set("@SecurityGroup", addingSecurityGroup);
+				}
+				return true;
+				
+				/*
+var attr2push = elem.get('@SecurityGroup');
+var attrArray = [];
+var par = parent.get('@SecurityGroup');
+
+if(par != null){
+attrArray = JSON.parse(par);
+for (var a in attrArray)
+{
+if (attrArray[a] == attr2push) return false;
+}
+}
+attrArray.push(attr2push);
+attr2push = JSON.stringify(attrArray);
+parent.set('@SecurityGroup', attr2push);
+var fall = true;
+*/
+			};
+			
+			Usermanager.DelSecurityGroup = function(elem){
+				elem.del();				
+			};
+			
+			Usermanager.Error = function(stat){
+				alert(HttpErrors[stat]);
+			};
+			
+			WS.DOMload(Usermanager.PostLoad);
+			
+			add ( 'user#1234.active')
+			
+		</script>
+		
+		
+		<style>
+			
+			#users-browser{
+				margin-top:  100px;
+				width: 60%;
+				display: inline-block;
+			}
+			#new-user-panel,
+			#SecurityGroup4user{
+				margin-top:  100px;
+				width: 30%;
+				float: right;
+				display: inline-block;
+			}
+			
+			#new-user-panel.hiden,
+			#SecurityGroup4user.hiden{
+				display: none;
+			}
+			
+			.user-info .user-name{
+				display: inline-block;
+				min-width: 300px;
+				padding: 0 0 0 10px;
+			}
+			
+			.user-info.no-security-group .user-SecurityGroup{
+				color: red;	
+			}
+			
+			.user-info .user-SecurityGroup{
+				display: inline-block;
+				height: 20px;
+				min-width: 50px;
+				padding: 3px 0 3px 10px;				
+			}
+			
+			.user-info .user-SecurityGroup.dragover{
+				border:none;
+				background-color: pink;
+			}
+			
+			.user-button{
+				display: inline-block;
+				border: 1px solid navy;
+				width: 50px;
+				margin: 5px;
+				cursor: pointer;
+				text-align: center;
+			}
+			
+			#new-user-panel .input-user-data{
+				padding: 5px;
+				text-align: right;
+				margin-right: 20px;	
+				
+			}
+			
+			.input-user-data input{
+				width: 80%;
+			}
+			
+			#new-user-panel .input-user-data #user-status-field{
+				width: 10%;
+			}
+			
+			#users-browser .user-info.disabled{
+				background: silver;
+			}
+			
+			#users-browser .user-info.added{
+				background: blue;
+			}
+			
+			.user-info.delited{
+				background: red;
+				
+			}
+			
+			#users-browser .user-info.disabled.delited{
+				background: red;
+			}
+			
+			#users-browser .user-info.disabled.added{
+				background: navy;
+			}
+			
+			#users-browser .user-info.disabled .user-button.disabled-button{
+				display: none;
+			}
+			
+			#users-browser .user-info.disabled .user-button.enable-button{
+				display: inline-block;
+			}
+			
+			#users-browser .user-info .user-button.enable-button{
+				display: none;
+			}
+			
+			#SecurityGroup4user .SecurityGroup{
+				
+				border-radius: 10px 10px 10px 10px;
+				border: solid 2px gold;
+				cursor:move;
+				text-align: center;
+				height:20px;
+				margin-bottom: 20px;
+				width:50px;
+				background-size:cover;
+			}
+			.user-SecurityGroup .SecurityGroup{
+				display: inline-block;
+				border-radius: 10px 10px 10px 10px;
+				border: solid 2px pink;
+				cursor:move;
+				text-align: center;
+				height:20px;
+				margin-bottom: 20px;
+				width:50px;
+				background-size:cover;
+			}
+			
+		</style>
+		
+	</head>
+	<body>
+		<include url='http://services.web-manufacture.net/UI/Dragging.htm'></include>
+		<include url='http://services.web-manufacture.net/UI/toolbars.htm'></include>
+		<include url='http://services.web-manufacture.net/Authentication/Authentication.htm'></include>
+		<div class='header toolbar'>
+			
+			<div class='menuitem server-control' onclick="Usermanager.ApplyChanges()">
+				Применить изменения
+			</div>
+			<div class='menuitem server-control' onclick="">
+				Изменит�� пароль
+			</div>
+			<div class='menuitem server-control' onclick="">
+				Временно отключить
+			</div>
+			<div class='menuitem server-control' onclick="Usermanager.NewSecurityGroup()">
+				Добавить группу
+			</div>
+			<div class='menuitem server-control' onclick="Usermanager.NewUser()">
+				Добавить нового пользователя
+			</div>		
+			
+			
+		</div>
+		
+		<div class='user-info prototype' id='userProto'>
+			<div class='user-name'></div>
+			<div class='user-SecurityGroup drop-receiver' drop-filter='.SecurityGroup'></div>
+			<div class='user-button disabled-button' onclick='Usermanager.Disable(this)'>Disable</div>
+			<div class='user-button enable-button' onclick='Usermanager.Enable(this)'>Enable</div>
+			<div class='user-button' onclick='Usermanager.Pass(this)'>Pass</div>
+			<div class='user-button' onclick='Usermanager.Del(this)'>Del</div>
+		</div>
+		<div id='users-browser'></div>
+		
+		<div class='new-user-panel hiden' id='new-user-panel' >
+			<div class='input-user-data'>
+				<span>login</span>
+				<input class='new-user-field' id='user-login-field' type='text'>
+			</div>
+			<div class='input-user-data'>
+				<span>pass</span>
+				<input class='new-user-field' id='user-pass-field' type='text'>
+			</div>
+			<div class='input-user-data'>
+				<span>name</span>
+				<input class='new-user-field' id='user-name-field' type='text'>				
+			</div>
+			<div class='input-user-data'>
+				<span>disabled</span>
+				<input class='new-user-field' id='user-status-field' type='checkbox'>				
+			</div>
+			<div>
+				<div class='user-button' id='cansel-saving-user' onclick='Usermanager.HideNewUserPanel(this)'>cancel</div>
+				<div class='user-button' id='saving-user' onclick='Usermanager.AddNewUser(this)'>save</div>
+			</div>
+		</div>
+		
+		<div class='SecurityGroup4user drop-receiver' drop-filter='.SecurityGroup' id='SecurityGroup4user'>
+			<div class='SecurityGroup prototype no-body-drop' id='securityGroupPrototype' draggable="true" drag-type='clone'></div>
+			
+		</div>
+		
+	</body>
+	
+</html>	  

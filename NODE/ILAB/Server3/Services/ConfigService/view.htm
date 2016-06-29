@@ -1,0 +1,324 @@
+<!DOCTYPE HTML>
+
+<html>
+	<head>
+		<title>Monitoring</title>
+		<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+		<link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css" />
+		
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.5?join=true"></script>
+		<script src="/socket.io/socket.io.js"></script>
+		
+		<script>
+			Monitor = {}; 
+			
+			Monitor.connect = function(url, callback){
+			    var socket = io.connect("ws://" + url);
+				socket.on('connect', function(data){
+					WS.Body.add(".online");
+					if (callback){
+					    callback(socket);
+					}
+					socket.once("message", function(history, state){
+					   if (state){
+					       cmdText.del(".disabled");
+					   }
+					   else{
+					       cmdText.add(".disabled");
+					   }
+					   history.each(function(item){
+					       Monitor.LogMessage({ type: "log", datetime : "old", content : item});
+					   }) 
+					});
+				});
+				socket.on('disconnect', function(s){
+					WS.Body.del(".online");
+				});
+				socket.on('shell-output', function(message){
+					if (message){
+                        Monitor.LogMessage({ type: "log", datetime : new Date() , content : message.text});
+					}
+				});
+				socket.on("shell-started", function(data){
+				    Monitor.LogMessage({ type: "info", datetime : new Date() , content : "Virtual machine started: " + JSON.stringify(data)});
+				    DOM.get('#logsMonitor').add("<hr class='machine-start'></hr>");  
+				    cmdText.del(".disabled");
+				});
+                socket.on('shell-exited', function(){
+					Monitor.LogMessage({ type: "error", datetime : new Date() , content : "Virtual machine stopped!"});
+    			    DOM.get('#logsMonitor').add("<hr class='machine-stop'></hr>");
+    			    socket.disconnect(0);
+    			    socket = null;
+    			    cmdText.add(".disabled");
+				});
+				Monitor.send = function(data){
+					if (socket){
+					    socket.emit("cmd-message", {text : data});
+					}
+				}
+			
+    			Monitor.Stop = function(){
+    			    if (socket){
+    			        socket.emit("cmd-stop");
+    			    }
+    			};
+    			
+    			Monitor.Start = function(){
+    			    if (socket){
+    			        socket.emit("cmd-start");
+    			    }
+    			    else{
+    			         Monitor.connect(url, function(socket){
+        			        socket.emit("cmd-start");
+        			    });
+    			    }
+    			};
+			}
+			
+			Monitor.Init = function(){
+				Monitor.startDate = new Date();
+				Monitor.lastLogDate == null;
+				Monitor.Url = Request.Params.url;
+
+                if (Monitor.Url){
+    				Monitor.connect(Monitor.Url);
+                }
+                
+                cmdText.onkeyup = function(event){
+                    if (event.code == "Enter" && event.ctrlKey == true){
+                        var text = cmdText.value;
+                        cmdText.value = '';
+                        Monitor.send(text);
+                    }
+                }
+			};
+						
+						
+			Monitor.LogMessage = function(log, msg){
+				var logDiv = DOM.get('#logsMonitor');
+				if (log.type == "?") log.type = "log";
+				var proto = logDiv.get(".prototype." + log.type);
+				if (!proto){
+					proto = logDiv.get(".prototype.log");	
+				}
+				proto = proto.clone();
+				log.datetime = new Date(log.datetime);
+				proto.get(".datetime").set(log.datetime.formatTime(true));
+				if (log.type == "error"){
+				//	proto.add(Monitor.ParseStack(log.content));	
+				}
+				if (log.type == ""){
+				    	
+				}
+				log.content = log.content.trim("\n");
+				proto.get(".text").textContent = log.content;
+				logDiv.add(proto);
+				var animInterval = setInterval(function(){
+				   if (WS.Body.scrollTop + WS.Body.clientHeight >= WS.Body.scrollHeight - 10){
+				       clearInterval(animInterval);
+				       return;
+				   } 
+				   WS.Body.scrollTop +=10;
+				}, 10);
+				setTimeout(function(){
+					proto.add(".old");	
+				}, 60000 * 3);
+			};
+			
+			Monitor.ParseStack = function(error){
+				try{
+					var errorDiv = DOM.div(".stack");
+					var stack = error.stack.split('\n');
+					for (var i = 0; i < stack.length; i++){
+						var line = stack[i];
+						line = line.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+						line = line.replace(/\s?at\s/, "");
+						var sl = errorDiv.div(".stack-line");
+						var iofaddr = line.indexOf("(");
+						if (iofaddr >= 0){
+							line = line.replace(/\((\w):\\/, "($1\\");
+							var mod = /\(([^:]+):(\d+):(\d+)\)/.exec(line);
+							line = line.substr(0, iofaddr);
+							//sl.div(".module-name.stack-part.stack-part-prefix", mod[1] + " : " + mod[2] + "(" + mod[3] + ")");
+							//sl.div(".row.stack-part.stack-part-prefix", mod[2] + "(" + mod[3] + ")");
+							//sl.div(".col.stack-part.stack-part-prefix", mod[3]);
+							sl.div(".function.stack-part", line);
+							if (mod){
+								sl.div(".module-name.stack-part", mod[1]);
+								sl.div(".line.stack-part", " : " + mod[2]);
+								sl.div(".column.stack-part", "(" + mod[3] + ")");							
+							}
+						}
+						else{
+							sl.set(null, line);	
+						}
+					}
+				}
+				catch (ex){
+					return "Error parsing object: " + error;
+				}
+				return errorDiv;
+			};
+			
+			
+			
+			WS.DOMload(Monitor.Init);	
+			
+		</script>
+		
+		
+		<style>
+			
+			body{
+				padding-top: 100px;	
+				color: #9DA;
+				background-color: #202020;
+			}
+			
+			body.loading .header.toolbar .menuitem.server-control {
+				display: none;	
+			}
+			
+			body.online .toolbar{
+			    background-color: #CFA;
+			}
+			
+			#logsMonitor {
+				display: block;
+				font-size: 12px;
+				padding: 2px;
+				text-align: left;
+				font-family: monospace;
+				width:80%;
+				padding-bottom: 140px;
+			}
+			
+			#logsMonitor .log-item{
+				padding-left: 50px;	
+				width: 100%;
+				white-space: pre;
+			}
+			
+			#logsMonitor .log-item.old:first-child{
+				margin-top: 10px;
+			}
+			
+			#logsMonitor .log-item.old{
+				opacity: 0.5;
+			}
+			
+			#logsMonitor .log-item.old:hover{
+				opacity: 1;	
+			}
+			
+			#logsMonitor .log-item .datetime{
+				color: #777;
+				margin-left: -50px;
+			}
+			
+			#logsMonitor .log-item.error .datetime{
+				color: red;
+			}
+			
+			
+			#logsMonitor .log-item .text{
+				
+			}
+			
+			.stack-line{
+				float: none;	
+				clear:both;
+			}
+			
+			.stack-line .stack-part{
+				display: inline-block;
+				padding-left: 5px;
+			}
+			
+			.stack-line .stack-part.function{
+				color: green;
+			}
+			
+			.stack-line .stack-part.module-name{
+				color: gray;
+			}
+			
+			.stack-line .stack-part.line{
+				color: navy;
+				font-weight: bold;
+			}
+
+			.header.toolbar .menuitem.server-control:active{
+				border:  1px solid black;
+			}
+			
+			.header.toolbar #urlBar {
+				border: 1px solid silver;
+				border-radius: 5px;
+				display: inline-block;
+				width: 500px;
+			}
+			
+			#cmdBlock{
+			    position: fixed;
+			    bottom: 0;
+			    width: 100%;
+			    box-sizing: border-box;
+			    padding: 10px 20px;
+			    background-color: rgba(126,122,122,0.5);
+			}
+			
+			#cmdText {
+			    width: 100%;
+			    font-family: Monospace;
+			    font-size: 12px;
+			}
+			
+		</style>
+		
+	</head>
+	<body>
+		
+		<include url='http://services.web-manufacture.net/UI/toolbars.htm'></include>
+		<div class='toolbar vertical right-side'>			
+			<div class='menuitem server-control start-btn' id='serverStart' onclick="Monitor.Start();">
+				СТАРТ
+			</div>
+			<div class='menuitem server-control stop-btn' id='serverStop' onclick="Monitor.Stop();">
+				СТОП
+			</div>
+			<div class='menuitem server-control reload-btn' id='serverRestart' onclick="Monitor.Reset();">
+				РЕСТАРТ
+			</div>
+			
+			<div class="menuitem server-control url-go invisible" onclick="Monitor.GoUrl(DOM('#urlBar').innerHTML);">GO!</div>
+			<div id="urlBar" class="invisible" contenteditable="true" ></div>
+		</div>
+		<div  id='logsMonitor'>
+<div class='log-item info prototype'>
+<span class='datetime'></span>
+<span class='text'></span>
+</div>
+<div class='log-item debug prototype'>
+<span class='datetime'></span>
+<span class='text'></span>
+</div>
+<div class='log-item warn prototype'>
+<span class='datetime'></span>
+<span class='text'></span>
+</div>
+<div class='log-item error prototype'>
+<span class='datetime'></span>
+<span class='text'></span>
+</div>
+<div class='log-item log prototype'>
+<span class='datetime'></span>
+<span class='text'></span>
+</div>
+		</div>
+		<div id='cmdBlock'>
+		    <textarea id='cmdText' type='text'></textarea>
+		</div>
+	</body>
+	
+</html>	  

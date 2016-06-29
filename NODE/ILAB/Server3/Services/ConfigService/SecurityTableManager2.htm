@@ -1,0 +1,397 @@
+<!DOCTYPE HTML>
+
+<html>
+	<head>
+		<title>SecurityTableManager</title>
+		<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+		<link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css" />
+		
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/Utils.js"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/DOM.js"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/Events.js"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/Log.js"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/Url.js"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/Ajax.js"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/Jasp.js"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/Modules.js"></script>
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/ui.js"></script>
+		
+		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.3/NodeTunnel.js"></script>
+		<script type="text/javascript" src="http://web-manufacture.net:8000/HTTPErrors.js"></script>
+		
+		<script>
+			
+			
+			TableManager = {};
+			
+			TableManager.Arry = [
+				{_id: 1000, path: '/users/primary/gold', group: 'Группа10', state: true, requestType: 'get'},
+				{_id: 1001, path: '/users/primary', group: 'Группа10', state: true, requestType: 'post'},
+				{_id: 1002, path: '/admins/log', group: 'Группа10', state: true, requestType: 'all'},
+				{_id: 1003, path: '/admins', group: 'Группа10', state: true, requestType: 'get'},
+				{_id: 1004, path: '/admins/log', group: 'Группа10', state: true, requestType: 'get'},
+				{_id: 1005, path: '/users', group: 'Группа10', state: true, requestType: 'get'},
+				{_id: 1006, path: '/users', group: 'Группа10', state: false, requestType: 'put'},
+				{_id: 1007, path: '/specialists', group: 'Группа40', state: true, requestType: 'get'}
+			];
+			
+			function Init(){
+				TableManager.Init();
+				
+				//TableManager.DisplayRecord({path: 'www', group: 'first', state: 'yes', requestType: 'GET'});
+				//TableManager.DisplayRecord({path: 'http', group: 'second', state: 'no', requestType: 'PUT'});
+			};
+			
+			TableManager.Init = function(){
+				TableManager.Url = 'http://klab.web-manufacture.net:808/security/permissions';
+				TableManager.Server = new NodeTunnel(TableManager.Url); 
+				TableManager.BlockPrototypes = DOM.get('#prototypes');
+				TableManager.GroupTable = DOM.get('#groups-table');
+				TableManager.Server.all(TableManager.Url + '/*', function(rt, err){
+					var response = JSON.parse(rt);
+					TableManager.TableMaker(response.sort(TableManager.SortByGroupThenPath));
+				});
+				//TableManager.TableMaker(TableManager.Arry.sort(TableManager.SortByGroupThenPath));
+			};
+			
+			TableManager.SortByGroupThenPath = function(a, b){
+				if (a.group == b.group){
+					return a.path < b.path ? 1: -1;
+				};
+				return a.group > b.group ? 1 : -1;
+			};
+			
+			TableManager.TableMaker = function(PathLineArry){
+				var currentGroup = null;
+				var currentGroupDiv = null;
+				var currentPath = null;
+				var currentPathDiv = null;
+				for (var i = 0; i <PathLineArry.length; i++){
+					//Здесь будет вызываться наследование
+					//if (currentGroupDiv && currentPathDiv && PathLineArry[i].path != currentPath){
+					//	TableManager.AddInheritanceToPathLine(currentGroupDiv, currentPathDiv);
+					//};
+					if (PathLineArry[i].group != currentGroup){
+						currentGroupDiv = TableManager.DisplayPermissionGroup(PathLineArry[i]);
+						currentGroup = PathLineArry[i].group;
+					};
+					if (PathLineArry[i].path != currentPath){
+						currentPathDiv = TableManager.DisplayPathLine(currentGroupDiv, PathLineArry[i]);
+						currentPath = PathLineArry[i].path;
+					}
+					var state = PathLineArry[i].state;
+					var method = PathLineArry[i].requestType;
+					var methodDiv = currentPathDiv.get('.' + method);
+					if (state != null){
+						methodDiv.add(state ? '.allow' : '.deny');
+						methodDiv.state = state;
+						TableManager.AddInheritanceToPathLine(currentPathDiv, methodDiv);
+					}
+				};
+				
+			};
+			
+			TableManager.DisplayPermissionGroup = function(pathLine){
+				var proto = TableManager.BlockPrototypes.get('.permissions-group').clone();
+				proto.get('.group').set(null, '' + pathLine.group);
+				TableManager.GroupTable.add(proto);
+				return proto;
+			};
+			
+			TableManager.DisplayPathLine = function(currentGroupDiv, pathLine){
+				//var pathRange = TableManager._pathRange(pathLine.path);
+				var proto = TableManager.BlockPrototypes.get('.path-line');
+				var record = proto.clone();
+				record.set('@path', pathLine.path);
+				record.AttrProperty("path");
+				record.all(".method").each(function(){
+					this.AttrProperty("method");
+				});
+				var pathDiv = record.get('.path');
+				pathDiv.set(null, pathLine.path);
+				//record.add('.pathRange' + pathRange);
+				currentGroupDiv.get('.paths').ins(record);				
+				return record;
+			};
+			
+			
+			TableManager.AddInheritanceToPathLine = function(currentPathDiv, methodDiv){
+				var pg = currentPathDiv.get('^.permissions-group');
+				var selector = '.path-line[path^="' + currentPathDiv.path + '"]' +  ' .method.' + methodDiv.method;
+				var allCurrentMethods = pg.all(selector);
+				var addingClass = currentPathDiv.state ? ".allow-inherit" : ".deny-inherit";
+				for (var i = 0; i < allCurrentMethods.length; i++){
+					if (methodDiv == allCurrentMethods[i]) continue;
+					if (allCurrentMethods[i].is('.allow,.deny')) break;
+					allCurrentMethods[i].del('.allow-inherit').del('.deny-inherit');
+					allCurrentMethods[i].add(addingClass);
+				};
+			};
+			
+			
+			TableManager._pathRange = function(path){
+				var arr = path.split('/');
+				return arr.length;
+			};
+			
+			TableManager._upPathRange = function(path){
+				var arr = path.split('/');
+				arr.length = arr.length - 1;
+				return arr.join();
+			};
+			
+			TableManager.FieldChange = function(chanangedleField){
+				var recordDiv = chanangedleField.get('^.record');
+				recordDiv.set('@editable', true);
+				chanangedleField.contentEditable = true;
+			};
+			
+			TableManager.StateChange = function(chanangedleField){
+				var pl = chanangedleField.get('^.path-line');
+				pl.get('.path').add('.modified');
+				chanangedleField.del('.allow').del('.deny');
+				if (chanangedleField.state != null){
+					chanangedleField.add(chanangedleField.state ? '.deny' : '.allow');
+				}
+				TableManager.AddInheritanceToPathLine(pl, chanangedleField);
+			};
+			
+			TableManager.AddPath = function(groupNameDiv) {
+				var currentGroupDiv = groupNameDiv.get('^.permissions-group')
+					var proto = TableManager.BlockPrototypes.get('.path-line');
+				var record = proto.clone();
+				var pathDiv = record.get('.path');
+				pathDiv.contentEditable = true;
+				currentGroupDiv.get('.paths').ins(record);
+			};
+			
+			TableManager.AddGroup = function() {
+				var proto = TableManager.BlockPrototypes.get('.permissions-group').clone();
+				proto.get('.group').contentEditable = true;
+				TableManager.GroupTable.ins(proto);
+				
+				//alert('создать группу');
+			};
+			
+			
+			TableManager.ApplyCanges = function(){
+				TableManager.GroupTable.all('[contenteditable="true"]').each(function(oneEditeble){
+					oneEditeble.contentEditable = false;
+				});	
+				var allChanged = TableManager.GroupTable.all('.modified');
+				TableManager.Connections = 0;				
+				TableManager.GroupTable.add(".busy");
+				allChanged.each(function(oneChanged){
+					oneChanged.del('.modified');
+					var droupDiv = oneChanged.get('^.permissions-group').get('.group');
+					var clearPath = Request.GetUrl(TableManager.Url, {group: droupDiv.innerHTML, path: oneChanged.innerHTML});
+					TableManager.Connections++;
+					TableManager.Server.del(clearPath, function(rt, err){
+						var pathLineIs = false;
+						TableManager.Connections--;
+						oneChanged.get('^.path-line').all('.method').each(function(oneMethod){
+							if (oneMethod.is('.deny') || oneMethod.is('.allow')){
+								pathLineIs = true;
+								var pathLine = JSON.stringify({group: droupDiv.innerHTML, path: oneChanged.innerHTML, state: TableManager.TakeMethodClassState(oneMethod), requestType: TableManager.TakeMethodClass(oneMethod)});
+								TableManager.Connections++;
+								TableManager.Server.add(TableManager.Url, pathLine, 'text/plain', function(rt, err){
+									TableManager.Connections--;
+									if (TableManager.Connections == 0){
+										TableManager.GroupTable.del(".busy");	
+									}
+								});
+							};
+						});
+						if (!pathLineIs){
+							oneChanged.get('^.path-line').del();
+						};	
+						if (TableManager.Connections == 0){
+							TableManager.GroupTable.del(".busy");	
+						}
+					});
+					if (TableManager.Connections == 0){
+						TableManager.GroupTable.del(".busy");	
+					}
+				});
+				if (TableManager.Connections == 0){
+					TableManager.GroupTable.del(".busy");	
+				}
+			};
+			
+			
+			TableManager.TakeMethodClass = function(methodDiv){
+				if (methodDiv) return '.' + methodDiv.method;
+			};
+			
+			TableManager.TakeMethodClassState = function(methodDiv){
+				if (methodDiv.is('.allow')) return true;
+				return false;
+			};
+			
+			
+			
+			//var a = TableManager.SortByPath(TableManager.Arry)
+			//alert(a.toSource());
+			
+			WS.DOMload(Init);
+			
+		</script>
+		
+		
+		<style>
+			
+			
+			
+			
+			
+			
+			#groups-table{
+				margin-top:  100px;
+			}
+			
+			
+			#groups-table.busy{
+				background-color: #ccc;
+			}
+			
+			#groups-table .title{
+				background-color: black;
+				width: 100%;
+				color: yellow;
+				padding: 3px;
+				font-weight: bold; 
+				padding-left: 200px;
+			}
+			
+			
+			#groups-table .title .method{
+				display: inline-block;
+				min-width: 125px;
+			}
+			
+			#groups-table .permissions-group{
+				clear: both;
+			}
+			
+			#groups-table .permissions-group .group{
+				font-size: 18px;
+				font-weight: bold;
+				clear: both;
+				min-height: 20px;
+				background-color: silver;
+			}
+			
+			#groups-table .permissions-group .paths{
+				margin-left: 50px;				
+				font-family: monospace;
+			}
+			
+			#groups-table .permissions-group .path-line {
+				border-bottom: solid 1px gray;
+			}
+			
+			#groups-table .permissions-group .path-line .method{
+				display: inline-block;
+				text-align: center;
+				min-width: 100px;
+				border-left: solid 1px gray;
+				color: gray;
+				cursor: pointer;
+			}
+			
+			#groups-table .permissions-group .path-line .method.allow{
+				background-color: green;	
+				color: black;
+			}
+			
+			#groups-table .permissions-group .path-line .allow-inherit{
+				background-color: #CFA;	
+				color: black;
+			}
+			
+			#groups-table .permissions-group .path-line .method.deny{
+				background-color: red;	
+				color: black;
+			}
+			
+			#groups-table .permissions-group .path-line .deny-inherit{
+				background-color: #FCA;	
+				color: black;
+			}
+			
+			#groups-table .permissions-group .path{
+				display: inline-block;
+				width: 300px;
+				min-height: 20px;
+				overflow: hidden;
+			}
+			
+			#groups-table .permissions-group .group-header .group-title, .method{
+				display: inline-block;
+				text-align: center;
+				min-width: 100px;
+				border-left: solid 1px gray;
+				color: gray;
+			}
+			
+			#groups-table .permissions-group .group-header .group-title{
+				font-size: 150%;
+				width: 300px;
+				
+			}
+			
+			
+		</style>
+		
+	</head>
+	<body>
+		<include url='http://services.web-manufacture.net/UI/Dragging.htm'></include>
+		<include url='http://services.web-manufacture.net/UI/toolbars.htm'></include>
+		<div class='header toolbar'>
+			
+			<div class='menuitem server-control' id='serverStart' onclick="TableManager.ApplyCanges()">
+				Применить изменения
+			</div>
+			<div class='menuitem server-control' id='serverStop' onclick="TableManager.AddGroup()">
+				Добавить группу
+			</div>
+			<div class='menuitem server-control' id='serverRestart' onclick="">
+				Временно отключить
+			</div>
+			<div class='menuitem server-control' id='serverRestart' onclick="Usermanager.NewSecurityGroup()">
+				Изменить группу
+			</div>
+			<div class='menuitem server-control' id='serverRestart' onclick="Usermanager.NewUser()">
+				Добавить нового пользователя
+			</div>	
+		</div>
+		
+		
+		
+		<div id='prototypes'>
+			<div class='permissions-group prototype'>
+				<div class='group' onclick='TableManager.AddPath(this)'></div>
+				<div class='paths'>
+				</div>
+			</div>
+			<div class='path-line prototype'>
+				<div class='path'></div>
+				<div class='method all' method='all' onclick='TableManager.StateChange(this)'>ALL</div>
+				<div class='method head' method='head' onclick='TableManager.StateChange(this)'>HEAD</div>
+				<div class='method options' method='options' onclick='TableManager.StateChange(this)'>OPTIONS</div>
+				<div class='method get' method='get' onclick='TableManager.StateChange(this)'>GET</div>
+				<div class='method put' method='put' onclick='TableManager.StateChange(this)'>PUT</div>
+				<div class='method post' method='post' onclick='TableManager.StateChange(this)'>POST</div>
+				<div class='method searсh' method='searсh' onclick='TableManager.StateChange(this)'>SEARCH</div>
+				<div class='method delete' method='delete' onclick='TableManager.StateChange(this)'>DELETE</div>
+			</div>
+			
+		</div>
+		
+		<div id='groups-table'>	
+		</div>
+		
+		
+	</body>
+	
+</html>	  
