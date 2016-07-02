@@ -36,7 +36,7 @@ global.useSystem = Frame.useSystem = function(path){
 	//return require(Path.resolve(Frame.NodeModulesPath + path));
 };
 
-var ServicesManager = useModule("ServicesManager");
+var ServicesManager = useService("ServicesManager");
 
 Frame.getPort = function () {
 	return Frame._availablePort++;
