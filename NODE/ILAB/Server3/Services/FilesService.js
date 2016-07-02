@@ -4,15 +4,13 @@ var fs = require('fs');
 var Path = require('path');
 
 useModule("Utils.js");
-useModule("Channels.js");
-var Logger = useModule('Logger.js');
 useModule('Async.js');
 
 function FilesService(parentNode){
 	FilesService.super_.apply(this, arguments);
 };
 	
-Inherit(FilesService, ServiceNode, {
+Inherit(FilesService, Service, {
 	_formatPath : function(fpath){
 		fpath = fpath.replace(/\//g, "\\");
 		if (!fpath.start("\\")) fpath = "\\" + fpath;
