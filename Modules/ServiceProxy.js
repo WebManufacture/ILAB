@@ -9,25 +9,34 @@ ServiceProxy = function(){
     return EventEmitter.call(this);
 };
 
-Inherit(ServiceProxy, EventEmitter, {
-    _createFakeMethod : function(methodName, resultNeeds) {
-        var self = this;
-        var method = self[methodName] = function () {
-            var args = [];
-            for (var i = 0; i < arguments.length; i++){
-                args.push(arguments[i]);
-            }
-            var obj = { "type" : "method", name : methodName, args : args };
-            self.emit("external-call", obj);
-        };
-        return method;
-    },
+ServiceProxy.CreateProxyObject = function (service) {
+    if (!service) return {};
+    var obj = { serviceId : service.serviceId };
+    for (var item in service){
+        if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
+            obj[item] = "method";
+        }
+    }
+    return obj;
+};
 
+Inherit(ServiceProxy, EventEmitter, {
     attach : function (port, host, callback) {
         this.port = port;
         if (!host) host = "127.0.0.1";
         this.host = host;
         var self = this;
+        function createFakeMethod(methodName, resultNeeds) {
+            var method = self[methodName] = function () {
+                var args = [];
+                for (var i = 0; i < arguments.length; i++){
+                    args.push(arguments[i]);
+                }
+                var obj = { "type" : "method", name : methodName, args : args };
+                self.emit("external-call", obj);
+            };
+            return method;
+        }
         var socket = new JsonSocket(port, host, function () {
             console.log("Service proxy connecting to " + port);
         });
@@ -36,12 +45,11 @@ Inherit(ServiceProxy, EventEmitter, {
             self.emit('error', err);
         });
         socket.once("json", function (proxyObj) {
-            console.log(proxyObj);
             self.serviceId = proxyObj.serviceId;
             console.log("Service proxy connected to " + self.serviceId);
             for (var item in proxyObj){
                 if (proxyObj[item] == "method") {
-                    self._createFakeMethod(item, proxyObj[item]);
+                    createFakeMethod(item, proxyObj[item]);
                 }
             }
             if (typeof callback == "function") {
@@ -56,7 +64,10 @@ Inherit(ServiceProxy, EventEmitter, {
         self.on("external-call", methodCallFunction);
         var messageHandlerFunction = function (message) {
             if (handshakeFinished && message.type == "event"){
-                self.emit.apply(self, message.args);
+                var result = self._callMethod(message.name, message.args);
+                if (message.id) {
+                    socket.write({"type": "result", id: message.id, result: result})
+                }
             }
         };
         socket.on("json", messageHandlerFunction);
