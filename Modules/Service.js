@@ -19,17 +19,6 @@ Service = function(port, serviceId){
     return EventEmitter.call(this);
 };
 
-Service.CreateProxyObject = function (service) {
-    if (!service) return {};
-    var obj = { serviceId : service.serviceId };
-    for (var item in service){
-        if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
-            obj[item] = "method";
-        }
-    }
-    return obj;
-};
-
 Inherit(Service, EventEmitter, {
     _callMethod : function (name, args){
         if (typeof this[name] == "function"){
@@ -78,7 +67,7 @@ Inherit(Service, EventEmitter, {
     },
 
     emit: function (eventName) {
-        if (eventName != "error" && eventName != "internal-event") {
+        if (eventName != "error") {
             Service.base.emit("internal-event", eventName, arguments);
         }
         Service.base.emit.apply(this, arguments);
