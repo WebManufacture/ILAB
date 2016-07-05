@@ -1,0 +1,38 @@
+// Допустим, в port и host у нас порт и адрес (обычно 'localhost') сервис-менеджера.
+// мы хотим подключиться к нему, вызвать у него удалённый метод getPortOfService
+// с аргументом и получить от него ответ (узнать номер порта по имени сервиса)
+
+        // пример на обычном прокси, колбэки ответа и ошибки передаются последними аргументами:
+        // где-то раньше должно быть  var ServiceProxy = useModule('ServiceProxy');
+
+        var proxy = new ServiceProxy();
+
+        proxy.attach(port, host, function () {
+        console.log("HttpProxy attached to services manager at " + port);
+
+            proxy.getPortOfService("NodesManagerService",
+                function(result) { console.log("Proxy see: " + result); },
+                function(reject) { console.log("No answer"); }
+            );
+        };
+
+
+
+        // пример на прокси, возвращающем промисы:
+        // где-то раньше должно быть  var ServiceProxyPromises = useModule('ServiceProxyPromises');
+
+        var proxyP = new ServiceProxyPromises();
+        proxyP.attach(port, host, function (p) {
+
+            proxyP.getPortOfService("NodesManagerService").then(
+                function(result) { console.log("ProxyPromise see: " + result); },
+                function(reject) { console.log("No answer"); }
+            );
+                
+        });
+        
+        
+// вариант на промисах ждёт ответа ВСЕГДА, даже если вы не пропишете result-обработку
+// простой ServiceProxy ждёт ответа только если указан хотя бы один callback
+// промисы идеологически правильнее (по-хорошему на любой метод желательно подтверждение что он 
+// дошёл до той стороны), но для тех кто их боится и новичков проще будет ServiceProxy
