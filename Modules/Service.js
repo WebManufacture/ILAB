@@ -73,7 +73,7 @@ Inherit(Service, EventEmitter, {
             this.removeListener("json", messageHandlerFunction);
             this.removeListener("error", errorHandler);
         });
-        var proxy = ServiceProxy.CreateProxyObject(this);
+        var proxy = Service.CreateProxyObject(this);
         socket.write(proxy);
     },
 
