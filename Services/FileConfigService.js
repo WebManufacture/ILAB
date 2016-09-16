@@ -3,6 +3,7 @@ var Url = require('url');
 var fs = require('fs');
 var Path = require('path');
 
+var ConfigService = useService('ConfigService.js');
 useModule("Utils.js");
 useModule("Channels.js");
 var Logger = useModule('Logger.js');
@@ -12,9 +13,9 @@ function FileConfigService(parentNode){
     FileConfigService.super_.apply(this, arguments);
 };
 
-global.FileConfigService.Type = "configService"
+global.FileConfigService.Type = "fileConfigService";
 	
-Inherit(FileConfigService, ServiceNode, {
+Inherit(FileConfigService, ConfigService, {
 
     configure : function(config){
         if (FileConfigService.base.configure){

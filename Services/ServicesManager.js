@@ -36,10 +36,79 @@ Inherit(ServiceFork, ForkMon, {
 
 function ServicesManager(port){
 	this.services = {};
+    var self = this;
+    this.StartService = function (serviceId, params) {
+        return self.startServiceAsync(serviceId, params).then(function () {
+            return serviceId + " started";
+        });
+    };
+    this.StopService = function (serviceId, params) {
+        return self.stopServiceAsync(serviceId, params).then(function () {
+            return serviceId + " stopped";
+        });
+    };
+    this.GetServices = function () {
+        return new Promise(function(resolve, reject){ resolve(self.getServices()) });
+    };
     return Service.call(this, port, "ServicesManager");
 }
 
 Inherit(ServicesManager, Service, {
+
+    startServiceAsync : function(serviceId, params){
+        var self = this;
+        var promise = new Promise((resolve, reject) =>{
+            try {
+                if (this.isServiceLoaded(serviceId)){
+                    service = this.services[serviceId];
+                    if (service.code < ForkMon.STATUS_WORKING) {
+                        service.once("service-started", function () {
+                            service.removeListener("error", reject);
+                            resolve(service, serviceId, params);
+                        });
+                        service.once("error", reject);
+                        service.start();
+                    }
+                    else{
+                        reject("Service already working");
+                    }
+                }
+                else{
+                    var service = self.startService(serviceId, params, function () {
+                        service.removeListener("error", reject);
+                        resolve(service, serviceId, params);
+                    });
+                    service.once("error", reject);
+                }
+            }
+            catch (err){
+                if (service) {
+                    service.removeListener("error", reject);
+                }
+                reject(err);
+            }
+        });
+        return promise;
+    },
+
+    stopServiceAsync : function(serviceId, params){
+        var self = this;
+        var promise = new Promise((resolve, reject) => {
+            try {
+                if (!this.isServiceAvailable(serviceId)) return reject("Service not available");
+                var service = this.services[serviceId];
+                if (service.code < ForkMon.STATUS_WORKING) return reject("Service not working");
+                service.once("exited", ()=>{
+                   resolve(serviceId + " stopped");
+                });
+                this.services[serviceId].stop();
+            }
+            catch (err){
+                reject(err);
+            }
+        });
+        return promise;
+    },
 
     startService : function(serviceId, params, callback){
         if (!serviceId) return;
@@ -106,13 +175,13 @@ Inherit(ServicesManager, Service, {
 	},
 
 	getServices : function(){
-		var services = [];
-		for (var s in this.services){
-			if (this.services[name] != null){
-				services.push(s);
-			}
-		}
-		return services;
+        var services = { "ServicesManager" : this.port };
+        for (var name in this.services){
+            if (this.services[name] != null){
+                services[name] = this.services[name].port;
+            }
+        }
+        return services;
 	},
 
     getProxy : function(serviceId, callback){
@@ -125,11 +194,11 @@ Inherit(ServicesManager, Service, {
 		}
 		return null;
     },
-	
+
 	isServiceAvailable : function(name){
 		return (this.isServiceLoaded(name) && this.services[name].code == ForkMon.STATUS_WORKING);
 	},
-	
+
 	isServiceLoaded : function(name){
 		return typeof this.services[name] == "object";
 	}

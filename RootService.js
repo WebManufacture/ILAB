@@ -42,7 +42,7 @@ Frame.getPort = function () {
 	return Frame._availablePort++;
 };
 
-Frame.portsStart = 4995;
+Frame.portsStart = 5995;
 Frame._availablePort = Frame.portsStart;
 
 Frame._initFrame = function () {
@@ -75,17 +75,18 @@ Frame._initFrame = function () {
 			console.log(data);
 		});*/
         //services.startService("LoggerService");
-		services.startService("NodesManagerService", function () {
-            var nodesManager = new ServiceProxy();
-            nodesManager.on("error", function(err){
-                console.log(err)
-            });
-            nodesManager.attach(services.services["NodesManagerService"].port, "localhost", function(){
-                nodesManager.StartNode("./Nodes/ServicesHttpProxy");
-            });
+        var serviceProxy = useModule("ServiceProxy");
+		services.StartService("NodesManagerService").then(function () {
+            return serviceProxy.GetService("NodesManagerService")
+			.then(function(nodesManager){
+				return nodesManager.StartNode("./Nodes/ServicesHttpProxy").then(function () {
+					console.log("All services started!")
+				});
+			})
+		}).catch(function (err) {
+			console.error(err);
 		});
 
-		
 		/*setInterval(function() {
 		 console.log(new Date());
 		 }, 5000);*/
@@ -94,6 +95,6 @@ Frame._initFrame = function () {
         console.log("RootError: ");
 		console.error(err.stack);
 	}
-}
+};
 
 Frame._initFrame();

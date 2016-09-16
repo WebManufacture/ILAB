@@ -16,7 +16,7 @@ Frame.nodePath = process.env.nodePath;
 
 Frame.error = function(err){
     process.send({type : "error", item: err.stack});
-    console.log("Node error in " + process.env.serviceId);
+    console.log("Node error in " + process.env.nodeName);
     console.error(err.stack);
 };
 
@@ -53,14 +53,15 @@ Frame._initFrame = function () {
         var node = require(Frame.nodePath);
         node = node(Frame.node);
         console.log(Frame.nodePath + " node started");
+        process.send({type : "control", state: "started"});
     }
     catch (err) {
         Frame.error(err);
     }
 };
 
-process.once("beforeExit", function(){
-    console.log(Frame.serviceId + ":" + Frame.servicePort + " exiting.");
+process.once("exit", function(){
+    console.log(Frame.node + " exiting.");
 });
 
 process.on("message", function(pmessage){

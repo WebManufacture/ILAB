@@ -1,0 +1,23 @@
+{
+  "name": "ilab",
+  "version": "3.1.2",
+  "description": "ILab server",
+  "main": "RootService.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Semchenkov Alexander",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WebManufacture/ILAB-3.0.git"
+  },
+  "bugs": {
+    "url": "https://github.com/WebManufacture/ILAB-3.0/issues"
+  },
+  "homepage": "https://github.com/WebManufacture/ILAB-3.0#readme",
+  "dependencies" :
+  {
+    "child-process-debug" : "^0.0.7"
+  }
+}

@@ -70,7 +70,7 @@ Frame._initFrame = function () {
     }
 };
 
-process.once("beforeExit", function(){
+process.once("exit", function(){
     console.log(Frame.serviceId + ":" + Frame.servicePort + " exiting.");
 });
 

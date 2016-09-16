@@ -37,7 +37,11 @@ function JsonSocket() {
     });
 
     connection.on('end', function () {
-        socket.emit('disconnect');
+        socket.emit('end');
+    });
+
+    connection.on('close', function (is_end) {
+        socket.emit('close', is_end);
     });
 
     connection.on('error', function (ex) {
@@ -53,9 +57,14 @@ function JsonSocket() {
         }
     };
 
-    socket.disconnect = function () {
-        connection.destroy();
+    socket.close = function (error) {
+        connection.destroy(error);
     };
+
+    socket.end = function () {
+        connection.end();
+    };
+
 
     socket.connect = function () {
         connection.connect.apply(connection, arguments);

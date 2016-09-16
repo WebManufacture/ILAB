@@ -13,9 +13,14 @@ Service = function(port, serviceId){
         allowHalfOpen: false,
         pauseOnConnect: false
     }, this._onConnection.bind(this));
-    this.server.listen(this.port, function(){
-        console.log(serviceId + ":" + port);
-    });
+    try {
+        this.server.listen(this.port, function () {
+            console.log(serviceId + ":" + port);
+        });
+    }
+    catch (error){
+        throw ("Cannot start " + serviceId + " on " + port + "\n" + error.message);
+    }
     return EventEmitter.call(this);
 };
 
@@ -52,13 +57,31 @@ Inherit(Service, EventEmitter, {
         var messageHandlerFunction = function (message) {
             if (message.type == "method"){
                 var result = self._callMethod(message.name, message.args);
-                if (message.id) {
-                    socket.write({"type": "result", id: message.id, result: result})
+                if (result instanceof Promise){
+                    result.then(function (result) {
+                        try {
+                            socket.write({"type": "result", id: message.id, result: result});
+                        }
+                        catch (error){
+                            throw error;
+                        }
+                    }).catch(function (error) {
+                        if (typeof error == "string") {
+                            socket.write({"type": "error", id: message.id, result: error});
+                        }
+                        else {
+                            socket.write({"type": "error", id: message.id, result: error.message, stack: error.stack});
+                        }
+                    });
+                }
+                else {
+                    if (message.id) {
+                        socket.write({"type": "result", id: message.id, result: result})
+                    }
                 }
             }
         };
         socket.once("json", function (startupMessage) {
-
             handshakeFinished = true;
         });
         var internalEventHandler = function (eventName, args) {

@@ -2,7 +2,7 @@ var fs = useSystem('fs');
 var Path = useSystem('path');
 var EventEmitter = useSystem('events');
 var os = useSystem("os");
-var ChildProcess = useSystem('child_process');
+var ChildProcess = useSystem('child-process-debug');
 var util = useModule('utils');
 
 function ForkMon(path, args, env){
@@ -22,12 +22,13 @@ function ForkMon(path, args, env){
     });
 };
 
-ForkMon.Statuses = ["new", "killed", "exited", "paused", "error", "reserved", "reserved", "working"];
+ForkMon.Statuses = ["new", "killed", "exited", "paused", "error", "reserved", "stopping", "working"];
 ForkMon.STATUS_NEW = 0;
 ForkMon.STATUS_KILLED = 1;
 ForkMon.STATUS_EXITED = 2;
 ForkMon.STATUS_PAUSED = 3;
 ForkMon.STATUS_ERROR = 4;
+ForkMon.STATUS_STOPPING = 6;
 ForkMon.STATUS_WORKING = 7;
 
 Inherit(ForkMon, EventEmitter, {
@@ -46,6 +47,8 @@ Inherit(ForkMon, EventEmitter, {
         }
         if (!Array.isArray(args)) args = [JSON.stringify(args)];
         var argsA = args;
+        //var debug = process.execArgv.indexOf('--debug');
+        //--debug-brk=<free port>
         var cp = this.process = ChildProcess.fork(this.path, argsA, { silent: false, cwd: cwd, env: this.env  });
         this.code = ForkMon.STATUS_WORKING;
         if (callback){
@@ -62,6 +65,13 @@ Inherit(ForkMon, EventEmitter, {
         cp.on("message", function(msg){
             fork._messageEvent.apply(fork, arguments);
         });
+        if (global.Frame){
+            if (!global.Frame.childProcesses) global.Frame.childProcesses = [];
+            global.Frame.childProcesses.push(cp);
+            process.on('exit', function () {
+                cp.kill();
+            });
+        }
         return cp;
     },
 
@@ -75,6 +85,7 @@ Inherit(ForkMon, EventEmitter, {
                 callback.call(fork, ForkMon.STATUS_EXITED);
             });
         }
+        this.code = ForkMon.STATUS_STOPPING;
         this.exit();
     },
 
