@@ -1,3 +1,11 @@
+УСТАНОВКА
+
+mkdir ILAB
+cd ILAB
+git clone git@github.com:WebManufacture/ILAB-3.0.git
+npm install
+node RootService.js
+
 АРХИТЕКТУРА ILAB3.0 (введение + обсуждение)
 ========================
 Структура папок сервера ILAB3.0 cейчас выглядит так:
