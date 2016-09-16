@@ -15,7 +15,7 @@ Frame.serviceId = process.env.serviceId;
 Frame.servicePort = process.env.servicePort;
 
 Frame.error = function(err){
-    process.send({type : "error", item: err.stack});
+    process.send({type : "error", message: err.message, item: err.stack});
     //console.log("Fork error in " + process.env.serviceId);
     //console.error(err.stack);
 };
@@ -62,11 +62,13 @@ Frame._initFrame = function () {
         service = new service(Frame.servicePort, Frame.serviceId);
         service.on("error", function(err){
            console.error(err);
+           Frame.error(err);
         });
         process.send({type : "control", state: "started"});
     }
     catch (err) {
         Frame.error(err);
+        process.exit();
     }
 };
 
