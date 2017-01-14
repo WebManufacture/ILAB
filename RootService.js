@@ -1,48 +1,15 @@
 var Path = require('path');
 var fs = require('fs');
 var os = require("os");
+require(Path.resolve("./Frame.js"));
 
-Frame = {};
-
-Frame = { isChild : false };
-
-Frame.ilabPath = Frame.basePath = Path.dirname(process.argv[1]);
-Frame.workingPath = typeof(process.argv[2]) == 'string' ? Path.resolve(process.argv[2]) : process.cwd();
-
-Frame.NodesPath =  Frame.ilabPath + "/Nodes/";
-Frame.ModulesPath = Frame.ilabPath + "/Modules/";
-Frame.ServicesPath = Frame.ilabPath + "/Services/";
-Frame.NodeModulesPath = process.execPath.replace("node.exe", "") + "node_modules/";
-Frame.Nodes = {};
-Frame.Modules = [];
-Frame.Services = {};
-
-global.useModule = Frame.useModule = function(path){
-	if (path.indexOf(".js") != path.length - 3){
-		path += ".js";
-	}
-	return require(Path.resolve(Frame.ModulesPath + path));
-};
-
-global.useService = Frame.useService = function(path){
-	if (path.indexOf(".js") != path.length - 3){
-		path += ".js";
-	}
-	return require(Path.resolve(Frame.ServicesPath + path));
-};
-
-global.useSystem = Frame.useSystem = function(path){
-    return require(path);
-	//return require(Path.resolve(Frame.NodeModulesPath + path));
-};
-
-var ServicesManager = useService("ServicesManager");
+var ServicesManager = useRoot("System/ServicesManager");
 
 Frame.getPort = function () {
 	return Frame._availablePort++;
 };
 
-Frame.portsStart = 5995;
+Frame.portsStart = 5600;
 Frame._availablePort = Frame.portsStart;
 
 Frame._initFrame = function () {
@@ -74,12 +41,10 @@ Frame._initFrame = function () {
 		spawnMon.on("virtual-output", function (data) {
 			console.log(data);
 		});*/
-        //services.startService("LoggerService");
-        var serviceProxy = useModule("ServiceProxy");
 		services.StartService("NodesManagerService").then(function () {
-            return serviceProxy.GetService("NodesManagerService")
+            return services.GetService("NodesManagerService")
 			.then(function(nodesManager){
-				return nodesManager.StartNode("./Nodes/ServicesHttpProxy").then(function () {
+				return nodesManager.StartNode("./Services/ServicesHttpProxy").then(function () {
 					console.log("All services started!")
 				});
 			})

@@ -5,8 +5,8 @@ var os = useSystem("os");
 var ChildProcess = useSystem('child_process');
 var util = useModule('utils');
 var ForkMon = useModule("forkmon");
-var Service = useModule("Service");
-var ServiceProxy = useModule('ServiceProxy');
+var Service = useRoot("System/Service");
+var ServiceProxy = useRoot("System/ServiceProxy");
 
 function ServiceFork(id, port, options){
     if (!id){
@@ -16,20 +16,28 @@ function ServiceFork(id, port, options){
     if (typeof options != "object") options = {};
     options.serviceId = id;
     options.servicePort = this.port;
-    return ForkMon.call(this, Frame.ServicesPath + "ServiceFrame.js", null, options);
+    return ForkMon.call(this, Frame.ilabPath + "/System/NodeFrame.js", null, options);
 };
 
 Inherit(ServiceFork, ForkMon, {
     _messageEvent : function(obj, msg){
-        if (typeof obj == "object" && obj.type == "error"){
-            return this.emit("error", new Error(obj.item + ""));
+        if (typeof obj == "object"){
+            if (obj.type == "error"){
+                return this.emit("error", new Error(obj.item + ""));
+            }
+            if (obj.type == "log"){
+                return  this.emit("message", obj.item);
+            }
+            if (obj.type == "control" && obj.state == "started"){
+                return this.emit("service-started");
+            }
+            if (obj.type == "control" && obj.state == "loaded"){
+                return this.emit("service-loaded");
+            }
+            if (obj.type == "control" && obj.state == "connected"){
+                return this.emit("service-connected");
+            }
         }
-        if (typeof obj == "object" && obj.type == "log"){
-            return  this.emit("message", obj.item);
-        }
-		if (typeof obj == "object" && obj.type == "control" && obj.state == "started"){
-			return this.emit("service-started");
-		}
         this.emit("message", obj);
     }
 });
@@ -50,8 +58,19 @@ function ServicesManager(port){
     this.GetServices = function () {
         return new Promise(function(resolve, reject){ resolve(self.getServices()) });
     };
+    this.GetService = function (name) {
+        return new Promise(function(resolve, reject){
+            var proxy = self.getProxy(name);
+            if (!proxy){
+                reject("Service " + name + " not found!");
+            }
+            resolve(proxy);
+        });
+    };
     return Service.call(this, port, "ServicesManager");
 }
+
+ServicesManager.serviceId = "ServicesManager";
 
 Inherit(ServicesManager, Service, {
 
@@ -117,46 +136,106 @@ Inherit(ServicesManager, Service, {
 			callback = params;
 			params = null;
 		}
+        function startService(service) {
+            if (service.code < ForkMon.STATUS_WORKING) {
+                service.start();
+            }
+            else{
+                this.emit("error", new Error("Service " + serviceId + " already work!"));
+            }
+        }
         if (!this.isServiceLoaded(serviceId)) {
-            var env = { managerPort : self.port};
+            var env = {
+                cwd : process.cwd(),
+                managerPort : self.port
+            };
 			if (params){
 				for (var item in params){
 					env[item] = params[item];
 				}
 			}
-            var fork = new ServiceFork(serviceId, Frame.getPort(), env);
-			if (typeof callback == "function"){
-				fork.once("service-started", function () {
-					callback.call(fork, serviceId);
-				});
-			}
-            fork.on("error", function(err){
+            var servicePath = serviceId;
+            if (servicePath.indexOf(".js") != servicePath.length - 3){
+                servicePath += ".js";
+            }
+            servicePath = Path.resolve(Frame.ServicesPath + servicePath);
+            env.nodePath = servicePath;
+            var service = new ServiceFork(serviceId, Frame.getPort(), env);
+            service.once("service-started", function () {
+                self.services[serviceId] = service;
+                if (typeof callback == "function"){
+                    callback.call(service, serviceId);
+                }
+            });
+
+            service.on("error", function(err){
                 err.serviceId = serviceId;
                 self.emit("error", err);
             });
-			var servicePath = serviceId;
-			if (servicePath.indexOf(".js") != servicePath.length - 3){
-				servicePath += ".js";
-			}
-			servicePath = Path.resolve(Frame.ServicesPath + servicePath);
-            fs.stat(servicePath, function(err, stats){
+			fs.stat(servicePath, function(err, stats){
                 if (!err){
-                    self.services[serviceId] = fork;
-                    self.startService(serviceId, params, callback);
+                    startService(service);
                 }
                 else{
                    self.emit("error", new Error("Service " + serviceId + " open error! " + err));
                 }
             });
-            return fork;
-        };
-        var service = this.services[serviceId];
-        if (service.code < ForkMon.STATUS_WORKING) {
-            service.start();
         }
         else{
-            this.emit("error", new Error("Service " + serviceId + " already work!"));
+            startService(this.services[serviceId]);
         }
+
+        return service;
+    },
+
+    startNode : function(nodeId, nodePath, params, callback){
+        if (!nodeId) return;
+        var self = this;
+        if (typeof params == "function") {
+            callback = params;
+            params = null;
+        }
+        function startNode(nodeFork) {
+            if (nodeFork.code < ForkMon.STATUS_WORKING) {
+                nodeFork.start();
+            }
+            else{
+                this.emit("error", new Error("Node " + nodeId + " already work!"));
+            }
+        }
+        if (!this.isServiceLoaded(nodeId)) {
+            var env = { managerPort : self.port, nodePath: nodePath};
+            if (params){
+                for (var item in params){
+                    env[item] = params[item];
+                }
+            }
+            if (nodePath.indexOf(".js") != nodePath.length - 3){
+                nodePath += ".js";
+            }
+            var fork = new ServiceFork(nodeId, Frame.getPort(), env);
+            if (typeof callback == "function"){
+                fork.once("service-started", function () {
+                    callback.call(fork, nodeId);
+                });
+            }
+            fork.on("error", function(err){
+                err.nodeId = nodeId;
+                self.emit("error", err);
+            });
+            fs.stat(nodePath, function(err, stats){
+                if (!err){
+                    startNode(fork);
+                }
+                else{
+                    self.emit("error", new Error("Service " + nodePath + " open error! " + err));
+                }
+            });
+        }
+        else{
+            startNode(this.services[nodeId]);
+        }
+
         return service;
     },
 
@@ -189,8 +268,9 @@ Inherit(ServicesManager, Service, {
 			var proxy = new ServiceProxy();
 			if (typeof callback == "function"){
 				proxy.attach(this.services[serviceId].port, "localhost", callback);
+                return proxy;
 			}
-			return proxy;
+            return proxy.attach(this.services[serviceId].port, "localhost");
 		}
 		return null;
     },
