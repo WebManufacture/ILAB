@@ -9,7 +9,7 @@ HttpProxyService = function(port){
     this.router = new HttpRouter(port, 15000);
     //this.router.debugMode = "trace";
     this.router.on("/<", (context) => {
-        context.finish("No service found " + context.path);
+        context.error("No service found " + context.path, 404);
     });
     console.log("HTTP PROXY ON " + this.router.port);
     return result;
@@ -51,8 +51,7 @@ Inherit(HttpProxyService, EventEmitter, {
                 console.log(name + "." + context.nodeName + " method calling ");
                 var method=service[context.nodeName];
                 if (method){
-                    var args = context.tail.split("/");
-                    args.shift();
+                    var args = JSON.parse(context.data);
                     return method.apply(service, args).then((result) => {
                         context.finish(result);
                     }).catch((err)=>{
