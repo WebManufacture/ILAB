@@ -124,28 +124,34 @@ https://github.com/AlfLearn/ILAB-3.0  (Это его форк)
 	Базовый класс сервиса описан в модуле Service.js
 	Для того чтобы написать свой сервис, надо унаследовать его от Service. Как-то так:
 
-    function myService(port){
-        this.users = [
-    		{ name : "Igor", status: "offline"},
-    		{ name : "Caroline", status: "online"}
-    	];
-        var self = this;
-        // это публичная функция:
-        this.GetUsers = function(status) {
-           return self.getUsersList(status);
-        };
-        return Service.call(this, port, "myService");
+useModule('utils');
+var Service = useRoot("/System/Service.js");
+
+function myService(port) {
+    this.users = [
+        { name: "Igor", status: "offline" },
+        { name: "Caroline", status: "online" }
+    ];
+    var self = this;
+    // это публичная функция:
+    this.GetUsers = function(status) {
+        return new Promise(function(resolve, reject) { resolve(self.getUsersList(status)) });
+    };
+    return Service.call(this, port, "myService");
+}
+
+myService.serviceId = "Id_testForConfig";
+
+Inherit(myService, Service, {
+    getUsersList: function(status) {
+        var result = [];
+        for (var i = 0; i < this.users.length; i++)
+            if (this.users[i].status == status) result.push(this.users[i]);
+        return result;
     }
-    
-    Inherit(myService, Service, {
-    ... тут какие-то внутренние методы сервиса
-    	getUsersList : function(status){
-    		var result = [];
-           for(var i=0; i<this.users.length; i++)
-    			if(this.users[i].status==status) result.push(this.users[i]);
-           return result;
-    	}
-    }
+})
+
+module.exports = myService;
 
 Обращаю внимание - публичные функции (т.е. доступные для rpc-вызовов) прописываются как явные свойства обьекта сервиса (а не его его прототипа). Т.е. только собственные методы обьекта сервиса (те которые hasOwnProperty) автоматически попадают в публичный интерфейс обьекта (upd - ещё туда не попадают функции, имена которых начинаются с "_", по принятному соглашению для именования как бы приватных свойств объектов).
 
