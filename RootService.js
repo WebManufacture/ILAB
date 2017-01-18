@@ -41,11 +41,10 @@ Frame._initFrame = function () {
 		spawnMon.on("virtual-output", function (data) {
 			console.log(data);
 		});*/
-		var serviceProxy = useModule("ServiceProxy");
 		services.StartService("NodesManagerService").then(function() {
-			return serviceProxy.GetService("NodesManagerService")
+			return services.GetService("NodesManagerService")
 				.then(function(nodesManager) {
-					return nodesManager.StartNode("./Nodes/ServicesHttpProxy").then(function() {
+					return nodesManager.StartNode("./Services/ServicesHttpProxy").then(function() {
 						if (process.argv[2]) {
 							return services.StartService(process.argv[2]).then(function() {
 								console.log("My " + process.argv[2] + " started!")
