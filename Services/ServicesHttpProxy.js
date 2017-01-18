@@ -51,8 +51,13 @@ Inherit(HttpProxyService, EventEmitter, {
                 console.log(name + "." + context.nodeName + " method calling ");
                 var method=service[context.nodeName];
                 if (method){
+                    var args = context.tail.split("/");
+                    args.shift();
                     if (!context.data) context.data = "[]";
-                    var args = JSON.parse(context.data);
+                    var data = JSON.parse(context.data);
+                    if (data && data.length){
+                        args = args.concat(data);
+                    }
                     return method.apply(service, args).then((result) => {
                         context.finish(result);
                     }).catch((err)=>{
