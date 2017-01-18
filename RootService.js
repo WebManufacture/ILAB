@@ -44,14 +44,18 @@ Frame._initFrame = function () {
 		services.StartService("NodesManagerService").then(function() {
 			return services.GetService("NodesManagerService")
 				.then(function(nodesManager) {
+					if (process.argv[2]) {
+						return services.StartService(process.argv[2]).then(function () {
+							console.log("My " + process.argv[2] + " started!");
+							return nodesManager;
+						})
+					} else {
+						return nodesManager;
+					}
+				})
+				.then(function(nodesManager) {
 					return nodesManager.StartNode("./Services/ServicesHttpProxy").then(function() {
-						if (process.argv[2]) {
-							return services.StartService(process.argv[2]).then(function() {
-								console.log("My " + process.argv[2] + " started!")
-							})
-						} else {
-							console.log("All services started!")
-						}
+						console.log("All started!");
 					});
 				})
 		}).catch(function(err) {
