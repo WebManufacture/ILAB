@@ -41,14 +41,21 @@ Frame._initFrame = function () {
 		spawnMon.on("virtual-output", function (data) {
 			console.log(data);
 		});*/
-		services.StartService("NodesManagerService").then(function () {
-            return services.GetService("NodesManagerService")
-			.then(function(nodesManager){
-				return nodesManager.StartNode("./Services/ServicesHttpProxy").then(function () {
-					console.log("All services started!")
-				});
-			})
-		}).catch(function (err) {
+		var serviceProxy = useModule("ServiceProxy");
+		services.StartService("NodesManagerService").then(function() {
+			return serviceProxy.GetService("NodesManagerService")
+				.then(function(nodesManager) {
+					return nodesManager.StartNode("./Nodes/ServicesHttpProxy").then(function() {
+						if (process.argv[2]) {
+							return services.StartService(process.argv[2]).then(function() {
+								console.log("My " + process.argv[2] + " started!")
+							})
+						} else {
+							console.log("All services started!")
+						}
+					});
+				})
+		}).catch(function(err) {
 			console.error(err);
 		});
 
