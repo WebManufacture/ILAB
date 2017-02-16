@@ -6,20 +6,21 @@ var EventEmitter = useSystem('events');
 var util = useModule('utils');
 var ServiceProxy = useRoot('System/ServiceProxy');
 
-Service = function(port, serviceId){
-    this.serviceId = serviceId;
-    this.port = port;
+Service = function(params){
+    var self = this;
+    this.serviceId = Frame.serviceId;
+    this.port = Frame.servicePort;
     this.server = net.createServer({
         allowHalfOpen: false,
         pauseOnConnect: false
     }, this._onConnection.bind(this));
     try {
         this.server.listen(this.port, function () {
-            console.log(serviceId + ":" + port);
+            console.log(self.serviceId + ":" + self.port);
         });
     }
     catch (error){
-        throw ("Cannot start " + serviceId + " on " + port + "\n" + error.message);
+        throw ("Cannot start " + this.serviceId + " on " + this.port + "\n" + error.message);
     }
     return EventEmitter.call(this);
 };
@@ -47,7 +48,7 @@ Inherit(Service, EventEmitter, {
     _onConnection  : function(socket){
         var self = this;
         var handshakeFinished = false;
-        console.log(this.serviceId + ":" + this.port + " connection");
+        //console.log(this.serviceId + ":" + this.port + " connection");
         socket = new JsonSocket(socket);
 
         var errorHandler = function(err){

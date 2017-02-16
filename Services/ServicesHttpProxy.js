@@ -3,9 +3,11 @@ var http = useSystem('http');
 var EventEmitter = useSystem('events');
 var HttpRouter = useModule('Router');
 
-HttpProxyService = function(port){
+HttpProxyService = function(params){
     var result = EventEmitter.apply(this, arguments);
     this.listServices();
+    var port = 5000;
+    if (params && params.port) port = params.port;
     this.router = new HttpRouter(port, 15000);
     //this.router.debugMode = "trace";
     this.router.on("/<", (context) => {
@@ -14,6 +16,8 @@ HttpProxyService = function(port){
     console.log("HTTP PROXY ON " + this.router.port);
     return result;
 };
+
+HttpProxyService.serviceId = ("ServicesHttpProxy");
 
 Inherit(HttpProxyService, EventEmitter, {
     listServices : function () {
@@ -76,6 +80,4 @@ Inherit(HttpProxyService, EventEmitter, {
     },
 });
 
-module.exports = function(){
-    var proxy = new HttpProxyService(5000);
-};
+module.exports = HttpProxyService;

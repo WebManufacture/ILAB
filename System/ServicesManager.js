@@ -16,7 +16,7 @@ function ServiceFork(id, port, options){
     if (typeof options != "object") options = {};
     options.serviceId = id;
     options.servicePort = this.port;
-    return ForkMon.call(this, Frame.ilabPath + "/System/NodeFrame.js", null, options);
+    return ForkMon.call(this, Frame.ilabPath + "/System/ServiceFrame.js", null, options);
 };
 
 Inherit(ServiceFork, ForkMon, {
@@ -42,9 +42,16 @@ Inherit(ServiceFork, ForkMon, {
     }
 });
 
-function ServicesManager(port){
+function ServicesManager(portCountingFunc){
 	this.services = {};
     var self = this;
+    if (typeof portCountingFunc != "function"){
+        this._availablePort = Frame.servicePort;
+        portCountingFunc = function () {
+            return self._availablePort++;
+        }
+    }
+    this.getPort = portCountingFunc;
     this.StartService = function (serviceId, params) {
         return self.startServiceAsync(serviceId, params).then(function () {
             return serviceId + " started";
@@ -67,7 +74,7 @@ function ServicesManager(port){
             resolve(proxy);
         });
     };
-    return Service.call(this, port, "ServicesManager");
+    return Service.apply(this, arguments);
 }
 
 ServicesManager.serviceId = "ServicesManager";
@@ -147,7 +154,8 @@ Inherit(ServicesManager, Service, {
         if (!this.isServiceLoaded(serviceId)) {
             var env = {
                 cwd : process.cwd(),
-                managerPort : self.port
+                managerPort : self.port,
+                params : JSON.stringify(params)
             };
 			if (params){
 				for (var item in params){
@@ -160,7 +168,7 @@ Inherit(ServicesManager, Service, {
             }
             servicePath = Path.resolve(Frame.ServicesPath + servicePath);
             env.nodePath = servicePath;
-            var service = new ServiceFork(serviceId, Frame.getPort(), env);
+            var service = new ServiceFork(serviceId, self.getPort(), env);
             service.once("service-started", function () {
                 self.services[serviceId] = service;
                 if (typeof callback == "function"){

@@ -151,7 +151,7 @@ Inherit(ServiceProxy, EventEmitter, {
         var self = this;
 
         var socket = new JsonSocket(port, host, function () {
-            console.log(self.serviceId + ": Service proxy connecting to " + port);
+            console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
         });
         var handshakeFinished = false;
         socket.on('error', function(err){
@@ -164,7 +164,8 @@ Inherit(ServiceProxy, EventEmitter, {
         socket.once("json", function (proxyObj) {
             //console.dir(proxyObj);//debug
             self.serviceId = proxyObj.serviceId;
-            console.log("Service proxy connected to " + self.serviceId);
+            //if (self.serviceId != "ServicesManager")
+                console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
             for (var item in proxyObj){
                 if (proxyObj[item] == "method") {
                     self._createFakeMethod(item, proxyObj[item]);

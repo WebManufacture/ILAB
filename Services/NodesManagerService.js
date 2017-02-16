@@ -42,7 +42,7 @@ Inherit(NodesManagerService, Service, {
             }
             nodePath = Path.resolve(nodePath);
             var env = { workDir : workingDir, nodeName : nodeId, nodePath : nodePath, managerPort : Frame.servicesManagerPort};
-            var fork = new ForkMon(Frame.ilabPath + "/System/NodeFrame.js", null, env);
+            var fork = new ForkMon(Frame.ilabPath + "/System/ServiceFrame.js", null, env);
             fork._messageEvent = function(obj, msg){
                 if (typeof obj == "object" && obj.type == "error"){
                     return this.emit("error", new Error(obj.item + ""));

@@ -2,6 +2,7 @@ var Path = require('path');
 var fs = require('fs');
 require(Path.resolve("./Frame.js"));
 var ServiceProxy = useRoot('/System/ServiceProxy');
+var Service = useRoot('/System/Service');
 
 Frame.servicesManagerPort = parseInt(process.env.managerPort);
 Frame.serviceId = process.env.serviceId;
@@ -26,24 +27,35 @@ Frame._initFrame = function () {
     try {
         //console.log(Frame.serviceId + ":" + Frame.servicePort + " starting...");
         ServiceProxy.init().then(function (servicesManager) {
-            servicesManager.GetServices = ServiceProxy.GetServices;
-            servicesManager.GetService = ServiceProxy.GetService;
-            global.ServicesManager = servicesManager;
+            var sm = global.ServicesManager = {};
+            for (var item in servicesManager){
+                sm[item] = servicesManager[item];
+            }
+            sm.GetServices = ServiceProxy.GetServices;
+            sm.GetService = ServiceProxy.GetService;
+
+            var params = {};
+            if (process.env.params) params = JSON.parse(process.env.params);
 
             var node = require(Frame.nodePath);
             if (node.serviceId){
-                service = new node(Frame.servicePort, Frame.serviceId);
+                Frame.serviceId = node.serviceId;
+                service = new node(params);
                 service.on("error", function(err){
-                    console.error(err);
+                    // console.error(err);
                     Frame.error(err);
                 });
             }
             else{
                 console.log(Frame.node + " node starting...");
-                node = node(Frame.node);
+                node = node(params);
                 console.log(Frame.nodePath + " node started");
             }
             process.send({type : "control", state: "started"});
+        }).catch(function (err) {
+            Frame.error(err);
+            //console.log("Fork error in " + Frame.serviceId + " " + Frame.nodePath);
+            //console.error(err.stack);
         });
     }
     catch (err) {

@@ -2,19 +2,103 @@
 ========================
     mkdir ILAB
     cd ILAB
-    git clone git@github.com:WebManufacture/ILAB-3.0.git
+    git clone http://github.com/WebManufacture/ILAB-3.0
     npm install
-    node RootService.js
+    node RootService.js --config
 
-АРХИТЕКТУРА ILAB3.0 (введение + обсуждение)
+ЗАПУСК И ПЕРВЫЕ ШАГИ:
 ========================
+Для запуска "чистого" ILAB-3.0, который содержит исключительно ServicesManager,
+достаточно базовой команды:
+
+    node RootService.js
+     
+Для того, чтобы стартовать минимальный набор сервисов, добавим конфиг:
+    
+    node RootService.js --config
+    
+Ну и для запуска своего сервиса, его можно добавить как в конфиг,
+так и просто в командную строку. Причем можно добавлять несколько через пробел.
+
+    node RootService.js --config myService.js
+
+Кратко, о том, как написать свой сервис.
+-------------------------
 Структура папок сервера ILAB3.0 cейчас выглядит так:
     
     Modules\ - библиотечные функции и классы
-    Nodes\  - узлы
-    Services\ - сервисы
+    Services\ - сервисы, в том числе и ваши.
+    System\  - базовые классы для работы сервера ILAB
     Storage\ - папка для хранения данных (база данных в файликах)
     RootService.js - главный скрипт, который нужно запускать
+    config.json - конфигурация для сервисов, стартующих по ключу --config
+    
+Для того, чтобы создать свой сервис, создайте файл в папке "Services".
+И назовите, его, к примеру "myService.js"
+
+Запускать его будем командой:
+
+    node RootService.js --config myService.js
+
+Для того чтобы написать свой сервис, надо унаследовать его от Service. Как-то так:
+
+    var Service = useRoot("/System/Service.js")
+    
+    function myService(params){
+        //Тут params это всегда объект, который передается в метод StartService, при старте вашего сервиса
+        //Берется он, к примеру, из конфига.
+        this.users = [
+            { name : "Igor", status: "offline"},
+            { name : "Caroline", status: "online"}
+        ];
+        var self = this;
+        // это публичная функция:
+        this.GetUsers = function(status) {
+            return self.getUsersList(status);
+        };
+        return Service.call(this);
+    }
+    
+    myService.serviceId = "MyService";
+    
+    Inherit(myService, Service, {
+            //... тут какие-то внутренние методы сервиса
+            getUsersList : function(status){
+            var result = [];
+            for(var i=0; i<this.users.length; i++)
+                if(this.users[i].status==status) result.push(this.users[i]);
+            return result;
+        }
+    })
+    
+    module.exports = myService;
+
+После запуска, сервис myService будет доступен вам через Веб, или из другого сервиса, или сервера,
+с помощью глобального класса ServicesManager:
+
+    //Второй параметр -- произвольный объект, который попадет в конструктор вашего сервиса.
+    ServicesManager.GetService("myService", { param1 : "Какой-нибудь ваш параметр" }).then(function(service){
+        //тут в переменной service доступен наш метод GetUsers в виде промиса.
+        //то есть результат обрабатывается так:
+        service.GetUsers("online").then(function(users){
+            //Тут будет доступен результат в users
+        }).catch(function(error){
+            //не забывайте вставлять обработку ошибок!
+        });
+    }).catch(function(error){
+        //Сюда мы попадем в случае, неудачного подключения к сервису.
+    });
+
+В случае, если вы пользуетесь сервисом из браузера, вам необходимо на страницу добавить ссылку на скрипт:
+    
+    //Для использования AJAX версии через ServicesHttpProxy
+    <script src="http://services.web-manufacture.net/ilab-http.js" type="text/javascript"></script>
+
+    //Для использования WebSocket версии через ServicesWebSocketProxy
+    <script src="http://services.web-manufacture.net/ilab-socket.js" type="text/javascript"></script>
+
+АРХИТЕКТУРА ILAB3.0 (введение + обсуждение)
+========================
 
 ### Микросервисная архитектура 
 Основная идея ILAB3 - микросервисная архитектура сервера, когда для решения задачи она разбивается не просто на модули в рамках единого приложения, а на несколько отдельных процессов, которые взаимодействуют между собой по TCP. 
@@ -120,13 +204,20 @@ https://github.com/AlfLearn/ILAB-3.0  (Это его форк)
 
 Сервисы
 -------------------------
-Сервисом мы будем называть процесс, который умеет понимать команды по нашему json-prc и с которым можно ощаться через наши proxy-обьекты. В принципе можно написать хоть произвольное node-приложение, лишь бы оно реализовало протокол. Но удобнее использовать готовый класс сервиса, который из коробки умеет не только слушать json-команды, но и интерпретировать их как вызов своих собственных методов.
-	Базовый класс сервиса описан в модуле Service.js
-	Для того чтобы написать свой сервис, надо унаследовать его от Service. Как-то так:
+Для того, чтобы создать свой сервис, создайте файл в папке "Services".
+И назовите, его, к примеру "myService.js"
+
+Запускать его будем командой:
+
+    node RootService.js --config myService.js
+
+Для того чтобы написать свой сервис, надо унаследовать его от Service. Как-то так:
 
     var Service = useRoot("/System/Service.js")
     
-    function myService(port){
+    function myService(params){
+        //Тут params это всегда объект, который передается в метод StartService, при старте вашего сервиса
+        //Берется он, к примеру, из конфига.
         this.users = [
             { name : "Igor", status: "offline"},
             { name : "Caroline", status: "online"}
@@ -136,7 +227,7 @@ https://github.com/AlfLearn/ILAB-3.0  (Это его форк)
         this.GetUsers = function(status) {
             return self.getUsersList(status);
         };
-        return Service.call(this, port, "myService");
+        return Service.call(this);
     }
     
     myService.serviceId = "MyService";
@@ -152,6 +243,25 @@ https://github.com/AlfLearn/ILAB-3.0  (Это его форк)
     })
     
     module.exports = myService;
+
+После запуска, сервис myService будет доступен вам через Веб, или из другого сервиса, или сервера,
+с помощью глобального класса ServicesManager:
+
+    //Второй параметр -- произвольный объект, который попадет в конструктор вашего сервиса.
+    ServicesManager.GetService("myService", { param1 : "Какой-нибудь ваш параметр" }).then(function(service){
+        //тут в переменной service доступен наш метод GetUsers в виде промиса.
+        //то есть результат обрабатывается так:
+        service.GetUsers("online").then(function(users){
+            //Тут будет доступен результат в users
+        }).catch(function(error){
+            //не забывайте вставлять обработку ошибок!
+        });
+    }).catch(function(error){
+        //Сюда мы попадем в случае, неудачного подключения к сервису.
+    });
+
+Сервисом мы будем называть процесс, который умеет понимать команды по нашему json-prc и с которым можно ощаться через наши proxy-обьекты. В принципе можно написать хоть произвольное node-приложение, лишь бы оно реализовало протокол. Но удобнее использовать готовый класс сервиса, который из коробки умеет не только слушать json-команды, но и интерпретировать их как вызов своих собственных методов.
+Базовый класс сервиса описан в модуле Service.js
 
 Обращаю внимание - публичные функции (т.е. доступные для rpc-вызовов) прописываются как явные свойства обьекта сервиса (а не его его прототипа). Т.е. только собственные методы обьекта сервиса (те которые hasOwnProperty) автоматически попадают в публичный интерфейс обьекта (upd - ещё туда не попадают функции, имена которых начинаются с "_", по принятному соглашению для именования как бы приватных свойств объектов).
 
