@@ -2,9 +2,10 @@ var fs = useSystem('fs');
 var http = useSystem('http');
 var EventEmitter = useSystem('events');
 var HttpRouter = useModule('Router');
+var Service = useRoot("/System/Service.js");
 
 HttpProxyService = function(params){
-    var result = EventEmitter.apply(this, arguments);
+    var result = Service.apply(this, arguments);
     this.listServices();
     var port = 5000;
     if (params && params.port) port = params.port;
@@ -19,7 +20,7 @@ HttpProxyService = function(params){
 
 HttpProxyService.serviceId = ("ServicesHttpProxy");
 
-Inherit(HttpProxyService, EventEmitter, {
+Inherit(HttpProxyService, Service, {
     listServices : function () {
         ServicesManager.GetServices().then((services) => {
             console.log("HttpProxy got services");

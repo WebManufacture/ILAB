@@ -21,12 +21,6 @@
             ServicesManager = new ServiceProxy("ServicesManager");
             return ServicesManager.attach(url + "/" + serviceId).then(function () {
                 ServicesManager.connected = true;
-                ServicesManager.on("external-result", function(event, message){
-                    console.log(message.result);
-                });
-                ServicesManager.on("external-error", function(event, message){
-                    console.error(message.result);
-                });
                 console.log(ServicesManager);
                 return ServicesManager;
             });

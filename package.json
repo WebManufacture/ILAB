@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Semchenkov Alexander",
-  "license": "UNLICENSED",
+  "license": "CREATIVE COMMON",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/WebManufacture/ILAB-3.0.git"
@@ -16,8 +16,8 @@
     "url": "https://github.com/WebManufacture/ILAB-3.0/issues"
   },
   "homepage": "https://github.com/WebManufacture/ILAB-3.0#readme",
-  "dependencies" :
-  {
-    "child-process-debug" : "^0.0.7"
+  "dependencies": {
+    "child-process-debug": "^0.0.7",
+    "ws": "^2.1.0"
   }
 }

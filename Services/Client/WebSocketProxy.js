@@ -1,69 +1,12 @@
-var JsonSocket = useModule('jsonsocket');
-var EventEmitter = useSystem('events');
-var net = useSystem('net');
-var util = useModule('utils');
-
 ServiceProxy = function(serviceName){
     this.startParams = arguments;
     this.serviceId = serviceName;
     this.state = "detached";
-    this.timeout = 10000; // время ожидания ответа (мс), для удалённых сервисов можно увеличивать, для локальных - уменьшать
+    this.timeout = 5000; // время ожидания ответа (мс), для удалённых сервисов можно увеличивать, для локальных - уменьшать
     this.waiting = []; // очередь отправленных сообщений ждущих ответа
     this.connectionsCount = 0;
     return EventEmitter.call(this);
 };
-
-ServiceProxy.instance = null;
-
-ServiceProxy.connected = false;
-
-ServiceProxy._connectingPromise = null;
-
-ServiceProxy.init = function (port, host) {
-    if (!ServiceProxy.instance && (!Frame || !Frame.servicesManagerPort)) return null;
-    if (ServiceProxy.instance){
-        if (!ServiceProxy.connected) return ServiceProxy._connectingPromise;
-        else return new Promise(function(resolve, reject) {
-            return resolve(ServiceProxy.instance);
-        });
-    };
-    if (!port) port = Frame.servicesManagerPort;
-    if (!host) host = 'localhost';
-    ServiceProxy.instance = new ServiceProxy("ServicesManager");
-    var self = this;
-    ServiceProxy._connectingPromise = ServiceProxy.instance.attach(port, host).then(function () {
-        ServiceProxy.connected = true;
-        ServiceProxy._connectingPromise = null;
-        return ServiceProxy.instance
-    });
-    return ServiceProxy._connectingPromise;
-};
-
-ServiceProxy.GetService = function (serviceName) {
-    var callFunc = function (services) {
-        if (services && services[serviceName]){
-            var proxy = new ServiceProxy(serviceName);
-            return proxy.attach(services[serviceName], ServiceProxy.instance.host);
-        }
-        else{
-            this.reject("service " + serviceName + " not found");
-        }
-    };
-    if (!ServiceProxy.instance) {
-        return ServiceProxy.init().then(function(instance) {return instance.GetServices() }).then(callFunc);
-    }
-    if (!ServiceProxy.connected) return null;
-    return ServiceProxy.GetServices().then(callFunc);
-};
-
-ServiceProxy.GetServices = function () {
-    if (!ServiceProxy.instance) {
-        return ServiceProxy.init().then(function(instance) {return instance.GetServices() });
-    }
-    if (!ServiceProxy.connected) return null;
-    return ServiceProxy.instance.GetServices();
-};
-
 
 ServiceProxy.CreateProxyObject = function (service) {
     if (!service) return {};
@@ -112,7 +55,6 @@ Inherit(ServiceProxy, EventEmitter, {
                 obj.id = Date.now() + (Math.random()  + "").replace("0.", "");//Сделаем ID немного иначе и тогда будет можно
                 self.emit("external-call", obj);
 
-
                 self.waiting[obj.id] = { req:obj, time: Date.now() };
 
                 var _timer = setTimeout(() => {
@@ -121,16 +63,16 @@ Inherit(ServiceProxy, EventEmitter, {
                     reject("Timeout error"); // или Error не нужно?
                 }, self.timeout);
 
-                self.once("external-result-" + obj.id, (resultArgs) => {
+                self.once("external-result-" + obj.id, (event, resultArgs) => {
                     delete self.waiting[obj.id];
                     clearTimeout(_timer);
-                    resolve(resultArgs);
+                    resolve(resultArgs.result);
                 });
 
-                self.once("external-error-" + obj.id, (message, stack) => {
+                self.once("external-error-" + obj.id, (event, message) => {
                     delete self.waiting[obj.id];
                     clearTimeout(_timer);
-                    reject(message + "\n" + stack);
+                    reject(message.result + "\n" + message.stack);
                 });
             });
 
@@ -142,53 +84,52 @@ Inherit(ServiceProxy, EventEmitter, {
         return method;
     },
 
-    attach : function (port, host, callback) {
+    attach : function (url) {
         this.connectionsCount++;
-        this.port = port;
-        if (!port) throw new Error("Unknown port to attach in " + this.serviceId);
-        if (!host) host = "127.0.0.1";
-        this.host = host;
+        if (!url) throw new Error("Unknown url to attach in " + url);
+        this.url = url;
         var self = this;
-
-        var socket = new JsonSocket(port, host, function () {
-            console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
-        });
         var handshakeFinished = false;
-        socket.on('error', function(err){
-            console.log("Socker error at " + self.serviceId + ":" + self.port + ":" + self.connectionsCount);
-            console.log("Waiting queue " + self.waiting.length);
+
+        var socket = new WebSocket(url);
+
+        socket.onerror = function(err){
+            console.log("Socker error at " + self.serviceId + ":" + url);
             console.error(err);
             self.emit('error', err);
-            socket.end();
-        });
-        socket.once("json", function (proxyObj) {
+            socket.close();
+        };
+
+        socket.onmessage = function (message) {
             //console.dir(proxyObj);//debug
+            var proxyObj = JSON.parse(message.data);
             self.serviceId = proxyObj.serviceId;
             //if (self.serviceId != "ServicesManager")
-                console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
+            console.log("Service proxy connected to " + url);
             for (var item in proxyObj){
                 if (proxyObj[item] == "method") {
                     self._createFakeMethod(item, proxyObj[item]);
                 }
             }
-            if (typeof callback == "function") {
-                callback.call(self, proxyObj);
-            }
-            socket.write({"type": "startup", args : self.startParams});
+            console.log(proxyObj);
+            socket.send(JSON.stringify({"type": "startup", args : self.startParams}));
             self.emit("connected", proxyObj);
             handshakeFinished = true;
-        });
-        var methodCallFunction = function (obj, onResultFunction) {
-            socket.write(obj);
+            socket.onmessage = messageHandlerFunction;
         };
+
+        var methodCallFunction = function (event, obj, onResultFunction) {
+            socket.send(JSON.stringify(obj));
+        };
+
         self.on("external-call", methodCallFunction);
 
         var messageHandlerFunction = function (message) {
             // console.log(message); // debug
-
+            message = JSON.parse(message.data);
             if (handshakeFinished)
             {
-                if(message.then=="event") {
+                if(message.type == "event") {
                     self.emit.apply(self, message.args);
                 }
                 if (message.type == "result" && message.id){
@@ -203,29 +144,29 @@ Inherit(ServiceProxy, EventEmitter, {
                 }
             }
         };
-        socket.on("json", messageHandlerFunction);
 
-        socket.once("close", function (isError) {
-            //self.removeListener("external-call", methodCallFunction);
-            //this.removeListener("json", messageHandlerFunction);
-            self.connectionsCount--;
-            console.log("Socker Closed at " + self.serviceId + ":" + port + ":" + self.connectionsCount);
-            console.log("Waiting queue " + self.waiting.length);
-            setImmediate(()=>{self.attach(self.port, self.host)})
-        });
+        socket.onclose = function (isError) {
+            if (event.wasClean) {
+                console.log('Соединение закрыто чисто');
+            } else {
+                console.error('Обрыв соединения'); // например, "убит" процесс сервера
+            }
+            console.log('Код: ' + event.code + ' причина: ' + event.reason);
+        };
 
         var promise = new Promise(
             function(resolve, reject) {
                 var connectedHandler = function () {
-                    self.removeListener("error", errorHandler);
+                    self.un("error", errorHandler);
                     resolve(self);
                 };
                 var errorHandler = function (args) {
-                    self.removeListener("connected", connectedHandler);
+                    self.un("connected", connectedHandler);
                     reject(args);
                 };
                 self.once("connected", connectedHandler);
                 self.once("error", errorHandler);
+                return socket;
             }
         );
 
@@ -236,7 +177,3 @@ Inherit(ServiceProxy, EventEmitter, {
      return this.base.on.apply(this, args);
      }*/
 });
-
-ServiceProxy.init();
-
-module.exports = ServiceProxy;

@@ -1,0 +1,8 @@
+{
+  "ServicesHttpProxy": {
+     "port": 5100
+  },
+  "ServicesWebSocketProxy": {
+     "port": 5700
+  }
+}
