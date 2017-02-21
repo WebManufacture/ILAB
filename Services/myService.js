@@ -15,8 +15,10 @@ function myService(port){
         this.users.push(user);
         this.emit('chat',user);
     };
-    return Service.call(this, port, "myService");
-
+    setInterval(function(){
+        self.emit("Time", new Date())
+    },1000);
+    return Service.call(this, "myService");
 }
 
 myService.serviceId = "myService";

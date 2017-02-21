@@ -103,7 +103,7 @@ Inherit(Service, EventEmitter, {
 
     emit: function (eventName) {
         if (eventName != "error" && eventName != "internal-event") {
-            Service.base.emit("internal-event", eventName, arguments);
+            Service.base.emit.call(this, "internal-event", eventName, Array.from(arguments));
         }
         Service.base.emit.apply(this, arguments);
     }

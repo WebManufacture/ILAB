@@ -154,13 +154,13 @@ Inherit(ServicesManager, Service, {
         if (!this.isServiceLoaded(serviceId)) {
             var env = {
                 cwd : process.cwd(),
-                managerPort : self.port,
-                params : JSON.stringify(params)
+                managerPort : self.port
             };
 			if (params){
 				for (var item in params){
 					env[item] = params[item];
 				}
+				env.params = JSON.stringify(params);
 			}
             var servicePath = serviceId;
             if (servicePath.indexOf(".js") != servicePath.length - 3){

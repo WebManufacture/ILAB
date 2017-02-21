@@ -35,7 +35,7 @@ Frame._initFrame = function () {
             sm.GetService = ServiceProxy.GetService;
 
             var params = {};
-            if (process.env.params) params = JSON.parse(process.env.params);
+            if (process.env.params && typeof process.env.params == "string") params = JSON.parse(process.env.params);
 
             var node = require(Frame.nodePath);
             if (node.serviceId){

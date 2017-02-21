@@ -70,7 +70,7 @@ Inherit(WebSocketProxyService, Service, {
     _onSocketConnection: function connection(ws) {
         var self = this;
         var url = ws.upgradeReq.url;
-        console.log('WS proxy connected', url);
+        console.log('WSproxy: WSconnection', url);
         var services = null;
         ServicesManager.GetServices().then((services) => {
             if (url == "/") {
