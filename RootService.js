@@ -41,21 +41,21 @@ Frame._initFrame = function () {
 		spawnMon.on("virtual-output", function (data) {
 			console.log(data);
 		});*/
-					var allSection = [];
-					for (var i = 2; i <= process.argv.length; i++){
-						var arg = process.argv[i];
-						if (!arg) continue;
-						if (arg === "--config") {
-							// используется config.json если третьим аргументом идёт флаг --config
-							var configFile = require(Path.resolve("./config.json"));
-							for (var key in configFile) {
-                                allSection.push(services.StartService(key, configFile[key]));
-							}
-						}
-						else{
-                            allSection.push(services.StartService(arg));
-						}
+			var allSection = [];
+			for (var i = 2; i <= process.argv.length; i++){
+				var arg = process.argv[i];
+				if (!arg) continue;
+				if (arg === "--config") {
+					// используется config.json если третьим аргументом идёт флаг --config
+					var configFile = require(Path.resolve("./config.json"));
+					for (var key in configFile) {
+						allSection.push(services.StartService(key, configFile[key]));
 					}
+				}
+				else{
+					allSection.push(services.StartService(arg));
+				}
+			}
 			Promise.all(allSection).then(function() {
 					console.log("All started!");
 				}).catch(function(err) {

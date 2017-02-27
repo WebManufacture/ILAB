@@ -1,7 +1,7 @@
 var Service = useRoot("/System/Service.js");
 useModule("utils.js");
 
-function myService(port){
+function myService(params){
     this.users = [
         { name : "Igor", status: "offline"},
         { name : "Caroline", status: "online"}

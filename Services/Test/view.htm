@@ -17,56 +17,184 @@
 	<script src="serviceProxy.js" type="text/javascript"></script>
 	<script type="text/javascript">
 
-        function Connect (url, serviceId) {
-            ServicesManager = new ServiceProxy("ServicesManager");
-            return ServicesManager.attach(url + "/" + serviceId).then(function () {
-                ServicesManager.connected = true;
-                console.log(ServicesManager);
-                return ServicesManager;
-            });
-        };
 
-        Connect("ws://localhost:5700", "ServicesManager");
+
+        WS.DOMload(function(){
+            Monitor.Init();
+            window.log = Monitor.log;
+            window.error = Monitor.error;
+            window.info = Monitor.info;
+            Monitor.info("Устанавливаем соединение с ws://localhost:5700...");
+            ServiceProxy.Init("ws://localhost:5700").then(function (ServicesManager) {
+                Monitor.info("Соединение с ws://localhost:5700 установлено!");
+                ServicesManager.on("external-result", function(event, message){
+                    Monitor.log(message.result);
+                });
+                ServicesManager.on("external-error", function(event, message){
+                    Monitor.error(message.result);
+                });
+                Monitor.obj(ServicesManager);
+                return ServicesManager;
+            }).catch(function(error){
+                Monitor.error(error);
+            });
+
+            cmdText.onkeydown = function(event){
+                if (event.keyCode == 13){
+                    Monitor.Send(cmdText.value);
+                    Monitor.log(cmdText.value);
+                    cmdText.value = "";
+                    return false;
+                }
+            }
+        });
 
         Monitor = {
+            Init: function(){
+                Monitor._protos = {};
+                if (!Monitor.logs){ Monitor.logs = document.getElementById("logsMonitor");};
+                if (!Monitor.logProto){Monitor._protos["log"] = Monitor.logProto = document.querySelector(".log-item.log.prototype")};
+                if (!Monitor.errorProto){Monitor._protos["error"] = Monitor.errorProto = document.querySelector(".log-item.error.prototype")};
+                if (!Monitor.infoProto){Monitor._protos["info"] =Monitor.infoProto = document.querySelector(".log-item.info.prototype")};
+                if (!Monitor.objProto){Monitor._protos["obj"] =Monitor.objProto = document.querySelector(".log-item.obj.prototype")};
+            },
 
+            item : function(itemClass, text) {
+                var div = document.createElement("div");
+                div.className = "log-item " + itemClass;
+                div.innerHTML = Monitor._protos[itemClass].innerHTML;
+                div.querySelector(".datetime").textContent = (new Date()).toLocaleTimeString();
+                div.querySelector(".text").textContent = text;
+                Monitor.logs.appendChild(div);
+                return div;
+            },
+
+            log : function(text) {
+                return Monitor.item("log", text);
+            },
+
+            error : function(text) {
+                return Monitor.item("error", text);
+            },
+
+            warn : function(text) {
+                return Monitor.item("error", text);
+            },
+
+            info : function(text) {
+                return Monitor.item("info", text);
+            },
+
+            obj : function(obj) {
+                if (typeof obj == "undefined") {
+                    throw "logging empty object!";
+                }
+                var text = typeof(obj);
+                if (typeof(obj) == "function"){
+                    if (obj.prototype){
+                        text = obj.name + ":";
+                    }
+                    else{
+                        text = obj.toString();
+                    }
+                }
+                else{
+                    if (typeof obj == "object"){
+                        if (obj.constructor){
+                            text = obj.constructor.name;
+                        }
+                        text += ": { "
+                        for (var key in obj){
+                            if (key[0] != "_"){
+                                text += key + ","
+                            }
+                        }
+                        text += "}";
+                    }
+                    else{
+                        text += ":" + obj;
+                    }
+                }
+                var div = Monitor.item("obj", text);
+                div.onclick = function(){
+
+                }
+            },
         };
 
-        function log(text) {
-            if (!Monitor.log){ Monitor.log = document.getElementById("logsMonitor");};
-            if (!Monitor.logProto){Monitor.logProto = document.querySelector(".log-item.log.prototype")};
-            var div = document.createElement("div");
-            div.className = "log-item log";
-            div.innerHTML = Monitor.logProto.innerHTML;
-            div.querySelector(".datetime").textContent = (new Date()).toLocaleTimeString();
-            div.querySelector(".text").innerHTML = text;
-            Monitor.log.appendChild(div);
-        }
 
         Monitor.Start = function(){
-            var socket  = new WebSocket("ws://localhost:5700/ServicesManager/");
+            if (Monitor.proxy){
+                Monitor.info("Соединение c ConsoleService уже существует!");
+                Monitor.proxy.Start();
+                return;
+            }
+            ServiceProxy.Connect("ws://localhost:5700", "ConsoleService").then(function(proxy){
+                Monitor.proxy = proxy;
+                Monitor.info("Соединение c ConsoleService установлено.");
+                proxy.on("close", function(event, reason){
+                    if (reason.wasClean) {
+                        Monitor.info('Соединение c сервисом ConsoleService закрыто');
+                    } else {
+                        Monitor.info('Обрыв соединения с ConsoleService <br/> Код: ' + event.code + ' причина: ' + event.reason);
+                    }
+                });
 
-            socket.onopen = function() {
-                log("Соединение установлено.");
-            };
+                proxy.on("error", function(event, error){
+                    if (error){
+                        Monitor.error('Ошибка в ConsoleService:' + error.message);
+                        Monitor.obj(error);
+                    }
+                    else{
+                        Monitor.error('Ошибка в ConsoleService!');
+                    }
+                });
 
-            socket.onclose = function(event) {
-                if (event.wasClean) {
-                    log('Соединение закрыто чисто');
-                } else {
-                    log('Обрыв соединения'); // например, "убит" процесс сервера
-                }
-                log('Код: ' + event.code + ' причина: ' + event.reason);
-            };
+                proxy.on("virtual-start", function(event, param){
+                    Monitor.info("virtual-start");
+                });
 
-            socket.onmessage = function(event) {
-                log("Получены данные:")
-                log("" + event.data);
-            };
+                proxy.on("virtual-stop", function(event, param){
+                    Monitor.info("virtual-stop");
+                });
 
-            socket.onerror = function(error) {
-                log("Ошибка " + error.message);
-            };
+                proxy.on("virtual-exited", function(event, param){
+                    Monitor.info("virtual-exited");
+                });
+
+                proxy.on("virtual-cmd", function(event, param){
+                    // Monitor.info("virtual-cmd: " + param);
+                });
+
+                proxy.on("virtual-error", function(event, param){
+                    Monitor.error("virtual-error: " + param);
+                });
+
+
+                proxy.on("virtual-output", function(event, param){
+                    Monitor.log(param);
+                });
+
+                proxy.Start();
+            }).catch(function(error){
+                Monitor.error("ConsoleServiceProxy:" + error.message);
+            });
+        }
+
+
+        Monitor.Stop = function(){
+            if (Monitor.proxy){
+                Monitor.proxy.once("close", function(){
+                    Monitor.proxy = null;
+                });
+                Monitor.proxy.close();
+            }
+        }
+
+        Monitor.Send = function(text){
+            if (Monitor.proxy){
+                Monitor.proxy.Command(text);
+            }
         }
 
 	</script>
@@ -99,9 +227,7 @@
 		}
 
 		#logsMonitor .log-item{
-			padding-left: 50px;
 			width: 100%;
-			white-space: pre;
 		}
 
 		#logsMonitor .log-item.old:first-child{
@@ -118,7 +244,6 @@
 
 		#logsMonitor .log-item .datetime{
 			color: #777;
-			margin-left: -50px;
 		}
 
 		#logsMonitor .log-item.error .datetime{
@@ -127,7 +252,7 @@
 
 
 		#logsMonitor .log-item .text{
-
+			white-space: pre;
 		}
 
 		.stack-line{
@@ -200,11 +325,17 @@
 	<div id="urlBar" class="invisible" contenteditable="true" ></div>
 </div>
 <div  id='logsMonitor'>
+
+</div>
+<div id='cmdBlock'>
+	<textarea id='cmdText' type='text'></textarea>
+</div>
+<div class="invisible prototype">
 	<div class='log-item info prototype'>
 		<span class='datetime'></span>
 		<span class='text'></span>
 	</div>
-	<div class='log-item debug prototype'>
+	<div class='log-item obj prototype'>
 		<span class='datetime'></span>
 		<span class='text'></span>
 	</div>
@@ -220,9 +351,6 @@
 		<span class='datetime'></span>
 		<span class='text'></span>
 	</div>
-</div>
-<div id='cmdBlock'>
-	<textarea id='cmdText' type='text'></textarea>
 </div>
 </body>
 

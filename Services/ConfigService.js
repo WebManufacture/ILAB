@@ -1,35 +1,46 @@
 /**
  * Created by osemch on 16.09.16.
  */
-var http = require('http');
-var Url = require('url');
-var fs = require('fs');
-var Path = require('path');
-
-useModule("Utils.js");
-useModule("Channels.js");
-var Logger = useModule('Logger.js');
-useModule('Async.js');
+var fs = useSystem('fs');
+var http = useSystem('http');
+var EventEmitter = useSystem('events');
+var Service = useRoot("/System/Service.js");
 
 function ConfigService(parentNode){
     ConfigService.super_.apply(this, arguments);
 
     this.store = {};
 
+    this.loadStore();
+
     this.GetConfig = function (serviceName) {
-        return this.store
+        return this.store[serviceName];
     };
 
-    this.SaveConfig = function (serviceName, data) {
-
+    this.SaveConfig = function (serviceName, data, restartService) {
+        this.store[serviceName] = data;
+        var promise = new Promise(function (resolve, reject) {
+            fs.writeFile(Path.resolve("./config.json"), this.store, function (err) {
+                if (err){
+                    reject(err);
+                }
+                resolve(data);
+            });
+        });
+        if (restartService){
+            return promise.then(function () {
+                return ServicesManager.StopService(serviceName);
+            }).then(function () {
+                return ServicesManager.StartService(serviceName);
+            })
+        };
+        return promise;
     };
-
-    this.load();
 };
 
-global.ConfigService.Type = "configService";
+global.serviceId = "ConfigService";
 
-Inherit(ConfigService, ServiceNode, {
+Inherit(ConfigService, Service, {
 
     configure : function(config){
         if (ConfigService.base.configure){
@@ -41,13 +52,10 @@ Inherit(ConfigService, ServiceNode, {
         this.basePath = this.paths.BasePath;
     },
 
-    load : function(){
-        var result = true;
-        if (ConfigService.base.load){
-            result = ConfigService.base.load.apply(this, arguments);
-        }
-        return result
+    loadStore : function(){
+        this.store = require(Path.resolve("./config.json"));
+        return this.store();
     }
 });
 
-module.exports = FileConfigService;
+module.exports = ConfigService;

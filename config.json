@@ -3,6 +3,12 @@
      "port": 5100
   },
   "ServicesWebSocketProxy": {
-     "port": 5700
+    "port": 5700
+  },
+  "ConsoleService" :{
+
+  },
+  "SerialService":{
+
   }
 }
