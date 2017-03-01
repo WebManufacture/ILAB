@@ -9,6 +9,7 @@
 
   },
   "SerialService":{
-
+    "version": "1.4",
+    "path":"http://klab.web-manufacture.net/HLAB/SerialService.js"
   }
 }

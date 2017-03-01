@@ -71,6 +71,13 @@ if (!global.Inherit) {
 			return str.replace("object ", "");
 		}
 	});
+
+    Function.prototype.hasPrototype = function(protoName){
+        if (this.name == protoName) return true;
+        if (this.name == "Function") return false;
+        if (this.base.constructor && typeof this.base.constructor == "function") return this.base.constructor.hasPrototype(protoName);
+        return false;
+    };
 }
 
 global.extend = function (Child, Parent) {

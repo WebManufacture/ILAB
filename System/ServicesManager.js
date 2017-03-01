@@ -163,10 +163,20 @@ Inherit(ServicesManager, Service, {
 				env.params = JSON.stringify(params);
 			}
             var servicePath = serviceId;
-            if (servicePath.indexOf(".js") != servicePath.length - 3){
-                servicePath += ".js";
+            if (params && params.path) {
+                if (params.path.indexOf("http://") == 0 || params.path.indexOf("https://") == 0){
+                    servicePath = params.path;
+                }
+                else {
+                    servicePath = Path.resolve(params.path);
+                }
             }
-            servicePath = Path.resolve(Frame.ServicesPath + servicePath);
+            else {
+                if (servicePath.indexOf(".js") != servicePath.length - 3) {
+                    servicePath += ".js";
+                }
+                servicePath = Path.resolve(Frame.ServicesPath + servicePath);
+            }
             env.nodePath = servicePath;
             var service = new ServiceFork(serviceId, self.getPort(), env);
             service.once("service-started", function () {
@@ -180,14 +190,15 @@ Inherit(ServicesManager, Service, {
                 err.serviceId = serviceId;
                 self.emit("error", err);
             });
-			fs.stat(servicePath, function(err, stats){
+            startService(service);
+			/*fs.stat(servicePath, function(err, stats){
                 if (!err){
                     startService(service);
                 }
                 else{
                    self.emit("error", new Error("Service " + serviceId + " open error! " + err));
                 }
-            });
+            });*/
         }
         else{
             startService(this.services[serviceId]);

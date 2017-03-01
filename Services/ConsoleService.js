@@ -4,8 +4,6 @@ var os = require("os");
 useModule("utils.js");
 var Service = useRoot("/System/Service.js");
 
-
-Frame.serviceId = "ConsoleService";
 /*Events
  virtual-start
  virtual-stop
@@ -29,8 +27,6 @@ function ConsoleService(params){
     self.start();
     return Service.call(this, params);
 }
-
-ConsoleService.serviceId = "ConsoleService";
 
 Inherit(ConsoleService, Service, {
     error : function (err) {
