@@ -2,6 +2,7 @@
  * Created by osemch on 16.09.16.
  */
 var fs = useSystem('fs');
+var Path = useSystem('path');
 var http = useSystem('http');
 var EventEmitter = useSystem('events');
 var Service = useRoot("/System/Service.js");
@@ -54,7 +55,7 @@ Inherit(ConfigService, Service, {
 
     loadStore : function(){
         this.store = require(Path.resolve("./config.json"));
-        return this.store();
+        return this.store;
     }
 });
 

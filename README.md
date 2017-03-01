@@ -74,10 +74,10 @@
     module.exports = myService;
 
 После запуска, сервис myService будет доступен вам через Веб, или из другого сервиса, или сервера,
-с помощью глобального класса ServicesManager:
+с помощью глобального класса ServiceProxy:
 
     //Второй параметр -- произвольный объект, который попадет в конструктор вашего сервиса.
-    ServicesManager.GetService("myService", { param1 : "Какой-нибудь ваш параметр" }).then(function(service){
+    ServiceProxy.Connect("ws://localhost:5700/myService", { param1 : "Какой-нибудь ваш параметр" }).then(function(service){
         //тут в переменной service доступен наш метод GetUsers в виде промиса.
         //то есть результат обрабатывается так:
         service.GetUsers("online").then(function(users){
@@ -90,9 +90,6 @@
     });
 
 В случае, если вы пользуетесь сервисом из браузера, вам необходимо на страницу добавить ссылку на скрипт:
-    
-    //Для использования AJAX версии через ServicesHttpProxy
-    <script src="http://services.web-manufacture.net/ilab-http.js" type="text/javascript"></script>
 
     //Для использования WebSocket версии через ServicesWebSocketProxy
     <script src="http://services.web-manufacture.net/ilab-socket.js" type="text/javascript"></script>

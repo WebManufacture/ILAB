@@ -8,6 +8,26 @@ ServiceProxy = function(serviceName){
     return EventEmitter.call(this);
 };
 
+ServiceProxy.Connect = function(url, serviceId){
+    var proxy = new ServiceProxy(serviceId);
+    return proxy.attach(url + "/" + serviceId);
+};
+
+ServiceProxy.connected = false;
+
+ServiceProxy.Init = function(url){
+    ServiceProxy.instance = new ServiceProxy("ServicesManager");
+    return ServiceProxy.instance.attach(url + "/ServicesManager").then(function(proxy){
+        ServiceProxy.connected = true;
+        window.ServicesManager = proxy;
+        ServicesManager.Connect = ServiceProxy.Connect;
+        return proxy.GetServices().then(function(services){
+            ServicesManager.Services = services;
+            return ServicesManager;
+        });
+    });
+};
+
 ServiceProxy.CreateProxyObject = function (service) {
     if (!service) return {};
     var obj = { serviceId : service.serviceId };
@@ -66,7 +86,7 @@ Inherit(ServiceProxy, EventEmitter, {
                 self.once("external-result-" + obj.id, (event, resultArgs) => {
                     delete self.waiting[obj.id];
                     clearTimeout(_timer);
-                    resolve(resultArgs.result);
+                    resolve(resultArgs);
                 });
 
                 self.once("external-error-" + obj.id, (event, message) => {
@@ -93,10 +113,10 @@ Inherit(ServiceProxy, EventEmitter, {
 
         var socket = new WebSocket(url);
 
-        socket.onerror = function(err){
+        socket.onerror = function(event){
             console.log("Socker error at " + self.serviceId + ":" + url);
-            console.error(err);
-            self.emit('error', err);
+            console.error(event);
+            self.emit('error', event);
             socket.close();
         };
 
@@ -145,13 +165,14 @@ Inherit(ServiceProxy, EventEmitter, {
             }
         };
 
-        socket.onclose = function (isError) {
+        socket.onclose = function (event, isError) {
             if (event.wasClean) {
                 console.log('Соединение закрыто чисто');
             } else {
                 console.error('Обрыв соединения'); // например, "убит" процесс сервера
             }
             console.log('Код: ' + event.code + ' причина: ' + event.reason);
+            self.emit("close", event);
         };
 
         var promise = new Promise(
@@ -170,7 +191,15 @@ Inherit(ServiceProxy, EventEmitter, {
             }
         );
 
+        this.socket = socket;
+
         return promise;
+    },
+
+    close : function(){
+        if (this.socket){
+            this.socket.close();
+        }
     }
     /*on : function (message, func) {
 
