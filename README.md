@@ -76,6 +76,10 @@
 После запуска, сервис myService будет доступен вам через Веб, или из другого сервиса, или сервера,
 с помощью глобального класса ServiceProxy:
 
+    //Первый параметр -- URL к сервису, или имя сервиса, если сервер на локальной машине
+    //Например, можно указать так: "ws://localhost:5700/myService"
+    //А можно так "myService"
+    //Или "ws://web-manufacture.net:5700/ServicesManager" - если вы обращаетесь к серверу WM и  
     //Второй параметр -- произвольный объект, который попадет в конструктор вашего сервиса.
     ServiceProxy.Connect("ws://localhost:5700/myService", { param1 : "Какой-нибудь ваш параметр" }).then(function(service){
         //тут в переменной service доступен наш метод GetUsers в виде промиса.
@@ -245,7 +249,7 @@ https://github.com/AlfLearn/ILAB-3.0  (Это его форк)
 с помощью глобального класса ServicesManager:
 
     //Второй параметр -- произвольный объект, который попадет в конструктор вашего сервиса.
-    ServicesManager.GetService("myService", { param1 : "Какой-нибудь ваш параметр" }).then(function(service){
+    ServicesManager.Connect("myService", { param1 : "Какой-нибудь ваш параметр" }).then(function(service){
         //тут в переменной service доступен наш метод GetUsers в виде промиса.
         //то есть результат обрабатывается так:
         service.GetUsers("online").then(function(users){
