@@ -111,6 +111,12 @@ Inherit(WebSocketProxyService, Service, {
                             socket.end();
                         });
                     }
+                    else{
+                        console.log("WSproxy: Connecting unknown service " + serviceId + ":" + servicePort);
+                        console.error(err);
+                        ws.send(JSON.stringify({type:"error", result : "No service found"}))
+                        ws.close();
+                    }
                 }
             }
         }).catch(function (err) {
