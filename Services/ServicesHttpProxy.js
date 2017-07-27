@@ -6,6 +6,7 @@ var Service = useRoot("/System/Service.js");
 
 HttpProxyService = function(params){
     var result = Service.apply(this, arguments);
+    var self = this;
     this.listServices();
     var port = 5000;
     if (params && params.port) port = params.port;
@@ -14,6 +15,14 @@ HttpProxyService = function(params){
     this.router.on("/<", (context) => {
         context.error("No service found " + context.path, 404);
     });
+    this.router.on("/", (context) => {
+        context.finish(self.services);
+    });
+    ServicesManager.on("service-started", function (serviceId, servicePort) {
+        console.log("HttpProxy got service: " + serviceId);
+        self.services[serviceId] = servicePort;
+        self.addServiceHandler(serviceId, servicePort);
+    })
     console.log("HTTP PROXY ON " + this.router.port);
     return result;
 };
@@ -22,16 +31,14 @@ HttpProxyService.serviceId = ("ServicesHttpProxy");
 
 Inherit(HttpProxyService, Service, {
     listServices : function () {
+        var self = this;
         ServicesManager.GetServices().then((services) => {
             console.log("HttpProxy got services");
             console.log(services);
-            this.services = services;
+            self.services = services;
             for (var service in services){
-                this.addServiceHandler(service, services[service]);
+                self.addServiceHandler(service, services[service]);
             }
-            this.router.on("/", (context) => {
-                context.finish(this.services);
-            });
         }).catch(function (err) {
             throw err;
         });

@@ -62,6 +62,9 @@ Inherit(ForkMon, EventEmitter, {
         cp.on("exit", function(){
             fork._exitEvent.apply(fork, arguments);
         });
+        cp.on("error", function(){
+            fork._errorEvent.apply(fork, arguments);
+        });
         cp.on("message", function(msg){
             fork._messageEvent.apply(fork, arguments);
         });
@@ -99,6 +102,10 @@ Inherit(ForkMon, EventEmitter, {
             stat.pid = this.process.pid;
         }
         return stat;
+    },
+
+    _errorEvent : function(error){
+        this.emit("error", error);
     },
 
     _exitEvent : function(signal){

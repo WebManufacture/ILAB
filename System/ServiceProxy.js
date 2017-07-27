@@ -188,7 +188,7 @@ Inherit(ServiceProxy, EventEmitter, {
 
             if (handshakeFinished)
             {
-                if(message.then=="event") {
+                if(message.type == "event") {
                     self.emit.apply(self, message.args);
                 }
                 if (message.type == "result" && message.id){
