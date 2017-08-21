@@ -4,6 +4,7 @@ var net = useSystem('net');
 var Path = useSystem('path');
 var EventEmitter = useSystem('events');
 var util = useModule('utils');
+const stream = require('stream');
 var ServiceProxy = useRoot('System/ServiceProxy');
 
 Service = function(params){
@@ -61,7 +62,13 @@ Inherit(Service, EventEmitter, {
                 if (result instanceof Promise){
                     result.then(function (result) {
                         try {
-                            socket.write({"type": "result", id: message.id, result: result});
+                            if (result instanceof stream.Readable) {
+                                socket.write({"type": "stream",  id: message.id, length: result.length});
+                                result.pipe(socket);
+                            }
+                            else {
+                                socket.write({"type": "result", id: message.id, result: result});
+                            }
                         }
                         catch (error){
                             throw error;

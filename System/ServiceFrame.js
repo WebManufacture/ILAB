@@ -73,7 +73,7 @@ Frame._initFrame = function () {
     catch (err) {
         Frame.fatal(err);
     }
-}
+};
 
 Frame._startFrame = function (node) {
     ServiceProxy.init().then(function (servicesManager) {

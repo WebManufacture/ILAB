@@ -7,6 +7,7 @@ var Service = useRoot("/System/Service.js");
 HttpProxyService = function(params){
     var result = Service.apply(this, arguments);
     var self = this;
+    this.services = {};
     this.listServices();
     var port = 5000;
     if (params && params.port) port = params.port;
@@ -22,7 +23,7 @@ HttpProxyService = function(params){
         console.log("HttpProxy got service: " + serviceId);
         self.services[serviceId] = servicePort;
         self.addServiceHandler(serviceId, servicePort);
-    })
+    });
     console.log("HTTP PROXY ON " + this.router.port);
     return result;
 };
@@ -58,7 +59,7 @@ Inherit(HttpProxyService, Service, {
             return false;
         });
         this.router.on("/" + name + "/<", (context) => {
-            context.res.setHeader("Content-Type", "text/json");
+            context.res.setHeader("Content-Type", "text/json; charset=utf8");
             ServicesManager.GetService(name).then((service) => {
                 console.log(name + "." + context.nodeName + " method calling ");
                 var method=service[context.nodeName];
@@ -70,8 +71,15 @@ Inherit(HttpProxyService, Service, {
                     if (data && data.length){
                         args = args.concat(data);
                     }
-                    return method.apply(service, args).then((result) => {
-                        context.finish(result);
+                    return method.apply(service, args).then(function (result){
+                        if (result && result.stream){
+                            context.setHeader("Content-Type", "text/plain; charset=utf8");
+                            result.stream.pipe(context.res);
+                            context.abort();
+                        }
+                        else{
+                            context.finish(result);
+                        }
                     }).catch((err)=>{
                         context.error(err);
                     })

@@ -186,7 +186,7 @@ Inherit(WebSocketProxyService, Service, {
             //self.removeListener("external-call", methodCallFunction);
             //this.removeListener("json", messageHandlerFunction);
             self.connectionsCount--;
-            console.log("Socker Closed at " + self.serviceId + ":" + port + ":" + self.connectionsCount);
+            console.log("Socket Closed at " + self.serviceId + ":" + port + ":" + self.connectionsCount);
             console.log("Waiting queue " + self.waiting.length);
             setImmediate(()=>{self.attach(self.port, self.host)})
         });

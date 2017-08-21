@@ -7,67 +7,69 @@ var util = require('util');
 var EventEmitter = require('events');
 
 function JsonSocket() {
-    var socket = this;
-    var connection = null;
+    var self = this;
+    var socket = null;
     var json = "";
 
     if (arguments[0] instanceof net.Socket) {
-        connection = arguments[0];
+        socket = arguments[0];
     } else {
-        connection = net.connect.apply(net, arguments);
+        socket = net.connect.apply(net, arguments);
     }
 
-    connection.on('connect', function () {
-        socket.emit('connect');
+    this.netSocket = socket;
+
+    socket.on('connect', function () {
+        self.emit('connect');
     });
 
-    connection.on('data', function (data) {
+    socket.on('data', function (data) {
         var str = data.toString();
         var parts = str.split('\0');
         json += parts.shift();
         while (parts.length > 0) {
             try {
-                socket.emit('json', JSON.parse(json));
+                self.emit('json', JSON.parse(json));
             }
             catch (err) {
-                socket.emit("error", new Error("JSON Error parsing:\n" + err.stack + "\n" + json))
+                self.emit("error", new Error("JSON Error parsing:\n" + err.stack + "\n" + json))
             }
             json = parts.shift();
         }
     });
 
-    connection.on('end', function () {
-        socket.emit('end');
+    socket.on('end', function () {
+        self.emit('end');
     });
 
-    connection.on('close', function (is_end) {
-        socket.emit('close', is_end);
+    socket.on('close', function (is_end) {
+        self.emit('close', is_end);
     });
 
-    connection.on('error', function (ex) {
-        socket.emit('error', ex);
+    socket.on('error', function (ex) {
+        self.emit('error', ex);
     });
 
-    socket.write = function (data) {
+    self.write = function (data) {
         if (data != undefined && data != null) {
-            connection.write(JSON.stringify(data) + '\0');
+            socket.write(JSON.stringify(data) + '\0');
         }
         else{
-            socket.emit("error", new Error("Error sending data"))
+            self.emit("error", new Error("Error sending data"))
         }
     };
 
-    socket.close = function (error) {
-        connection.destroy(error);
+    self.close = function (error) {
+        socket.destroy(error);
     };
 
-    socket.end = function () {
-        connection.end();
+    self.end = function () {
+        socket.end();
     };
 
 
-    socket.connect = function () {
-        connection.connect.apply(connection, arguments);
+    self.connect = function () {
+        socket.connect.apply(socket, arguments);
     };
 }
 

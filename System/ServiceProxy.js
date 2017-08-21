@@ -127,6 +127,12 @@ Inherit(ServiceProxy, EventEmitter, {
                     resolve(resultArgs);
                 });
 
+                self.once("external-stream-" + obj.id, (message) => {
+                    delete self.waiting[obj.id];
+                    clearTimeout(_timer);
+                    resolve(message);
+                });
+
                 self.once("external-error-" + obj.id, (message, stack) => {
                     delete self.waiting[obj.id];
                     clearTimeout(_timer);
@@ -195,6 +201,11 @@ Inherit(ServiceProxy, EventEmitter, {
                     self.emit("external-result", message);
                     self.emit("external-result-" + message.id, message.result);
                 }
+                if (message.type == "stream" && message.id){
+                    self.emit("external-stream", message);
+                    message.stream = socket.netSocket;
+                    self.emit("external-stream-" + message.id, message);
+                }
                 if (message.type == "error"){
                     self.emit("external-error", message);
                     if (message.id){
@@ -209,7 +220,7 @@ Inherit(ServiceProxy, EventEmitter, {
             //self.removeListener("external-call", methodCallFunction);
             //this.removeListener("json", messageHandlerFunction);
             self.connectionsCount--;
-            console.log("Socker Closed at " + self.serviceId + ":" + port + ":" + self.connectionsCount);
+            console.log("Socket Closed at " + self.serviceId + ":" + port + ":" + self.connectionsCount);
             console.log("Waiting queue " + self.waiting.length);
             setImmediate(()=>{self.attach(self.port, self.host)})
         });

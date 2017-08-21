@@ -466,7 +466,6 @@ global.RoutingContext.prototype = {
 		if (this.finalized) return;
 		this.log("finish: ", new Date());
 		this.completed = true;
-		this.finalized = true;
 		this.setHeader("Start", this.startTime.valueOf());
 		this.setHeader("Finish", new Date().valueOf());
 		this.setHeader("Load", (new Date() - this.startTime) + " ms");
@@ -474,30 +473,39 @@ global.RoutingContext.prototype = {
 		if (status != 200){
 			this.setHeader("Content-Type", "text/plain; charset=utf-8");
             result = result + "";
+            this.finalized = true;
 		}
 		this.res.statusCode = status;		
 		if (this.debugMode && this.debugMode == "trace"){
 			result = result + "\n\n" + this.formatLogs();		
 		}		
 		//this.res.setHeader("Content-Length", result.length);
+        let contentType = "text/plain; charset=utf-8";
 		if (!this.encoding){
 			this.encoding = 'utf8';
 		}
+		else{
+		    if (this.encoding == 'json'){
+                contentType  = "application/json; charset=utf-8"
+            }
+        }
         if (typeof result != 'string'){
             if (typeof result == "function"){
                 this.setHeader("Content-Type", "application/javascript; charset=utf-8");
                 this.res.end(result.toSource(), this.encoding);
+                this.finalized = true;
                 return;
             }
-            if (result instanceof Buffer){
+            if (Buffer.isBuffer(result)){
                 this.res.end(result, 'bin');
+                this.finalized = true;
+                return;
             }
-            this.setHeader("Content-Type", "application/json; charset=utf-8");
-            this.res.end(JSON.stringify(result), this.encoding);
-            return;
+            contentType = "application/json; charset=utf-8";
+            result = JSON.stringify(result);
         }
-        this.setHeader("Content-Type", "text/plain; charset=utf-8");
-        this.setHeader("Content-Type", "application/json; charset=utf-8");
+        this.setHeader("Content-Type", contentType);
+        this.finalized = true;
         this.res.end(result, this.encoding);
 	},
 	
