@@ -39,6 +39,28 @@ ServiceProxy.init = function (port, host) {
     return ServiceProxy._connectingPromise;
 };
 
+ServiceProxy.connect = function (pointer) {
+    var serviceId = '';
+    var port = null;
+    var host = 'localhost';
+    if (typeof pointer == "number"){
+        port = pointer;
+    }
+    if (typeof pointer == "string") {
+        if (pointer.indexOf(":") > 0){
+            pointer = pointer.split(':');
+            host = pointer[0];
+            port = parseInt(pointer[1]);
+        }
+        else {
+            serviceId = pointer;
+            return ServiceProxy.GetService(serviceId);
+        }
+    }
+    var instance = new ServiceProxy(serviceId);
+    return instance.attach(port, host);
+};
+
 ServiceProxy.GetService = function (serviceName) {
     var callFunc = function (services) {
         if (services && services[serviceName]){
@@ -237,6 +259,7 @@ Inherit(ServiceProxy, EventEmitter, {
                 };
                 self.once("connected", connectedHandler);
                 self.once("error", errorHandler);
+                return self;
             }
         );
 

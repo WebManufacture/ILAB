@@ -8,7 +8,7 @@ var ForkMon = useModule("forkmon");
 var Service = useRoot("System/Service");
 var ServiceProxy = useRoot("System/ServiceProxy");
 
-function ServicesManager(portCountingFunc){
+function ServicesManager(config, portCountingFunc){
 	this.services = {};
     var self = this;
     if (typeof portCountingFunc != "function"){

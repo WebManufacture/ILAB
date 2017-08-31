@@ -17,7 +17,23 @@ Frame._initFrame = function () {
 
 		var wd = process.argv[2];
 
-        var services = new ServicesManager(function () {
+        var servicesToStart = {};
+        for (var i = 2; i <= process.argv.length; i++){
+            var arg = process.argv[i];
+            if (!arg) continue;
+            if (arg === "--config") {
+                // используется config.json если третьим аргументом идёт флаг --config
+                var configFile = require(Path.resolve("./config.json"));
+                for (var key in configFile) {
+                    servicesToStart[key] = configFile[key];
+                }
+            }
+            else{
+                servicesToStart[arg] = null;
+            }
+        }
+
+        var services = new ServicesManager(servicesToStart['ServicesManager'], function () {
             return Frame._availablePort += 5;
         });
         services.on("error", function (err) {
@@ -27,47 +43,19 @@ Frame._initFrame = function () {
             console.error(err.stack);
             err.handled = true;
         });
-        /*
-		spawnMon.on("virtual-start", function (options) {
-			console.log("Spawn service started with:");
-			console.log(options);
-		});
-		spawnMon.on("virtual-stop", function (options) {
-			console.log("Spawn service stopped.");
-		});
-		spawnMon.on("error", function (err) {
-			console.error(err);
-		});
-		spawnMon.on("virtual-output", function (data) {
-			console.log(data);
-		});*/
-			var allSection = [];
-			for (var i = 2; i <= process.argv.length; i++){
-				var arg = process.argv[i];
-				if (!arg) continue;
-				if (arg === "--config") {
-					// используется config.json если третьим аргументом идёт флаг --config
-					var configFile = require(Path.resolve("./config.json"));
-					for (var key in configFile) {
-						allSection.push(services.StartService(key, configFile[key]));
-					}
-				}
-				else{
-					allSection.push(services.StartService(arg));
-				}
-			}
-			Promise.all(allSection).then(function() {
-					console.log("All started!");
-				}).catch(function(err) {
-					if (err && !err.handled){
-						console.error("Root error:")
-						console.error(err);
-					}
-				});
 
-		/*setInterval(function() {
-		 console.log(new Date());
-		 }, 5000);*/
+		var allSection = [];
+		for (var key in servicesToStart){
+			allSection.push(services.StartService(key, servicesToStart[key]));
+		}
+		Promise.all(allSection).then(function() {
+				console.log("All started!");
+			}).catch(function(err) {
+				if (err && !err.handled){
+					console.error("Root error:");
+					console.error(err);
+				}
+			});
 	}
 	catch (err) {
         console.log("RootError: ");
