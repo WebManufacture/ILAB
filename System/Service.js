@@ -17,7 +17,7 @@ Service = function(params){
     }, this._onConnection.bind(this));
     try {
         this.server.listen(this.port, function () {
-            console.log(self.serviceId + ":" + self.port);
+            console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
         });
     }
     catch (error){
@@ -48,7 +48,6 @@ Inherit(Service, EventEmitter, {
 
     _onConnection  : function(socket){
         var self = this;
-        var handshakeFinished = false;
         //console.log(this.serviceId + ":" + this.port + " connection");
         socket = new JsonSocket(socket);
 
@@ -58,7 +57,15 @@ Inherit(Service, EventEmitter, {
         socket.on("error", errorHandler);
         var messageHandlerFunction = function (message) {
             if (message.type == "method"){
-                var result = self._callMethod(message.name, message.args);
+                try {
+                    var result = self._callMethod(message.name, message.args);
+                }
+                catch (err){
+                    if (message.id) {
+                        socket.write({"type": "error", id: message.id, result: err});
+                    }
+                    return;
+                }
                 if (result instanceof Promise){
                     result.then(function (result) {
                         try {
@@ -88,24 +95,37 @@ Inherit(Service, EventEmitter, {
                     }
                 }
             }
-        };
-        socket.once("json", function (startupMessage) {
-            handshakeFinished = true;
-        });
-        var internalEventHandler = function (eventName, args) {
-            if (handshakeFinished){
-                socket.write({ type: "event", name : eventName, args : args});
+            if (message.type == "startup") {
+                var proxy = Service.CreateProxyObject(self);
+                socket.write(proxy);
+            }
+            if (message.type == "subscribe") {
+                self.on("internal-event", internalEventHandler);
+            }
+            if (message.type == "stream") {
+
             }
         };
-        self.on("internal-event", internalEventHandler);
-        socket.on("json", messageHandlerFunction);
+        var internalEventHandler = function (eventName, args) {
+            socket.write({ type: "event", name : eventName, args : args});
+        };
+        socket.once("json", messageHandlerFunction);
         socket.once("close", function (isError) {
             self.removeListener("internal-event", internalEventHandler);
             this.removeListener("json", messageHandlerFunction);
             this.removeListener("error", errorHandler);
         });
-        var proxy = Service.CreateProxyObject(this);
-        socket.write(proxy);
+        process.once("exit", function(){
+            socket.close(true);
+        });
+        self.once("closing-server", function(){
+            socket.end();
+        });
+    },
+
+    _closeServer : function(){
+        this.server.close();
+        this.emit("closing-server");
     },
 
     emit: function (eventName) {

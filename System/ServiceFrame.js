@@ -100,6 +100,9 @@ Frame._startFrame = function (node) {
                 // console.error(err);
                 Frame.error(err);
             });
+            process.on('uncacughtException', function () {
+                process.exit();
+            });
         }
         else {
             console.log(Frame.node + " node starting...");
@@ -118,6 +121,11 @@ process.once("exit", function(){
     console.log(Frame.serviceId + ":" + Frame.servicePort + " exiting.");
 });
 
+process.on('unhandledRejection', (reason, p) => {
+    console.log('Unhandled Rejection at:', p, 'reason:', reason);
+    // application specific logging, throwing an error, or other logic here
+});
+
 process.on("message", function(pmessage){
     if (pmessage == 'EXIT-REQUEST'){
         process.emit("EXIT-REQUEST");
@@ -129,5 +137,6 @@ process.on("message", function(pmessage){
         });
     }
 });
+
 
 Frame._initFrame();

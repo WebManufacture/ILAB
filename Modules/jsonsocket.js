@@ -38,19 +38,19 @@ function JsonSocket() {
         }
     });
 
-    socket.on('end', function () {
-        self.emit('end');
+    socket.on('end', function (arg1, arg2) {
+        self.emit('end', arg1, arg2);
     });
 
-    socket.on('close', function (is_end) {
-        self.emit('close', is_end);
+    socket.on('close', function (is_end, err) {
+        self.emit('close', is_end, err);
     });
 
-    socket.on('error', function (ex) {
-        self.emit('error', ex);
+    socket.on('error', function (ex, second) {
+        self.emit('error', ex, second);
     });
 
-    self.write = function (data) {
+    self.write = self.send = function (data) {
         if (data != undefined && data != null) {
             socket.write(JSON.stringify(data) + '\0');
         }
@@ -63,8 +63,8 @@ function JsonSocket() {
         socket.destroy(error);
     };
 
-    self.end = function () {
-        socket.end();
+    self.end = function (param) {
+        socket.end(param);
     };
 
 

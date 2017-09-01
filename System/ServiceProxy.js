@@ -107,6 +107,61 @@ ServiceProxy.CreateProxyObject = function (service) {
 };
 
 Inherit(ServiceProxy, EventEmitter, {
+    _callMethod : function (methodName, args) {
+        var self = this;
+        return new Promise(function (resolve, reject) {
+            try {
+                function raiseError(err) {
+                    console.log("Socket error while calling " + self.serviceId + ":" + self.port + ":" + methodName);
+                    console.error(err);
+                    socket.removeAllListeners();
+                    socket.close(err);
+                    self.emit('error', err);
+                    reject(err);
+                }
+
+                // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
+                var obj = { "type" : "method", name : methodName, args : args};
+                //Сделаем ID немного иначе и тогда будет можно на него положиться
+                obj.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
+                var socket = new JsonSocket(self.port, self.host, function () {
+                    try {
+                        socket.send(obj);
+                    }
+                    catch (err) {
+                        raiseError(err);
+                    }
+                });
+                socket.on('error', raiseError);
+                socket.once("close", function (err) {
+                    if (!err) {
+                        console.log("Socket closed unexpectely " + self.serviceId + ":" + self.port + ":" + methodName);
+                        reject("Socket closed unexpectely " + self.serviceId + ":" + self.port + ":" + methodName);
+                    }
+                });
+                socket.once("json", function (message) {
+                    if (message.type == "result") {
+                        socket.removeAllListeners();
+                        socket.close();
+                        resolve(message.result);
+                    }
+                    if (message.type == "stream" && message.id) {
+                        message.stream = socket.netSocket;
+                    }
+                    if (message.type == "error") {
+                        raiseError(message)
+                    }
+                });
+            }
+            catch (err) {
+                self.emit('error', err);
+                reject(err);
+            }
+        }).catch(function (err) {
+            self.emit("error", err);
+        });
+    },
+
     _createFakeMethod : function(methodName) {
         var self = this;
         var method = self[methodName] = function () {
@@ -128,39 +183,7 @@ Inherit(ServiceProxy, EventEmitter, {
                 args.push(arguments[i]);
             }
 
-            var promise = new Promise(function (resolve, reject) {
-                // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
-                var obj = { "type" : "method", name : methodName, args : args};
-                obj.id = Date.now() + (Math.random()  + "").replace("0.", "");//Сделаем ID немного иначе и тогда будет можно
-                self.emit("external-call", obj);
-
-
-                self.waiting[obj.id] = { req:obj, time: Date.now() };
-
-                var _timer = setTimeout(() => {
-                    delete self.waiting[obj.id];
-                    console.log("Не дождались ответа на " + JSON.stringify(obj));
-                    reject("Timeout error"); // или Error не нужно?
-                }, self.timeout);
-
-                self.once("external-result-" + obj.id, (resultArgs) => {
-                    delete self.waiting[obj.id];
-                    clearTimeout(_timer);
-                    resolve(resultArgs);
-                });
-
-                self.once("external-stream-" + obj.id, (message) => {
-                    delete self.waiting[obj.id];
-                    clearTimeout(_timer);
-                    resolve(message);
-                });
-
-                self.once("external-error-" + obj.id, (message, stack) => {
-                    delete self.waiting[obj.id];
-                    clearTimeout(_timer);
-                    reject(message + "\n" + stack);
-                });
-            });
+            var promise = this._callMethod(methodName, args);
 
             if (callbackHandler) promise.then(callbackHandler);
             if (errorHandler) promise.catch(errorHandler);
@@ -171,106 +194,118 @@ Inherit(ServiceProxy, EventEmitter, {
     },
 
     attach : function (port, host, callback) {
-        this.connectionsCount++;
         this.port = port;
         if (!port) throw new Error("Unknown port to attach in " + this.serviceId);
         if (!host) host = "127.0.0.1";
         this.host = host;
         var self = this;
-
-        var socket = new JsonSocket(port, host, function () {
-            console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
-        });
-        var handshakeFinished = false;
-        socket.on('error', function(err){
-            console.log("Socker error at " + self.serviceId + ":" + self.port + ":" + self.connectionsCount);
-            console.log("Waiting queue " + self.waiting.length);
-            console.error(err);
-            self.emit('error', err);
-            socket.end();
-        });
-        socket.once("json", function (proxyObj) {
-            //console.dir(proxyObj);//debug
-            self.serviceId = proxyObj.serviceId;
-            //if (self.serviceId != "ServicesManager")
-                console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
-            for (var item in proxyObj){
-                if (proxyObj[item] == "method") {
-                    self._createFakeMethod(item, proxyObj[item]);
-                }
-            }
-            if (typeof callback == "function") {
-                callback.call(self, proxyObj);
-            }
-            socket.write({"type": "startup", args : self.startParams});
-            self.emit("connected", proxyObj);
-            handshakeFinished = true;
-        });
-        var methodCallFunction = function (obj, onResultFunction) {
-            socket.write(obj);
-        };
-        self.on("external-call", methodCallFunction);
-
-        var messageHandlerFunction = function (message) {
-            // console.log(message); // debug
-
-            if (handshakeFinished)
-            {
-                if(message.type == "event") {
-                    self.emit.apply(self, message.args);
-                }
-                if (message.type == "result" && message.id){
-                    self.emit("external-result", message);
-                    self.emit("external-result-" + message.id, message.result);
-                }
-                if (message.type == "stream" && message.id){
-                    self.emit("external-stream", message);
-                    message.stream = socket.netSocket;
-                    self.emit("external-stream-" + message.id, message);
-                }
-                if (message.type == "error"){
-                    self.emit("external-error", message);
-                    if (message.id){
-                        self.emit("external-error-" + message.id, message.result, message.stack);
-                    }
-                }
-            }
-        };
-        socket.on("json", messageHandlerFunction);
-
-        socket.once("close", function (isError) {
-            //self.removeListener("external-call", methodCallFunction);
-            //this.removeListener("json", messageHandlerFunction);
-            self.connectionsCount--;
-            console.log("Socket Closed at " + self.serviceId + ":" + port + ":" + self.connectionsCount);
-            console.log("Waiting queue " + self.waiting.length);
-            setImmediate(()=>{self.attach(self.port, self.host)})
-        });
-
         var promise = new Promise(
-            function(resolve, reject) {
-                var connectedHandler = function () {
-                    self.removeListener("error", errorHandler);
-                    resolve(self);
-                };
-                var errorHandler = function (args) {
-                    self.removeListener("connected", connectedHandler);
-                    reject(args);
-                };
-                self.once("connected", connectedHandler);
-                self.once("error", errorHandler);
-                return self;
-            }
-        );
-
+            function (resolve, reject) {
+                try {
+                    var socket = new JsonSocket(port, host, function (err) {
+                        console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
+                        try {
+                            socket.write({"type": "startup", args: self.startParams});
+                        }
+                        catch(err){
+                            raiseError(err);
+                        }
+                    });
+                    function raiseError(err) {
+                        console.log("Socket error while attach to " + self.serviceId + ":" + self.port);
+                        console.error(err);
+                        socket.removeAllListeners();
+                        socket.close();
+                        reject(err);
+                    }
+                    socket.on('error', raiseError);
+                    socket.once("json", function (proxyObj) {
+                        self.serviceId = proxyObj.serviceId;
+                        if (self.serviceId != "ServicesManager") {
+                            console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
+                        }
+                        for (var item in proxyObj) {
+                            if (proxyObj[item] == "method") {
+                                self._createFakeMethod(item, proxyObj[item]);
+                            }
+                        }
+                        if (typeof callback == "function") {
+                            callback.call(self, proxyObj);
+                        }
+                        self.attached = true;
+                        self.emit("connected", proxyObj);
+                        socket.close();
+                        resolve(self);
+                    });
+                    self._attachEventListener("*");
+                }
+                catch (err) {
+                    self.emit('error', err);
+                }
+            }).catch(function (err) {
+                self.emit('error', err);
+            });
         return promise;
-    }
+    },
+
+    _attachEventListener: function (eventName) {
+        this.connectionsCount++;
+        var self = this;
+        try {
+            var promise = new Promise(function (resolve, reject) {
+                function raiseError(err) {
+                    console.log("Socket error in event listener " + self.serviceId + ":" + self.port);
+                    console.error(err);
+                    eventSocket.removeAllListeners();
+                    eventSocket.close(err);
+                    reject(err);
+                }
+                var eventSocket = new JsonSocket(self.port, self.host, function () {
+                    try {
+                        eventSocket.write({"type": "subscribe", name: eventName});
+                    }
+                    catch (err){
+                        raiseError(err);
+                    }
+                    resolve("subscribed");
+                });
+                eventSocket.on('error', function (err) {
+                    raiseError(err);
+                });
+                eventSocket.once("close", function (err) {
+                    self.connectionsCount--;
+                    console.log("Socket Closed at " + self.serviceId + ":" + port + ":" + self.connectionsCount);
+                    console.log("Waiting queue " + self.waiting.length);
+                    console.log(err);
+                    setImmediate(()=>{
+                        self._attachEventListener(eventName);
+                    });
+                });
+                var messageHandlerFunction = function (message) {
+                    if (message.type == "event") {
+                        self.emit.apply(self, message.args);
+                    }
+                    if (message.type == "error") {
+                        raiseError(message);
+                    }
+                };
+                eventSocket.on("json", messageHandlerFunction);
+            });
+        }
+        catch (err) {
+            self.emit('error', err);
+        }
+        promise.catch(function (err) {
+            self.emit('error', err);
+        });
+        return promise;
+    },
+
+
     /*on : function (message, func) {
 
      return this.base.on.apply(this, args);
      }*/
 });
-
-ServiceProxy.init();
 
 module.exports = ServiceProxy;

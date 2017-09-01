@@ -15,7 +15,19 @@ var Service = useRoot("/System/Service.js");
 function ConsoleService(params){
     var self = this;
     this.Command = function (text) {
-        return self.cmd(text);
+        return new Promise(function (resolve, reject) {
+            var buffer = "";
+            var outFunc = function (out) {
+                buffer += out;
+            };
+            setTimeout(function () {
+                self.removeListener("virtual-output", outFunc);
+                if (!buffer) reject(text);
+                resolve(buffer);
+            }, 1000);
+            self.on("virtual-output", outFunc);
+            self.cmd(text);
+        });
     };
     this.Start = function (options) {
         return self.start(options)
@@ -23,7 +35,6 @@ function ConsoleService(params){
     this.Stop = function (options) {
         return self.stop(options)
     };
-
     self.start();
     return Service.call(this, params);
 }
@@ -80,13 +91,13 @@ Inherit(ConsoleService, Service, {
         var onCmd =  function(cmd){
             data = new Buffer(cmd + "\n", 'utf8');
             cp.stdin.write(data);
-        }
+        };
 
         var onStdOut = function(data){
             //data = new Buffer(data, 'UCS-2');
             //data = data.toString("utf8");
             self.emit("virtual-output", data.toString());
-        }
+        };
 
         self.cmdState = true;
 

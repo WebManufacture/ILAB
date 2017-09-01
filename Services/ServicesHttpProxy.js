@@ -9,7 +9,7 @@ HttpProxyService = function(params){
     var self = this;
     this.services = {};
     this.listServices();
-    var port = 5000;
+    var port = 80;
     if (params && params.port) port = params.port;
     this.router = new HttpRouter(port, 15000);
     //this.router.debugMode = "trace";
@@ -20,9 +20,14 @@ HttpProxyService = function(params){
         context.finish(self.services);
     });
     ServicesManager.on("service-started", function (serviceId, servicePort) {
-        console.log("HttpProxy got service: " + serviceId);
+        console.log("HttpProxy catch service start: " + serviceId + ":" + servicePort);
         self.services[serviceId] = servicePort;
         self.addServiceHandler(serviceId, servicePort);
+    });
+    ServicesManager.on("service-exited", function (serviceId, servicePort) {
+        console.log("HttpProxy catch service exited: " + serviceId + ":" + servicePort);
+        delete self.services[serviceId];
+        self.removeServiceHandler(serviceId, servicePort);
     });
     console.log("HTTP PROXY ON " + this.router.port);
     return result;
@@ -34,8 +39,7 @@ Inherit(HttpProxyService, Service, {
     listServices : function () {
         var self = this;
         ServicesManager.GetServices().then((services) => {
-            console.log("HttpProxy got services");
-            console.log(services);
+            console.log("HttpProxy got services: " + JSON.stringify(services));
             self.services = services;
             for (var service in services){
                 self.addServiceHandler(service, services[service]);
@@ -46,10 +50,39 @@ Inherit(HttpProxyService, Service, {
     },
 
     addServiceHandler : function (name, port) {
+        var proxy = new ServiceProxy(name);
+
+        function callMethod(context) {
+            console.log(name + "." + context.nodeName + " method calling ");
+            var method = proxy[context.nodeName];
+            if (method) {
+                var args = context.tail.split("/");
+                args.shift();
+                if (!context.data) context.data = "[]";
+                var data = JSON.parse(context.data);
+                if (data && data.length) {
+                    args = args.concat(data);
+                }
+                return method.apply(proxy, args).then(function (result) {
+                    if (result && result.stream) {
+                        context.setHeader("Content-Type", "text/plain; charset=utf8");
+                        result.stream.pipe(context.res);
+                        context.abort();
+                    }
+                    else {
+                        context.finish(result);
+                    }
+                }).catch((err) => {
+                    context.error(err);
+                })
+            }
+            else {
+                context.error("Method " + context.current + context.tail + " not applying to service " + name);
+            }
+        }
 
         this.router.on("/" + name, (httpContext) => {
             httpContext.res.setHeader("Content-Type", "text/json");
-            var proxy = new ServiceProxy(name);
             proxy.attach(port, "localhost", (proxyObj) => {
                 httpContext.finish(proxyObj);
             }).catch((err) => {
@@ -60,40 +93,25 @@ Inherit(HttpProxyService, Service, {
         });
         this.router.on("/" + name + "/<", (context) => {
             context.res.setHeader("Content-Type", "text/json; charset=utf8");
-            ServicesManager.GetService(name).then((service) => {
-                console.log(name + "." + context.nodeName + " method calling ");
-                var method=service[context.nodeName];
-                if (method){
-                    var args = context.tail.split("/");
-                    args.shift();
-                    if (!context.data) context.data = "[]";
-                    var data = JSON.parse(context.data);
-                    if (data && data.length){
-                        args = args.concat(data);
-                    }
-                    return method.apply(service, args).then(function (result){
-                        if (result && result.stream){
-                            context.setHeader("Content-Type", "text/plain; charset=utf8");
-                            result.stream.pipe(context.res);
-                            context.abort();
-                        }
-                        else{
-                            context.finish(result);
-                        }
-                    }).catch((err)=>{
-                        context.error(err);
-                    })
-                }
-                else{
-                    context.error("Method " + context.current + context.tail + " not applying to service " + name);
-                }
-            }).catch((err) => {
-                console.log(err);
-                context.error(err);
-            });
+            if (proxy.attached){
+                callMethod(context);
+            }
+            else{
+                proxy.attach(port, "localhost", (proxyObj) => {
+                    return callMethod(context);
+                }).catch((err) => {
+                    console.log(err);
+                    httpContext.error(err);
+                });
+            }
             return false;
         });
     },
+
+
+    removeServiceHandler : function (name, port) {
+        //this.router.un();
+    }
 });
 
 module.exports = HttpProxyService;

@@ -74,6 +74,12 @@ Router.prototype = {
 		return this["for"](phase, path, handler);
     },
 
+    un : function(handler){
+        var phase = "_default";
+        if (!this.Handlers[phase]) return;
+        return this._removeHandler(this.Handlers[phase], handler);
+    },
+
 	"for" : function(phase, path, handler){
 		if (!this.Handlers[phase]){
 			this.HandlersIndex.push(phase);
@@ -114,6 +120,29 @@ Router.prototype = {
 		context.callPhaseChain(0);
 		return context;
 	},
+
+
+    _removeHandler : function(root, handler){
+        if (!handler){
+            return null;
+        }
+        for (var key in root){
+        	if (typeof root[key] == "object"){
+        		if (root[key] instanceof Array){
+        			var arr = root[key];
+        			for (var i = 0; i < arr.length; i++){
+        				if (arr[i] === handler){
+        					arr.splice(i, 1);
+        					return;
+						}
+					}
+				}
+				else{
+        			this._removeHandler(root[key], handler);
+				}
+			}
+		}
+    },
 	
 	_addHandler : function(root, path, handler){
 		if (!handler){
@@ -345,7 +374,7 @@ global.RoutingContext.prototype = {
             context.nodePath = hobj.path.length > 1 ? hobj.path.slice(0, -1) : "/";
 			context.node = (context.paths[hobj.pathNum]) ? context.paths[hobj.pathNum].slice(0, -1) : "";
 			context.current =  context.nodePath + "/" + context.node;
-            context.nodeName = context.path.substr(context.nodePath.length + 1, context.node.length);
+            context.nodeName = context.path.substr(context.nodePath == '/' ? 1: context.nodePath.length + 1, context.node.length);
 			context.prevNode = context.paths[hobj.pathNum - 1];
 			if (context.prevNode) context.prevNode = context.prevNode.slice(0, -1);
 			context.nextNode = context.paths[hobj.pathNum + 1];
