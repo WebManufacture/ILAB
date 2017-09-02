@@ -1,3 +1,9 @@
+Лекция по теме:
+https://youtu.be/Pl8CxkeKgmU
+
+Презентация тут:
+https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGPwUU/edit?usp=sharing
+
 УСТАНОВКА
 ========================
     mkdir ILAB
