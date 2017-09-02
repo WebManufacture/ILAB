@@ -134,9 +134,9 @@ Inherit(ServiceProxy, EventEmitter, {
                 });
                 socket.on('error', raiseError);
                 socket.once("close", function (err) {
-                    if (!err) {
+                    if (err) {
                         console.log("Socket closed unexpectely " + self.serviceId + ":" + self.port + ":" + methodName);
-                        reject("Socket closed unexpectely " + self.serviceId + ":" + self.port + ":" + methodName);
+                        reject(new Error("Socket closed unexpectely " + self.serviceId + ":" + self.port + ":" + methodName));
                     }
                 });
                 socket.once("json", function (message) {
@@ -147,6 +147,7 @@ Inherit(ServiceProxy, EventEmitter, {
                     }
                     if (message.type == "stream" && message.id) {
                         message.stream = socket.netSocket;
+                        resolve(message.stream);
                     }
                     if (message.type == "error") {
                         raiseError(message)

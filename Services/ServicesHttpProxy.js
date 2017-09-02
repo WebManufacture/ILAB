@@ -1,5 +1,6 @@
 var fs = useSystem('fs');
 var http = useSystem('http');
+var stream = useSystem('stream');
 var EventEmitter = useSystem('events');
 var HttpRouter = useModule('Router');
 var Service = useRoot("/System/Service.js");
@@ -64,15 +65,17 @@ Inherit(HttpProxyService, Service, {
                     args = args.concat(data);
                 }
                 return method.apply(proxy, args).then(function (result) {
-                    if (result && result.stream) {
+                    if (result && result instanceof stream.Readable) {
                         context.setHeader("Content-Type", "text/plain; charset=utf8");
-                        result.stream.pipe(context.res);
+                        result.setEncoding("utf8");
+                        result.pipe(context.res);
                         context.abort();
                     }
                     else {
                         context.finish(result);
                     }
                 }).catch((err) => {
+                    console.error(err);
                     context.error(err);
                 })
             }

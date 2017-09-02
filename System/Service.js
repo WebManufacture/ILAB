@@ -15,6 +15,9 @@ Service = function(params){
         allowHalfOpen: false,
         pauseOnConnect: false
     }, this._onConnection.bind(this));
+    this.server.on("error", function (err) {
+        this.emit('error');
+    });
     try {
         this.server.listen(this.port, function () {
             console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
@@ -109,17 +112,19 @@ Inherit(Service, EventEmitter, {
         var internalEventHandler = function (eventName, args) {
             socket.write({ type: "event", name : eventName, args : args});
         };
+        var serverClosingHandler = function (eventName, args) {
+            socket.end();
+        };
         socket.once("json", messageHandlerFunction);
+        self.once("closing-server", serverClosingHandler);
+
         socket.once("close", function (isError) {
             self.removeListener("internal-event", internalEventHandler);
-            this.removeListener("json", messageHandlerFunction);
-            this.removeListener("error", errorHandler);
+            self.removeListener("closing-server", serverClosingHandler);
+            socket.removeAllListeners();
         });
         process.once("exit", function(){
             socket.close(true);
-        });
-        self.once("closing-server", function(){
-            socket.end();
         });
     },
 
