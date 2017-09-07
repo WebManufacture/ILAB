@@ -16,15 +16,19 @@ ServiceProxy.Connect = function(url, serviceId){
 ServiceProxy.connected = false;
 
 ServiceProxy.Init = function(url){
-    ServiceProxy.instance = new ServiceProxy("ServicesManager");
-    return ServiceProxy.instance.attach(url + "/ServicesManager").then(function(proxy){
-        ServiceProxy.connected = true;
-        window.ServicesManager = proxy;
-        ServicesManager.Connect = ServiceProxy.Connect;
-        return proxy.GetServices().then(function(services){
-            ServicesManager.Services = services;
-            return ServicesManager;
-        });
+    ServicesManager = ServiceProxy.instance = new ServiceProxy("ServicesManager");
+    ServicesManager.Connect = ServiceProxy.Connect;
+    return ServicesManager.attach(url + "/ServicesManager").then(function(proxy){
+        if (proxy) {
+            ServiceProxy.connected = true;
+            return proxy.GetServices().then(function (services) {
+                ServicesManager.Services = services;
+                return ServicesManager;
+            });
+        }
+        else{
+            throw ("Unexpected null object without error when initing ServiceProxy")
+        }
     });
 };
 
@@ -48,6 +52,62 @@ ServiceProxy.CreateProxyObject = function (service) {
 };
 
 Inherit(ServiceProxy, EventEmitter, {
+    _callMethod : function (methodName, args) {
+        var self = this;
+        return new Promise(function (resolve, reject) {
+            try {
+                function raiseError(err) {
+                    console.err("Socket error on " + self.url + " while calling " + self.serviceId + ":" + methodName);
+                    console.log(err);
+                    socket.close();
+                    self.emit('error', err);
+                    reject(err);
+                }
+
+                // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
+                var obj = { "type" : "method", name : methodName, args : args};
+                //Сделаем ID немного иначе и тогда будет можно на него положиться
+                obj.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
+                var socket = new WebSocket(self.url);
+                socket.onopen = function () {
+                    try {
+                        socket.send(JSON.stringify(obj));
+                    }
+                    catch (err) {
+                        raiseError(err);
+                    }
+                };
+                socket.onerror = raiseError;
+                socket.onclose = function (event) {
+                    if (event.wasClean) {
+                        console.log('Соединение закрыто чисто');
+                    } else {
+                        console.error('Обрыв соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
+                    }
+                };
+                socket.onmessage = function (message) {
+                    message = JSON.parse(message.data);
+                    if (message.type == "result") {
+                        socket.close();
+                        resolve(message.result);
+                    }
+                    if (message.type == "stream" && message.id) {
+                        message.stream = socket.netSocket;
+                        resolve(message.stream);
+                    }
+                    if (message.type == "error") {
+                        raiseError(message)
+                    }
+                };
+            }
+            catch (err) {
+                self.emit('error', err);
+                reject(err);
+            }
+        })
+    },
+
+
     _createFakeMethod : function(methodName) {
         var self = this;
         var method = self[methodName] = function () {
@@ -69,32 +129,7 @@ Inherit(ServiceProxy, EventEmitter, {
                 args.push(arguments[i]);
             }
 
-            var promise = new Promise(function (resolve, reject) {
-                // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
-                var obj = { "type" : "method", name : methodName, args : args};
-                obj.id = Date.now() + (Math.random()  + "").replace("0.", "");//Сделаем ID немного иначе и тогда будет можно
-                self.emit("external-call", obj);
-
-                self.waiting[obj.id] = { req:obj, time: Date.now() };
-
-                var _timer = setTimeout(() => {
-                    delete self.waiting[obj.id];
-                    console.log("Не дождались ответа на " + JSON.stringify(obj));
-                    reject("Timeout error"); // или Error не нужно?
-                }, self.timeout);
-
-                self.once("external-result-" + obj.id, (event, resultArgs) => {
-                    delete self.waiting[obj.id];
-                    clearTimeout(_timer);
-                    resolve(resultArgs);
-                });
-
-                self.once("external-error-" + obj.id, (event, message) => {
-                    delete self.waiting[obj.id];
-                    clearTimeout(_timer);
-                    reject(message.result + "\n" + message.stack);
-                });
-            });
+            var promise = this._callMethod(methodName, args);
 
             if (callbackHandler) promise.then(callbackHandler);
             if (errorHandler) promise.catch(errorHandler);
@@ -105,100 +140,125 @@ Inherit(ServiceProxy, EventEmitter, {
     },
 
     attach : function (url) {
-        this.connectionsCount++;
         if (!url) throw new Error("Unknown url to attach in " + url);
         this.url = url;
         var self = this;
-        var handshakeFinished = false;
-
-        var socket = new WebSocket(url);
-
-        socket.onerror = function(event){
-            console.log("Socker error at " + self.serviceId + ":" + url);
-            console.error(event);
-            self.emit('error', event);
-            socket.close();
-        };
-
-        socket.onmessage = function (message) {
-            //console.dir(proxyObj);//debug
-            var proxyObj = JSON.parse(message.data);
-            self.serviceId = proxyObj.serviceId;
-            //if (self.serviceId != "ServicesManager")
-            console.log("Service proxy connected to " + url);
-            for (var item in proxyObj){
-                if (proxyObj[item] == "method") {
-                    self._createFakeMethod(item, proxyObj[item]);
-                }
-            }
-            console.log(proxyObj);
-            socket.send(JSON.stringify({"type": "startup", args : self.startParams}));
-            self.emit("connected", proxyObj);
-            handshakeFinished = true;
-            socket.onmessage = messageHandlerFunction;
-        };
-
-        var methodCallFunction = function (event, obj, onResultFunction) {
-            socket.send(JSON.stringify(obj));
-        };
-
-        self.on("external-call", methodCallFunction);
-
-        var messageHandlerFunction = function (message) {
-            // console.log(message); // debug
-            message = JSON.parse(message.data);
-            if (handshakeFinished)
-            {
-                if(message.type == "event") {
-                    self.emit.apply(self, message.args);
-                }
-                if (message.type == "result" && message.id){
-                    self.emit("external-result", message);
-                    self.emit("external-result-" + message.id, message.result);
-                }
-                if (message.type == "error"){
-                    self.emit("external-error", message);
-                    if (message.id){
-                        self.emit("external-error-" + message.id, message.result, message.stack);
-                    }
-                }
-            }
-        };
-
-        socket.onclose = function (event, isError) {
-            if (event.wasClean) {
-                console.log('Соединение закрыто чисто');
-            } else {
-                console.error('Обрыв соединения'); // например, "убит" процесс сервера
-            }
-            console.log('Код: ' + event.code + ' причина: ' + event.reason);
-            self.emit("close", event);
-        };
-
         var promise = new Promise(
-            function(resolve, reject) {
-                var connectedHandler = function () {
-                    self.un("error", errorHandler);
-                    resolve(self);
-                };
-                var errorHandler = function (args) {
-                    self.un("connected", connectedHandler);
-                    reject(args);
-                };
-                self.once("connected", connectedHandler);
-                self.once("error", errorHandler);
-                return socket;
-            }
-        );
+            function (resolve, reject) {
+                try {
+                    var socket = new WebSocket(url);
+                    socket.onopen = function(event){
+                        console.log(self.serviceId + ": Service proxy connected to " + url);
+                        try {
+                            socket.send(JSON.stringify({"type": "startup", args: self.startParams}));
+                        }
+                        catch(err){
+                            raiseError(err);
+                        }
+                    };
+                    function raiseError(err) {
+                        console.error("Socket error at " + self.serviceId + ":" + url);
+                        console.log(event);
+                        self.emit('error', event);
+                        socket.close();
+                        reject(err);
+                    };
+                    socket.onerror = raiseError;
+                    socket.onmessage = function (message) {
+                        //console.dir(proxyObj);//debug
+                        var proxyObj = JSON.parse(message.data);
+                        self.serviceId = proxyObj.serviceId;
+                        //if (self.serviceId != "ServicesManager")
+                        console.log("Service proxy connected to " + url);
+                        for (var item in proxyObj){
+                            if (proxyObj[item] == "method") {
+                                self._createFakeMethod(item, proxyObj[item]);
+                            }
+                        }
+                        if (typeof callback == "function") {
+                            callback.call(self, proxyObj);
+                        }
+                        self.attached = true;
+                        console.log(proxyObj);
+                        self.emit("connected", proxyObj);
+                        socket.close();
+                        resolve(self);
+                    };
+                    socket.onclose = function (event, isError) {
+                        if (event.wasClean) {
+                            console.log('Соединение закрыто чисто');
+                        } else {
+                            console.error('Обрыв соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
+                        }
+                    };
+                    self._attachEventListener("*");
+                }
+                catch (err) {
+                    self.emit('error', err);
+                }
+            });
+        return promise;
+    },
 
-        this.socket = socket;
-
+    _attachEventListener: function (eventName) {
+        this.connectionsCount++;
+        var self = this;
+        try {
+            var promise = new Promise(function (resolve, reject) {
+                function raiseError(err) {
+                    console.error("Event socket error at " + self.serviceId + ":" + self.url);
+                    console.log(err);
+                    self.emit('error', err);
+                    eventSocket.close();
+                    reject(err);
+                }
+                var eventSocket = this.eventSocket = new WebSocket(self.url);
+                eventSocket.onopen = function () {
+                    try {
+                        eventSocket.send(JSON.stringify({"type": "subscribe", name: eventName}));
+                    }
+                    catch (err){
+                        raiseError(err);
+                    }
+                    resolve("subscribed");
+                };
+                var messageHandlerFunction = function (message) {
+                    message = JSON.parse(message.data);
+                    if (message.type == "event") {
+                        self.emit.apply(self, message.args);
+                    }
+                    if (message.type == "error") {
+                        raiseError(message);
+                    }
+                };
+                eventSocket.onerror = raiseError;
+                eventSocket.onmessage = messageHandlerFunction;
+                eventSocket.onclose = function (event) {
+                    self.connectionsCount--;
+                    if (event.wasClean) {
+                        console.log('Event cоединение закрыто чисто');
+                        setImmediate(()=>{
+                            self._attachEventListener(eventName);
+                        }, 3000);
+                    } else {
+                        console.error('Обрыв event соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
+                    }
+                    self.emit("event-close", event);
+                };
+            });
+        }
+        catch (err) {
+            self.emit('error', err);
+        }
+        promise.catch(function (err) {
+            self.emit('error', err);
+        });
         return promise;
     },
 
     close : function(){
-        if (this.socket){
-            this.socket.close();
+        if (this.eventSocket){
+            this.eventSocket.close();
         }
     }
     /*on : function (message, func) {
