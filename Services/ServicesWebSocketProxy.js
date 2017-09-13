@@ -8,6 +8,9 @@ var JsonSocket = useModule('jsonsocket');
 function WebSocketProxyService(param1){
     this.nodes = {};
     var self = this;
+    this.knownServices = {
+
+    };
     if (typeof param1 == "object"){
         if (typeof param1.port == "number"){
             this.port = param1.port;
@@ -36,7 +39,7 @@ function WebSocketProxyService(param1){
         }
         var wss = new WebSocket.Server({ port: port });
         this.proxies[port + ""] = wss;
-        wss.on('connection', this._onSocketConnection);
+        wss.on('connection', this._onSocketConnection.bind(this));
         console.log("WebSocket PROXY ON " + port);
         return true;
     };
@@ -72,56 +75,83 @@ Inherit(WebSocketProxyService, Service, {
         var url = ws.upgradeReq.url;
         console.log('WSproxy: WSconnection', url);
         var services = null;
-        ServicesManager.GetServices().then((services) => {
-            if (url == "/") {
-                ws.send(JSON.stringify(services));
-                ws.close();
+        var header = null;
 
+        ws.once('message', function incoming(message) {
+            header = message;
+        });
+
+        function connectService(serviceId, servicePort){
+            if (servicePort) {
+                var socket = new JsonSocket(servicePort, "localhost", function () {
+                    console.log("WSproxy:  " + serviceId + " connected to " + servicePort);
+                });
+                socket.on('error', function (err) {
+                    console.log("WSproxy: Socket error at " + serviceId + ":" + servicePort);
+                    console.error(err);
+                    ws.send(JSON.stringify({type:"external-error", result : err, stack: err.stack}))
+                    socket.end();
+                    ws.close();
+                });
+                var messageHandlerFunction = function (message) {
+                    ws.send(JSON.stringify(message));
+                };
+                socket.on("json", messageHandlerFunction);
+                socket.once("close", function (isError) {
+                    console.log("WSproxy: Socket Closed at " + serviceId + ":" + servicePort);
+                });
+                var wsHandler = function (message) {
+                    console.log("WSproxy: calling method: " + message);
+                    socket.write(JSON.parse(message));
+                };
+                if (header){
+                    wsHandler(header);
+                }
+                else{
+                    ws.removeAllListeners();
+                }
+                ws.on("close", function () {
+                    socket.end();
+                });
+                ws.on('message', wsHandler);
             }
-            else {
-                var parts = url.split('/');
-                if (parts[0] == "") parts.shift();
-                if (parts.length) {
-                    var serviceId = parts[0];
-                    var servicePort = services[serviceId];
-                    if (servicePort) {
-                        var socket = new JsonSocket(servicePort, "localhost", function () {
-                            console.log("WSproxy:  " + serviceId + " connected to " + servicePort);
-                        });
-                        var handshakeFinished = false;
-                        socket.on('error', function (err) {
-                            console.log("WSproxy: Socket error at " + serviceId + ":" + servicePort);
-                            console.error(err);
-                            ws.send(JSON.stringify({type:"external-error", result : err, stack: err.stack}))
-                            socket.end();
-                            ws.close();
-                        });
-                        var messageHandlerFunction = function (message) {
-                            ws.send(JSON.stringify(message));
-                        };
-                        socket.on("json", messageHandlerFunction);
-                        socket.once("close", function (isError) {
-                            console.log("WSproxy: Socket Closed at " + serviceId + ":" + servicePort);
-                        });
-                        ws.on('message', function incoming(message) {
-                            console.log("WSproxy: calling method: " + message)
-                            socket.write(JSON.parse(message));
-                        });
-                        ws.on("close", function () {
-                            socket.end();
-                        });
-                    }
-                    else{
-                        console.log("WSproxy: Connecting unknown service " + serviceId + ":" + servicePort);
-                        console.error(err);
-                        ws.send(JSON.stringify({type:"error", result : "No service found"}))
-                        ws.close();
-                    }
+            else{
+                console.log("WSproxy: Connecting unknown service " + serviceId + ":" + servicePort);
+                console.error(err);
+                ws.send(JSON.stringify({type:"error", result : "No service found"}))
+                ws.close();
+            }
+        }
+
+        if (url == "/") {
+            ServicesManager.GetServices().then((services) => {
+                ws.send(JSON.stringify(services));
+                ws.removeAllListeners();
+                ws.close();
+            }).catch(function (err) {
+                throw err;
+            });
+        }
+        else {
+            var parts = url.split('/');
+            if (parts[0] == "") parts.shift();
+            if (parts.length) {
+                var serviceId = parts[0];
+                var servicePort = self.knownServices[serviceId];
+                if (servicePort){
+                    connectService(serviceId, servicePort);
+                }
+                else{
+                    ServicesManager.GetServices().then((services) => {
+                        servicePort = services[serviceId];
+                        self.knownServices[serviceId] = servicePort;
+                        connectService(serviceId, servicePort);
+                    }).catch(function (err) {
+                        throw err;
+                    });
                 }
             }
-        }).catch(function (err) {
-            throw err;
-        });
+        }
         //ws.send('something');
     },
 
