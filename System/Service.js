@@ -34,13 +34,23 @@ Service.CreateProxyObject = function (service) {
     var obj = { serviceId : service.serviceId };
     for (var item in service){
         if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
-            obj[item] = "method";
+            if (service[item].isStreamMethod){
+                obj[item] = "method";
+            }
+            else {
+                obj[item] = "method";
+            }
         }
     }
     return obj;
 };
 
 Inherit(Service, EventEmitter, {
+    createStreamMethod : function (func) {
+        func.isStreamMethod = true;
+        return func;
+    },
+
     _callMethod : function (name, args){
         if (typeof this[name] == "function"){
             return this[name].apply(this, args);
@@ -59,7 +69,7 @@ Inherit(Service, EventEmitter, {
         };
         socket.on("error", errorHandler);
         var messageHandlerFunction = function (message) {
-            if (message.type == "method"){
+            if (message.type == "method" || message.type == "stream"){
                 try {
                     var result = self._callMethod(message.name, message.args);
                 }
@@ -72,7 +82,7 @@ Inherit(Service, EventEmitter, {
                 if (result instanceof Promise){
                     result.then(function (result) {
                         try {
-                            if (result instanceof stream.Readable) {
+                            if (result instanceof stream.Readable || result instanceof stream.Writable) {
                                 socket.write({"type": "stream",  id: message.id, length: result.length});
                                 result.pipe(socket);
                             }
@@ -93,6 +103,10 @@ Inherit(Service, EventEmitter, {
                     });
                 }
                 else {
+                    if (result instanceof stream.Readable || result instanceof stream.Writable) {
+                        socket.write({"type": "stream",  id: message.id, length: result.length});
+                        result.pipe(socket);
+                    }
                     if (message.id) {
                         socket.write({"type": "result", id: message.id, result: result})
                     }
@@ -104,9 +118,6 @@ Inherit(Service, EventEmitter, {
             }
             if (message.type == "subscribe") {
                 self.on("internal-event", internalEventHandler);
-            }
-            if (message.type == "stream") {
-
             }
         };
         var internalEventHandler = function (eventName, args) {

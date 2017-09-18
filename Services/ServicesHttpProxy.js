@@ -65,7 +65,7 @@ Inherit(HttpProxyService, Service, {
                     args = args.concat(data);
                 }
                 return method.apply(proxy, args).then(function (result) {
-                    if (result && result instanceof stream.Readable) {
+                    if (result && (result instanceof stream.Readable || result instanceof stream.Writable)) {
                         context.setHeader("Content-Type", "text/plain; charset=utf8");
                         result.setEncoding("utf8");
                         result.pipe(context.res);

@@ -9,13 +9,24 @@ ServiceProxy = function(serviceName){
 };
 
 ServiceProxy.Connect = function(url, serviceId){
+    if (ServiceProxy.connected){
+        serviceId = url;
+        url = ServiceProxy.url;
+    }
     var proxy = new ServiceProxy(serviceId);
-    return proxy.attach(url + "/" + serviceId);
+    if (serviceId){
+        serviceId = "/" + serviceId;
+    }
+    else{
+        serviceId = '';
+    }
+    return proxy.attach(url + serviceId);
 };
 
 ServiceProxy.connected = false;
 
 ServiceProxy.Init = function(url){
+    ServiceProxy.url = url;
     ServicesManager = ServiceProxy.instance = new ServiceProxy("ServicesManager");
     ServicesManager.Connect = ServiceProxy.Connect;
     return ServicesManager.attach(url + "/ServicesManager").then(function(proxy){
@@ -57,7 +68,7 @@ Inherit(ServiceProxy, EventEmitter, {
         return new Promise(function (resolve, reject) {
             try {
                 function raiseError(err) {
-                    console.err("Socket error on " + self.url + " while calling " + self.serviceId + ":" + methodName);
+                    console.error("Socket error on " + self.url + " while calling " + self.serviceId + ":" + methodName);
                     console.log(err);
                     socket.close();
                     self.emit('error', err);

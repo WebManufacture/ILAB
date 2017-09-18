@@ -91,7 +91,14 @@ function FilesService(config){
         });
     };
 
-	return Service.call(this, config);
+    this.WriteStream = function(path, encoding){
+        if (!encoding) encoding = 'binary';
+        const fpath = Path.resolve(self.preparePath(path));
+        var socket = this;
+        return fs.createWriteStream(fpath, socket, encoding);
+    };
+
+    return Service.call(this, config);
 };
 
 FilesService.serviceId = "FilesService";

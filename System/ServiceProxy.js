@@ -163,13 +163,12 @@ Inherit(ServiceProxy, EventEmitter, {
         });
     },
 
-    _createFakeMethod : function(methodName) {
+    _createFakeMethod : function(methodName, methodType) {
         var self = this;
         var method = self[methodName] = function () {
             let callbackHandler = null;
             let errorHandler = null;
             let args = [];
-
             //The callback function should be last
             for (var i = 0; i < arguments.length; i++){
                 if (typeof (arguments[i]) == "function"){
@@ -184,12 +183,14 @@ Inherit(ServiceProxy, EventEmitter, {
                 args.push(arguments[i]);
             }
 
-            var promise = this._callMethod(methodName, args);
+            if (methodType == 'method') {
+                var promise = self._callMethod(methodName, args);
 
-            if (callbackHandler) promise.then(callbackHandler);
-            if (errorHandler) promise.catch(errorHandler);
+                if (callbackHandler) promise.then(callbackHandler);
+                if (errorHandler) promise.catch(errorHandler);
 
-            return promise;
+                return promise;
+            }
         };
         return method;
     },
@@ -226,7 +227,7 @@ Inherit(ServiceProxy, EventEmitter, {
                             console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
                         }
                         for (var item in proxyObj) {
-                            if (proxyObj[item] == "method") {
+                            if (proxyObj[item] == "method" || proxyObj[item] == "stream") {
                                 self._createFakeMethod(item, proxyObj[item]);
                             }
                         }
