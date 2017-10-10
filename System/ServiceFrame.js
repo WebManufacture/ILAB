@@ -87,15 +87,21 @@ Frame._startFrame = function (node) {
         var params = {};
         if (process.env.params && typeof process.env.params == "string") params = JSON.parse(process.env.params);
         if (node.hasPrototype("Service")) {
-            if (!Frame.serviceId) {
+            if (params && params.id) {
+                Frame.serviceId = params.id;
                 if (node.serviceId) {
                     Frame.serviceId = node.serviceId;
                 }
                 else {
-                    Frame.serviceId = node.name;
+                    if (!Frame.serviceId) {
+                        Frame.serviceId = node.name;
+                    }
                 }
             }
             service = new node(params);
+            if (service.serviceId){
+                Frame.serviceId = service.serviceId;
+            }
             service.on("error", function (err) {
                 // console.error(err);
                 Frame.error(err);
@@ -109,7 +115,7 @@ Frame._startFrame = function (node) {
             node = node(params);
             console.log(Frame.nodePath + " node started");
         }
-        process.send({type : "control", state: "started"});
+        process.send({type : "control", state: "started", serviceId: Frame.serviceId});
     }).catch(function (err) {
         Frame.error(err);
         //console.log("Fork error in " + Frame.serviceId + " " + Frame.nodePath);

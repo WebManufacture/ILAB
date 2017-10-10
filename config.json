@@ -16,8 +16,16 @@
     "path":"http://klab.web-manufacture.net/HLAB/SerialService.js"
   },
   "FilesService":{
-    "basepath": "",
-    "aliases":{
+    "id": "filesBase",
+    "basepath": "./Services/Test"
+  },
+  "StaticService":{
+    "filesServiceId": "filesBase",
+    "port": "default",
+    "allowOrigin": "*",
+    "allowMethods": "ALL",
+    "allowBrowse": true,
+    "aliases": {
 
     }
   }

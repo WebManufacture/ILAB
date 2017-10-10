@@ -32,7 +32,7 @@ function JsonSocket() {
                 self.emit('json', JSON.parse(json));
             }
             catch (err) {
-                self.emit("error", new Error("JSON Error parsing:\n" + err.stack + "\n" + json))
+                self.emit("error", new Error("Socket JSON Error parsing"))
             }
             json = parts.shift();
         }
@@ -47,7 +47,9 @@ function JsonSocket() {
     });
 
     socket.on('error', function (ex, second) {
-        self.emit('error', ex, second);
+        if (ex && ex.code != "ECONNRESET") {
+            self.emit('error', ex, second);
+        }
     });
 
     self.write = self.send = function (data) {
@@ -71,6 +73,10 @@ function JsonSocket() {
     self.connect = function () {
         socket.connect.apply(socket, arguments);
     };
+
+    self.on('error', function () {
+
+    });
 }
 
 util.inherits(JsonSocket, EventEmitter);

@@ -10,7 +10,11 @@ ServiceProxy = function(serviceName){
     this.timeout = 10000; // время ожидания ответа (мс), для удалённых сервисов можно увеличивать, для локальных - уменьшать
     this.waiting = []; // очередь отправленных сообщений ждущих ответа
     this.connectionsCount = 0;
-    return EventEmitter.call(this);
+    var result = EventEmitter.call(this);
+    this.on("error", function () {
+
+    });
+    return result;
 };
 
 ServiceProxy.instance = null;
@@ -115,7 +119,7 @@ Inherit(ServiceProxy, EventEmitter, {
                     console.log("Socket error while calling " + self.serviceId + ":" + self.port + ":" + methodName);
                     console.error(err);
                     socket.removeAllListeners();
-                    socket.close(err);
+                    socket.close();
                     self.emit('error', err);
                     reject(err);
                 }
@@ -147,10 +151,11 @@ Inherit(ServiceProxy, EventEmitter, {
                     }
                     if (message.type == "stream" && message.id) {
                         message.stream = socket.netSocket;
+                        socket.netSocket.setEncoding('binary');
                         resolve(message.stream);
                     }
                     if (message.type == "error") {
-                        raiseError(message)
+                        raiseError(message.result)
                     }
                 });
             }
@@ -158,8 +163,6 @@ Inherit(ServiceProxy, EventEmitter, {
                 self.emit('error', err);
                 reject(err);
             }
-        }).catch(function (err) {
-            self.emit("error", err);
         });
     },
 

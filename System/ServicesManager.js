@@ -55,6 +55,10 @@ function ServicesManager(config, portCountingFunc){
         return mon;
     };
 
+    this.on("error", function () {
+
+    });
+
     return Service.apply(this, arguments);
 }
 
@@ -70,8 +74,8 @@ Inherit(ServicesManager, Service, {
         }
         service.on("error", subEvent("error"));
         service.on("message", subEvent("error"));
-        service.on("service-started", function(arg) {
-            self.emit.call(self, "service-started", service.serviceId, service.port);
+        service.on("service-started", function(serviceId) {
+            self.emit.call(self, "service-started", serviceId, service.port);
         });
         service.on("service-loaded", subEvent("loaded"));
         service.on("service-connected", subEvent("connected"));
@@ -87,7 +91,7 @@ Inherit(ServicesManager, Service, {
                 return  this.emit("message", obj.item);
             }
             if (obj.type == "control" && obj.state == "started"){
-                return this.emit("service-started");
+                return this.emit("service-started", obj.serviceId);
             }
             if (obj.type == "control" && obj.state == "loaded"){
                 return this.emit("service-loaded");
@@ -197,7 +201,8 @@ Inherit(ServicesManager, Service, {
             }
             env.nodePath = servicePath;
             var service = this.CreateFork(serviceId, self.getPort(), env);
-            service.once("service-started", function () {
+            service.once("service-started", function (newServiceId) {
+                serviceId = newServiceId;
                 self.services[serviceId] = service;
                 if (typeof callback == "function"){
                     callback.call(service, serviceId);

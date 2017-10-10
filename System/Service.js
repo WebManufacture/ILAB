@@ -46,6 +46,10 @@ Service.CreateProxyObject = function (service) {
 };
 
 Inherit(Service, EventEmitter, {
+    connect: function (serviceId) {
+        return ServiceProxy.connect(serviceId);
+    },
+
     createStreamMethod : function (func) {
         func.isStreamMethod = true;
         return func;
@@ -84,6 +88,7 @@ Inherit(Service, EventEmitter, {
                         try {
                             if (result instanceof stream.Readable || result instanceof stream.Writable) {
                                 socket.write({"type": "stream",  id: message.id, length: result.length});
+                                socket.netSocket.setEncoding('binary');
                                 result.pipe(socket);
                             }
                             else {

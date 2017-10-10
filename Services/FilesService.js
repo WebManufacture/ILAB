@@ -10,6 +10,21 @@ function FilesService(config){
     this.basePath = config.basepath ? config.basepath : "./";
     this.aliases = config.aliases ? config.aliases : {};
 
+    this.Stats = function(path) {
+        const fpath = Path.resolve(self.preparePath(path));
+        return new Promise(function (resolve, reject) {
+            fs.stat(fpath, function(err, stat){
+                if (err){
+                    reject(err);
+                    return;
+                }
+                stat.isDirectory = stat.isDirectory();
+                stat.isFile = stat.isFile();
+                resolve(stat);
+            });
+        });
+    };
+
 	this.Browse = function(path) {
 		const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
@@ -24,7 +39,7 @@ function FilesService(config){
                     files[i].name = fname;
                     files[i].fileType = files[i].isDirectory() ? "directory" : files[i].isFile() ? "file" : "unknown";
                 }
-                resolve(JSON.stringify(files));
+                resolve(files);
             });
         });
     };
@@ -101,8 +116,6 @@ function FilesService(config){
     return Service.call(this, config);
 };
 
-FilesService.serviceId = "FilesService";
-	
 Inherit(FilesService, Service, {
 	preparePath : function(fpath){
 	    if (!fpath) fpath = '';

@@ -43,7 +43,22 @@ Frame._initFrame = function () {
             console.error(err.stack);
             err.handled = true;
         });
+        var keys = [];
+        for (var key in servicesToStart){
+            keys.push(key);
+        }
+        var index = 0;
+        var promise = null;
+        function onStarted() {
+            var key = keys[index];
+            if (key){
+                promise = services.StartService(key, servicesToStart[key]).then(onStarted);
+            }
+            index++;
+        }
 
+        onStarted();
+/*
 		var allSection = [];
 		for (var key in servicesToStart){
 			allSection.push(services.StartService(key, servicesToStart[key]));
@@ -55,7 +70,7 @@ Frame._initFrame = function () {
 					console.error("Root error:");
 					console.error(err);
 				}
-			});
+			});*/
 	}
 	catch (err) {
         console.log("RootError: ");
