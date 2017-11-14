@@ -89,7 +89,7 @@ Inherit(Service, EventEmitter, {
                             if (result instanceof stream.Readable || result instanceof stream.Writable) {
                                 socket.write({"type": "stream",  id: message.id, length: result.length});
                                 socket.netSocket.setEncoding('binary');
-                                result.pipe(socket);
+                                result.pipe(socket.netSocket);
                             }
                             else {
                                 socket.write({"type": "result", id: message.id, result: result});
@@ -110,7 +110,8 @@ Inherit(Service, EventEmitter, {
                 else {
                     if (result instanceof stream.Readable || result instanceof stream.Writable) {
                         socket.write({"type": "stream",  id: message.id, length: result.length});
-                        result.pipe(socket);
+                        socket.netSocket.setEncoding('binary');
+                        result.pipe(socket.netSocket);
                     }
                     if (message.id) {
                         socket.write({"type": "result", id: message.id, result: result})
