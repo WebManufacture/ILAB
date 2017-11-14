@@ -3,6 +3,7 @@ var Async = useModule('async');
 var Path = useSystem('path');
 var Url = useSystem('url');
 var http = useSystem('http');
+var https = useSystem('https');
 var stream = useSystem('stream');
 var EventEmitter = useSystem('events');
 var Service = useRoot("/System/Service.js");
@@ -40,7 +41,16 @@ StaticContentService = function(params){
         console.error("can't connect to FS service " + params.filesServiceId)
     });
 
-    this.server = http.createServer((req, res) => {
+    let createServer = http.createServer;
+    if (params.useSecureProtocol){
+        let options = {
+            pfx: fs.readFileSync(Path.resolve(params.keyFile)),
+            passphrase: fs.readFileSync(Path.resolve(params.certFile))
+        };
+        createServer = https.createServer.bind(options);
+    }
+
+    this.server = createServer((req, res) => {
         if (params.headers && typeof params.headers == "object") {
             for (var key in params.headers){
                 res.setHeader(key, params.headers[key]);
