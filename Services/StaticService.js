@@ -41,16 +41,9 @@ StaticContentService = function(params){
         console.error("can't connect to FS service " + params.filesServiceId)
     });
 
-    let createServer = http.createServer;
-    if (params.useSecureProtocol){
-        let options = {
-            pfx: fs.readFileSync(Path.resolve(params.keyFile)),
-            passphrase: fs.readFileSync(Path.resolve(params.certFile))
-        };
-        createServer = https.createServer.bind(options);
-    }
 
-    this.server = createServer((req, res) => {
+    let process = (req, res) => {
+        console.log("Request");
         if (params.headers && typeof params.headers == "object") {
             for (var key in params.headers){
                 res.setHeader(key, params.headers[key]);
@@ -94,7 +87,18 @@ StaticContentService = function(params){
             res.end(e.message);
         }
         return true;
-    });
+    };
+
+    if (params.useSecureProtocol){
+        let options = {
+            key: fs.readFileSync(Path.resolve(params.keyFile), 'utf8'),
+            cert: fs.readFileSync(Path.resolve(params.certFile), 'utf8')
+        };
+        this.server =  https.createServer(options, process);
+    }
+    else{
+        this.server =  http.createServer(process);
+    }
     this.server.listen(port);
     console.log("Static service on " + port);
     return result;
