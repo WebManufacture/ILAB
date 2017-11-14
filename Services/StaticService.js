@@ -89,14 +89,21 @@ StaticContentService = function(params){
         return true;
     };
 
-    if (params.useSecureProtocol){
+    if (params.useSecureProtocol == 'pfx'){
+        let options = {
+            pfx: fs.readFileSync(Path.resolve(params.keyFile)),
+            passphrase: params.pass
+        };
+        this.server =  https.createServer(options, process);
+    }
+    if (params.useSecureProtocol == 'pem'){
         let options = {
             key: fs.readFileSync(Path.resolve(params.keyFile), 'utf8'),
             cert: fs.readFileSync(Path.resolve(params.certFile), 'utf8')
         };
         this.server =  https.createServer(options, process);
     }
-    else{
+    if (!this.server){
         this.server =  http.createServer(process);
     }
     this.server.listen(port);
