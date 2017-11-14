@@ -43,7 +43,7 @@ StaticContentService = function(params){
 
 
     let process = (req, res) => {
-		console.log("Request");
+        console.log("Request");
         if (params.headers && typeof params.headers == "object") {
             for (var key in params.headers){
                 res.setHeader(key, params.headers[key]);
@@ -88,17 +88,17 @@ StaticContentService = function(params){
         }
         return true;
     };
-	
+
     if (params.useSecureProtocol){
         let options = {
-            pfx: fs.readFileSync(Path.resolve(params.keyFile), 'utf8'),
-            passphrase: fs.readFileSync(Path.resolve(params.certFile), 'utf8')
+            key: fs.readFileSync(Path.resolve(params.keyFile), 'utf8'),
+            cert: fs.readFileSync(Path.resolve(params.certFile), 'utf8')
         };
         this.server =  https.createServer(options, process);
     }
-	else{
-		this.server =  http.createServer(process);
-	}
+    else{
+        this.server =  http.createServer(process);
+    }
     this.server.listen(port);
     console.log("Static service on " + port);
     return result;
