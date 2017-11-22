@@ -5,7 +5,7 @@ ServiceProxy = function(serviceName){
     this.timeout = 5000; // время ожидания ответа (мс), для удалённых сервисов можно увеличивать, для локальных - уменьшать
     this.waiting = []; // очередь отправленных сообщений ждущих ответа
     this.connectionsCount = 0;
-    return EventEmitter.call(this);
+    this.handlers = {};
 };
 
 ServiceProxy.Connect = function(url, serviceId){
@@ -62,7 +62,7 @@ ServiceProxy.CreateProxyObject = function (service) {
     return obj;
 };
 
-Inherit(ServiceProxy, EventEmitter, {
+ServiceProxy.prototype = {
     _callMethod : function (methodName, args) {
         var self = this;
         return new Promise(function (resolve, reject) {
@@ -82,7 +82,9 @@ Inherit(ServiceProxy, EventEmitter, {
                 var socket = new WebSocket(self.url);
                 socket.onopen = function () {
                     try {
-                        socket.send(JSON.stringify(obj));
+                        setTimeout(function() {
+                            socket.send(JSON.stringify(obj));
+                        }, 10);
                     }
                     catch (err) {
                         raiseError(err);
@@ -271,9 +273,74 @@ Inherit(ServiceProxy, EventEmitter, {
         if (this.eventSocket){
             this.eventSocket.close();
         }
-    }
+    },
+
+    bind : function(){
+        var event = arguments[0];
+        for (var i = 0; i < arguments.length; i++){
+            arguments[i] = arguments[i+1];
+        }
+        arguments.length--;
+        var handler = CreateClosure.apply(this, arguments);
+        this.on(event, handler);
+    },
+
+    once : function(event, handler){
+        handler._eventFlagOnce = true;
+        this.on(event, handler);
+    },
+
+
+    clear : function(event){
+        if (!this.handlers[event]) return false;
+        this.handlers[event] = null;
+        return true;
+    },
+
+    on : function(event, handler){
+        if (event && typeof(handler) == "function") {
+            event = event + "";
+            if (!this.handlers[event]){
+                this.handlers[event] = [];
+            }
+            this.handlers[event].push(handler);
+        }
+    },
+
+    un : function(handler){
+        for (var event in this.handlers) {
+            this._unsubscribeHandler(event, handler);
+        }
+    },
+
+    _unsubscribeHandler : function(event, handler){
+        for (var i = 0; i < this.handlers[event].length; i++){
+            if (this.handlers[event][i] == handler){
+                this.handlers[event][i].splice(i, 1);
+                i--; continue;
+            }
+        }
+    },
+
+    emit : function(){
+        var event = arguments[0];
+        if (this.handlers[event] && this.handlers[event].length ){
+            for (var i = 0; i < arguments.length; i++){
+                arguments[i] = arguments[i+1];
+            }
+            arguments.length--;
+            for (var i = 0; i < this.handlers[event].length; i++){
+                var handler = this.handlers[event][i];
+                if (handler._eventFlagOnce){
+                    this.handlers[event].splice(i, 1);
+                    i--;
+                }
+                handler.apply(this, arguments);
+            }
+        }
+    },
     /*on : function (message, func) {
 
      return this.base.on.apply(this, args);
      }*/
-});
+};
