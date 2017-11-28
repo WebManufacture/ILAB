@@ -100,10 +100,10 @@ Inherit(Service, EventEmitter, {
                         }
                     }).catch(function (error) {
                         if (typeof error == "string") {
-                            socket.write({"type": "error", id: message.id, result: error});
+                            socket.write({"type": "error", id: message.id, result: error, message: error});
                         }
                         else {
-                            socket.write({"type": "error", id: message.id, result: error.message, stack: error.stack});
+                            socket.write({"type": "error", id: message.id, result: error.message, message: error.message, stack: error.stack});
                         }
                     });
                 }
@@ -152,7 +152,9 @@ Inherit(Service, EventEmitter, {
 
     emit: function (eventName) {
         if (eventName != "error" && eventName != "internal-event") {
-            Service.base.emit.call(this, "internal-event", eventName, Array.from(arguments));
+            var args = Array.from(arguments);
+            args.shift();
+            Service.base.emit.call(this, "internal-event", eventName, args);
         }
         Service.base.emit.apply(this, arguments);
     }

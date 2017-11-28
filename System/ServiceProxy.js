@@ -225,6 +225,10 @@ Inherit(ServiceProxy, EventEmitter, {
                     }
                     socket.on('error', raiseError);
                     socket.once("json", function (proxyObj) {
+                        if (proxyObj.type == 'error'){
+                            raiseError(proxyObj.result);
+                            return;
+                        }
                         self.serviceId = proxyObj.serviceId;
                         if (self.serviceId != "ServicesManager") {
                             console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
@@ -237,12 +241,12 @@ Inherit(ServiceProxy, EventEmitter, {
                         if (typeof callback == "function") {
                             callback.call(self, proxyObj);
                         }
+                        self._attachEventListener("*");
                         self.attached = true;
                         self.emit("connected", proxyObj);
                         socket.close();
                         resolve(self);
                     });
-                    self._attachEventListener("*");
                 }
                 catch (err) {
                     self.emit('error', err);

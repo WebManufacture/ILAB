@@ -129,18 +129,22 @@
                 Monitor.proxy.Start();
                 return;
             }
-            ServiceProxy.Connect("ws://localhost:5700", "ConsoleService").then(function(proxy){
+            ServiceProxy.Connect("ConsoleService").then(function(proxy){
                 Monitor.proxy = proxy;
                 Monitor.info("Соединение c ConsoleService установлено.");
                 proxy.on("close", function(event, reason){
-                    if (reason.wasClean) {
+                    if (!event){
+                        Monitor.info('Соединение c сервисом ConsoleService УЖЕ было закрыто ранее');
+                        return;
+					}
+                    if (event.wasClean) {
                         Monitor.info('Соединение c сервисом ConsoleService закрыто');
                     } else {
                         Monitor.info('Обрыв соединения с ConsoleService <br/> Код: ' + event.code + ' причина: ' + event.reason);
                     }
                 });
 
-                proxy.on("error", function(event, error){
+                proxy.on("error", function(error){
                     if (error){
                         Monitor.error('Ошибка в ConsoleService:' + error.message);
                         Monitor.obj(error);
@@ -162,24 +166,24 @@
                     Monitor.info("virtual-exited");
                 });
 
-                proxy.on("virtual-cmd", function(event, param){
+                proxy.on("virtual-cmd", function(param){
                     // Monitor.info("virtual-cmd: " + param);
                 });
 
-                proxy.on("virtual-error", function(event, param){
-                    Monitor.error("virtual-error: " + param);
+                proxy.on("virtual-error", function(error){
+                    Monitor.error("virtual-error: " + error);
                 });
 
 
-                proxy.on("virtual-output", function(event, param){
+                proxy.on("virtual-output", function(param){
                     Monitor.log(param);
                 });
 
                 proxy.Start();
             }).catch(function(error){
-                Monitor.error("ConsoleServiceProxy:" + error.message);
+                Monitor.error("ConsoleServiceProxy:" + (error.message ? error.message : error +''));
             });
-        }
+        };
 
 
         Monitor.Stop = function(){
@@ -187,13 +191,16 @@
                 Monitor.proxy.once("close", function(){
                     Monitor.proxy = null;
                 });
+                Monitor.proxy.Stop();
                 Monitor.proxy.close();
             }
-        }
+        };
 
         Monitor.Send = function(text){
             if (Monitor.proxy){
-                Monitor.proxy.Command(text);
+                Monitor.proxy.Command(text).catch(function (error) {
+					
+                });
             }
         }
 

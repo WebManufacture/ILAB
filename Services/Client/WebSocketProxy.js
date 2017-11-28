@@ -92,10 +92,8 @@ ServiceProxy.prototype = {
                 };
                 socket.onerror = raiseError;
                 socket.onclose = function (event) {
-                    if (event.wasClean) {
-                        console.log('Соединение закрыто чисто');
-                    } else {
-                        console.error('Обрыв соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
+                    if (!event.wasClean) {
+                        console.error('Обрыв соединения при вызове метода\n' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
                     }
                 };
                 socket.onmessage = function (message) {
@@ -170,16 +168,20 @@ ServiceProxy.prototype = {
                         }
                     };
                     function raiseError(err) {
-                        console.error("Socket error at " + self.serviceId + ":" + url);
-                        console.log(event);
-                        self.emit('error', event);
+                        console.error("Socket error at " + self.serviceId + ":" + url + "\n" + err);
+                        self.emit('error', err);
                         socket.close();
                         reject(err);
                     };
                     socket.onerror = raiseError;
                     socket.onmessage = function (message) {
                         //console.dir(proxyObj);//debug
-                        var proxyObj = JSON.parse(message.data);
+                        var messageData = JSON.parse(message.data);
+                        if (messageData.type == 'error'){
+                            raiseError(messageData.result);
+                            return;
+                        }
+                        var proxyObj = messageData;
                         self.serviceId = proxyObj.serviceId;
                         //if (self.serviceId != "ServicesManager")
                         console.log("Service proxy connected to " + url);
@@ -193,18 +195,16 @@ ServiceProxy.prototype = {
                         }
                         self.attached = true;
                         console.log(proxyObj);
+                        self._attachEventListener("*");
                         self.emit("connected", proxyObj);
                         socket.close();
                         resolve(self);
                     };
                     socket.onclose = function (event, isError) {
-                        if (event.wasClean) {
-                            console.log('Соединение закрыто чисто');
-                        } else {
-                            console.error('Обрыв соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
+                        if (!event.wasClean) {
+                            console.error('Обрыв соединения при подключении\n' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
                         }
                     };
-                    self._attachEventListener("*");
                 }
                 catch (err) {
                     self.emit('error', err);
@@ -225,7 +225,7 @@ ServiceProxy.prototype = {
                     eventSocket.close();
                     reject(err);
                 }
-                var eventSocket = this.eventSocket = new WebSocket(self.url);
+                var eventSocket = self.eventSocket = new WebSocket(self.url);
                 eventSocket.onopen = function () {
                     try {
                         eventSocket.send(JSON.stringify({"type": "subscribe", name: eventName}));
@@ -238,6 +238,7 @@ ServiceProxy.prototype = {
                 var messageHandlerFunction = function (message) {
                     message = JSON.parse(message.data);
                     if (message.type == "event") {
+                        message.args.unshift(message.name);
                         self.emit.apply(self, message.args);
                     }
                     if (message.type == "error") {
@@ -250,9 +251,11 @@ ServiceProxy.prototype = {
                     self.connectionsCount--;
                     if (event.wasClean) {
                         console.log('Event cоединение закрыто чисто');
-                        setImmediate(()=>{
-                            self._attachEventListener(eventName);
-                        }, 3000);
+                        if (event.code < 4000) {
+                            setTimeout(() => {
+                                self._attachEventListener(eventName);
+                            }, 100);
+                        }
                     } else {
                         console.error('Обрыв event соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
                     }
@@ -270,8 +273,15 @@ ServiceProxy.prototype = {
     },
 
     close : function(){
+        var self = this;
         if (this.eventSocket){
-            this.eventSocket.close();
+            this.once("event-close", function (event) {
+                self.emit("close", event);
+            });
+            this.eventSocket.close(4000, "Сlosing proxy");
+        }
+        else {
+            self.emit("close", null);
         }
     },
 

@@ -41,7 +41,6 @@ StaticContentService = function(params){
         console.error("can't connect to FS service " + params.filesServiceId)
     });
 
-
     let process = (req, res) => {
         console.log("Request");
         if (params.headers && typeof params.headers == "object") {
@@ -109,6 +108,19 @@ StaticContentService = function(params){
     this.server.listen(port);
     console.log("Static service on " + port);
     return result;
+
+
+    this.Get = function (path) {
+        return serv.fs.Read(this.formatPath(path));
+    };
+
+    this.Browse = function (path) {
+        return serv.fs.Browse(this.formatPath(path));
+    };
+
+    this.Concat = function (path) {
+        return this.concatDir(this.formatPath(path));
+    }
 };
 
 
@@ -127,6 +139,9 @@ StaticContentService.MimeTypes = {
 
 Inherit(StaticContentService, Service, {
     formatPath : function (path) {
+        if (this.config.defaultFile && (ptail == "" || ptail == "/")){
+            ptail += serv.config.defaultFile;
+        }
         return path;
     },
 
@@ -134,9 +149,6 @@ Inherit(StaticContentService, Service, {
         var serv = this;
         var url = Url.parse(req.url);
         var ptail = url.pathname;
-        if (this.config.defaultFile && (ptail == "" || ptail == "/")){
-            ptail += serv.config.DefaultFile;
-        }
         var fpath = this.formatPath(ptail);
         if (req.method == "GET"){
             this.fs.Stats(fpath).then(
@@ -251,6 +263,67 @@ Inherit(StaticContentService, Service, {
             res.statusCode = 500;
             res.end("readdir " + fpath + " error " + err);
         });
+    },
+
+    concatDir : function(fpath, params){
+        var self = this;
+        if (!params) params = { first : '', delimeter: ' ', last: ''};
+        var promise = new Promise(function(resolve, reject) {
+            this.fs.Browse(fpath).then(function (err, files) {
+                try {
+                    var collector = new Async.Collector(files.length);
+                    for (var i = 0; i < files.length; i++) {
+                        var fname = fpath + "\\" + files[i];
+                        //console.log('concat ' + fname);
+                        collector.createParametrizedCallback(fname, function (file, callback) {
+                            self.fs.Stats(file).then(function (stat) {
+                                var ext = Path.extname(file);
+                                ext = ext.replace(".", "");
+                                ext = serv.mime[ext];
+                                if (stat.isFile()) {
+                                    self.fs.Read(file, 'utf-8').then(function (result) {
+                                        callback(result);
+                                    });
+                                }
+                                else {
+                                    callback("");
+                                }
+                            });
+                        });
+                    }
+                    /*
+                     collector.on('handler', function(param, count){
+                     console.log('Handler complete ' + this.count + " " + count);
+                     });*/
+                    collector.on('done', function (results) {
+                        var result = "";
+                        if (params.first) {
+                            result += params.first;
+                        }
+                        for (var i = 0; i < results.length; i++) {
+                            if (results[i] && results[i] != "") {
+                                result += results[i];
+                                if (params.delimeter && i < results.length - 1) {
+                                    result += params.delimeter;
+                                }
+                            }
+                        }
+                        ;
+                        if (params.last) {
+                            result += params.last;
+                        }
+                        resolve(result);
+                    });
+                    collector.run();
+                }
+                catch (error) {
+                    reject(error);
+                }
+            }).catch(function (err) {
+                reject(err);
+            });
+        });
+        return promise;
     },
 });
 
