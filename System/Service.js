@@ -127,6 +127,7 @@ Inherit(Service, EventEmitter, {
             }
         };
         var internalEventHandler = function (eventName, args) {
+            //args.shift();
             socket.write({ type: "event", name : eventName, args : args});
         };
         var serverClosingHandler = function (eventName, args) {
@@ -153,7 +154,7 @@ Inherit(Service, EventEmitter, {
     emit: function (eventName) {
         if (eventName != "error" && eventName != "internal-event") {
             var args = Array.from(arguments);
-            args.shift();
+            //args.shift();
             Service.base.emit.call(this, "internal-event", eventName, args);
         }
         Service.base.emit.apply(this, arguments);

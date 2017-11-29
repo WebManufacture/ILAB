@@ -283,7 +283,7 @@ Inherit(ServiceProxy, EventEmitter, {
                 });
                 eventSocket.once("close", function (err) {
                     self.connectionsCount--;
-                    console.log("Socket Closed at " + self.serviceId + ":" + port + ":" + self.connectionsCount);
+                    console.log("Socket Closed at " + self.serviceId + ":" + self.port + ":" + self.connectionsCount);
                     console.log("Waiting queue " + self.waiting.length);
                     console.log(err);
                     setImmediate(()=>{

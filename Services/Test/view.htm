@@ -166,16 +166,16 @@
                     Monitor.info("virtual-exited");
                 });
 
-                proxy.on("virtual-cmd", function(param){
+                proxy.on("virtual-cmd", function(event, param){
                     // Monitor.info("virtual-cmd: " + param);
                 });
 
-                proxy.on("virtual-error", function(error){
+                proxy.on("virtual-error", function(event, error){
                     Monitor.error("virtual-error: " + error);
                 });
 
 
-                proxy.on("virtual-output", function(param){
+                proxy.on("virtual-output", function(event, param){
                     Monitor.log(param);
                 });
 
