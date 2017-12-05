@@ -107,7 +107,6 @@ StaticContentService = function(params){
     }
     this.server.listen(port);
     console.log("Static service on " + port);
-    return result;
 
 
     this.Get = function (path) {
@@ -120,7 +119,7 @@ StaticContentService = function(params){
 
     this.Concat = function (path) {
         return this.concatDir(this.formatPath(path));
-    }
+    };
 };
 
 
