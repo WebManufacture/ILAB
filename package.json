@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/WebManufacture/ILAB-3.0#readme",
   "dependencies": {
-    "child-process-debug": "^0.0.7",
+    "child-process-debug": "latest",
     "serialport": "^4.0.7",
     "ws": "^2.1.0"
   }

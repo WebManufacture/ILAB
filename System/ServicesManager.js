@@ -47,7 +47,8 @@ function ServicesManager(config, portCountingFunc){
         if (typeof options != "object") options = {};
         options.serviceId = id;
         options.servicePort = port;
-        var mon = new ForkMon(Frame.ilabPath + "/System/ServiceFrame.js", null, options);
+        options.debugPort = port+1;
+        var mon = new ForkMon(Frame.ilabPath + "/System/ServiceFrame.js", ["--inspect-brk=" + (port+1)], options);
         mon.serviceId = id;
         mon.port = port;
         mon._messageEvent = self._messageEvent;

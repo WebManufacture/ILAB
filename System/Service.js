@@ -16,7 +16,13 @@ Service = function(params){
         pauseOnConnect: false
     }, this._onConnection.bind(this));
     this.server.on("error", function (err) {
-        this.emit('error');
+        try {
+            this.emit('error', err);
+        }
+        catch (e){
+            console.log(err);
+            console.error(e);
+        }
     });
     try {
         this.server.listen(this.port, function () {

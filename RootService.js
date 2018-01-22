@@ -40,7 +40,7 @@ Frame._initFrame = function () {
             if (err.serviceId) {
                 console.log("Service error: "  + err.serviceId);
             }
-            console.error(err.stack);
+            console.error(err);
             err.handled = true;
         });
         var keys = [];
@@ -49,6 +49,7 @@ Frame._initFrame = function () {
         }
         var index = 0;
         var promise = null;
+
         function onStarted() {
             var key = keys[index];
             if (key){

@@ -2,7 +2,7 @@ var fs = useSystem('fs');
 var Path = useSystem('path');
 var EventEmitter = useSystem('events');
 var os = useSystem("os");
-var ChildProcess = useSystem('child-process-debug');
+var ChildProcess = useSystem('child_process');
 var util = useModule('utils');
 
 function ForkMon(path, args, env){
@@ -43,13 +43,22 @@ Inherit(ForkMon, EventEmitter, {
         if (!this.env) this.env = {};
         var cwd =  process.cwd();
         if (this.env && this.env.cwd){
-            cwd = args.cwd;
+            cwd = this.env.cwd;
         }
         if (!Array.isArray(args)) args = [JSON.stringify(args)];
         var argsA = args;
         //var debug = process.execArgv.indexOf('--debug');
         //--debug-brk=<free port>
-        var cp = this.process = ChildProcess.fork(this.path, argsA, { silent: false, cwd: cwd, env: this.env  });
+        var options = {
+            silent: false,
+            cwd: cwd,
+            env: this.env
+        };
+        if (this.env.debugPort){
+            console.log("debug port " + this.env.debugPort);
+            options.execArgv = ["--inspect=" + this.env.debugPort];
+        }
+        var cp = this.process = ChildProcess.fork(this.path, argsA, options);
         this.code = ForkMon.STATUS_WORKING;
         if (callback){
             var fork = this;
