@@ -9,6 +9,7 @@ function FilesService(config){
     var self = this;
     this.basePath = config.basepath ? config.basepath : "./";
     this.aliases = config.aliases ? config.aliases : {};
+    this.watchingPath = {};
 
     this.Stats = function(path) {
         const fpath = Path.resolve(self.preparePath(path));
@@ -144,6 +145,19 @@ function FilesService(config){
         const fpath = Path.resolve(self.preparePath(path));
         var socket = this;
         return fs.createWriteStream(fpath, socket, encoding);
+    };
+
+    this.Watch = function(path, recursive){
+        const fpath = Path.resolve(self.preparePath(path));
+        if (!self.watchingPath[fpath]){
+            self.watchingPath[fpath] = true;
+            fs.watch(fpath, { recursive: recursive }, function (eventType, path) {
+                self.emit("watch:" + fpath, eventType, path);
+                self.emit("watch", eventType, path);
+                self.emit("watch-" + eventType, path);
+            });
+        }
+        return fpath;
     };
 
     return Service.call(this, config);

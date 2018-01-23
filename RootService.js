@@ -53,7 +53,9 @@ Frame._initFrame = function () {
         function onStarted() {
             var key = keys[index];
             if (key){
-                promise = services.StartService(key, servicesToStart[key]).then(onStarted);
+                promise = services.StartService(key, servicesToStart[key]).then(onStarted).catch((error)=>{
+                    onStarted();
+                });
             }
             index++;
         }

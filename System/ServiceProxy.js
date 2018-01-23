@@ -72,7 +72,9 @@ ServiceProxy.GetService = function (serviceName) {
             return proxy.attach(services[serviceName], ServiceProxy.instance.host);
         }
         else{
-            this.reject("service " + serviceName + " not found");
+            return new Promise((resolve, reject) => {
+                reject("service " + serviceName + " not found");
+            });
         }
     };
     if (!ServiceProxy.instance) {

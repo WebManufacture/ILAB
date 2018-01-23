@@ -29,11 +29,12 @@ function JsonSocket() {
         json += parts.shift();
         while (parts.length > 0) {
             try {
-                self.emit('json', JSON.parse(json));
+                json = JSON.parse(json);
             }
             catch (err) {
                 self.emit("error", new Error("Socket JSON Error parsing"))
             }
+            self.emit('json', json);
             json = parts.shift();
         }
     });

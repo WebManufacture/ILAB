@@ -30,6 +30,11 @@ function ServicesManager(config, portCountingFunc){
             return serviceId + " stopped";
         });
     };
+    this.ResetService = function (serviceId, params) {
+        return self.stopServiceAsync(serviceId, params).then(self.startServiceAsync(serviceId, params)).then(() => {
+            return serviceId + " restarted";
+        });
+    };
     this.GetServices = function () {
         return new Promise(function(resolve, reject){ resolve(self.getServices()) });
     };

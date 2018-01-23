@@ -77,45 +77,58 @@ Frame._initFrame = function () {
 
 Frame._startFrame = function (node) {
     ServiceProxy.init().then(function (servicesManager) {
-        var sm = global.ServicesManager = {};
-        for (var item in servicesManager){
-            sm[item] = servicesManager[item];
-        }
-        sm.GetServices = ServiceProxy.GetServices;
-        sm.GetService = ServiceProxy.GetService;
+        try {
+            var sm = global.ServicesManager = {};
+            for (var item in servicesManager) {
+                sm[item] = servicesManager[item];
+            }
+            sm.GetServices = ServiceProxy.GetServices;
+            sm.GetService = ServiceProxy.GetService;
 
-        var params = {};
-        if (process.env.params && typeof process.env.params == "string") params = JSON.parse(process.env.params);
-        if (node.hasPrototype("Service")) {
-            if (params && params.id) {
-                Frame.serviceId = params.id;
-                if (node.serviceId) {
-                    Frame.serviceId = node.serviceId;
+            var oldLog = console.log;
+            console.log = function () {
+                if (typeof arguments[0] == "string" && arguments[0].indexOf(Frame.serviceId) != 0) {
+                    arguments[0] = Frame.serviceId + ": " + arguments[0];
                 }
-                else {
-                    if (!Frame.serviceId) {
-                        Frame.serviceId = node.name;
+                oldLog.apply(this, arguments);
+            };
+
+            var params = {};
+            if (process.env.params && typeof process.env.params == "string") params = JSON.parse(process.env.params);
+            if (node.hasPrototype("Service")) {
+                if (params && params.id) {
+                    Frame.serviceId = params.id;
+                    if (node.serviceId) {
+                        Frame.serviceId = node.serviceId;
+                    }
+                    else {
+                        if (!Frame.serviceId) {
+                            Frame.serviceId = node.name;
+                        }
                     }
                 }
+                service = new node(params);
+                if (service.serviceId) {
+                    Frame.serviceId = service.serviceId;
+                }
+                service.on("error", function (err) {
+                    // console.error(err);
+                    Frame.error(err);
+                });
+                process.on('uncacughtException', function () {
+                    process.exit();
+                });
             }
-            service = new node(params);
-            if (service.serviceId){
-                Frame.serviceId = service.serviceId;
+            else {
+                console.log(Frame.node + " node starting...");
+                node = node(params);
+                console.log(Frame.nodePath + " node started");
             }
-            service.on("error", function (err) {
-                // console.error(err);
-                Frame.error(err);
-            });
-            process.on('uncacughtException', function () {
-                process.exit();
-            });
+            process.send({type: "control", state: "started", serviceId: Frame.serviceId});
         }
-        else {
-            console.log(Frame.node + " node starting...");
-            node = node(params);
-            console.log(Frame.nodePath + " node started");
+        catch (err){
+            Frame.error(err);
         }
-        process.send({type : "control", state: "started", serviceId: Frame.serviceId});
     }).catch(function (err) {
         Frame.error(err);
         //console.log("Fork error in " + Frame.serviceId + " " + Frame.nodePath);
