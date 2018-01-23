@@ -55,7 +55,7 @@ Inherit(ForkMon, EventEmitter, {
             env: this.env
         };
         if (this.env.debugPort){
-            console.log("debug port " + this.env.debugPort);
+            //console.log("debug port " + this.env.debugPort);
             options.execArgv = ["--inspect=" + this.env.debugPort];
         }
         var cp = this.process = ChildProcess.fork(this.path, argsA, options);

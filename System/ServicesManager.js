@@ -9,8 +9,10 @@ var Service = useRoot("System/Service");
 var ServiceProxy = useRoot("System/ServiceProxy");
 
 function ServicesManager(config, portCountingFunc){
+    this.debugMode = process.execArgv[0] && process.execArgv[0].indexOf("--inspect") >= 0;
 	this.services = {};
     var self = this;
+    this.forksCount = 0;
     if (typeof portCountingFunc != "function"){
         this._availablePort = Frame.servicePort;
         portCountingFunc = function () {
@@ -47,8 +49,17 @@ function ServicesManager(config, portCountingFunc){
         if (typeof options != "object") options = {};
         options.serviceId = id;
         options.servicePort = port;
-        options.debugPort = port+1;
+        if (self.debugMode || (config && (config.debugMode || config.debugPort))) {
+            if (config && config.debugPort){
+                options.debugPort = config.debugPort + self.forksCount + 1;
+            }
+            else {
+                options.debugPort = port + 1;
+            }
+            console.log("Debugger activated on " + options.debugPort);
+        }
         var mon = new ForkMon(Frame.ilabPath + "/System/ServiceFrame.js", ["--inspect-brk=" + (port+1)], options);
+        self.forksCount++;
         mon.serviceId = id;
         mon.port = port;
         mon._messageEvent = self._messageEvent;

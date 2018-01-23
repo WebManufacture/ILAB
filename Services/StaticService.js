@@ -42,7 +42,6 @@ StaticContentService = function(params){
     });
 
     let process = (req, res) => {
-        console.log("Request");
         if (params.headers && typeof params.headers == "object") {
             for (var key in params.headers){
                 res.setHeader(key, params.headers[key]);
@@ -181,13 +180,15 @@ Inherit(StaticContentService, Service, {
                             res.setHeader("Content-Type", ext);
                         }
                         else{
-                            res.setHeader("Content-Type", "text/plain");
+                            res.setHeader("Content-Type", "text/plain; charset=utf-8");
                         }
-                        var enc = 'binary';
+                        var encoding = 'binary';
                         if (ext.indexOf("text/") >= 0) {
-                            enc = 'utf-8';
+                            encoding = 'utf8';
                         }
-                        serv.fs.ReadStream(fpath, enc).then(function (stream) {
+                        serv.fs.ReadStream(fpath, encoding).then(function (stream) {
+                            res.setHeader("Content-Length", stream.length);
+                            stream.setEncoding(encoding);
                             stream.pipe(res);
                         }).catch(function (err) {
                             res.statusCode = 500;
@@ -197,7 +198,11 @@ Inherit(StaticContentService, Service, {
                 }
             ).catch(function(err) {
                 res.statusCode = 500;
-                res.end(err.message);
+                if (err.message) {
+                    res.end(err.message);
+                } else {
+                    res.end(err);
+                }
             });
         }
     },

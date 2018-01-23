@@ -151,7 +151,13 @@ Inherit(ServiceProxy, EventEmitter, {
                     }
                     if (message.type == "stream" && message.id) {
                         message.stream = socket.netSocket;
-                        socket.netSocket.setEncoding('binary');
+                        message.stream.length = message.length;
+                        if (message.encoding){
+                            socket.netSocket.setEncoding(message.encoding);
+                        }
+                        else {
+                            socket.netSocket.setEncoding('binary');
+                        }
                         resolve(message.stream);
                     }
                     if (message.type == "error") {
