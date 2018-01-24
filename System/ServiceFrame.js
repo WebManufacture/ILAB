@@ -137,7 +137,8 @@ Frame._startFrame = function (node) {
 };
 
 process.once("exit", function(){
-    console.log(Frame.serviceId + ":" + Frame.servicePort + " exiting.");
+    var date = (new Date());
+    console.log(Frame.serviceId + ":" + Frame.servicePort + " exited:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
 });
 
 process.on('unhandledRejection', (reason, p) => {
@@ -147,10 +148,12 @@ process.on('unhandledRejection', (reason, p) => {
 
 process.on("message", function(pmessage){
     if (pmessage == 'EXIT-REQUEST'){
-        process.emit("EXIT-REQUEST");
+        process.emit("exiting");
+        var date = (new Date());
+        console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
         var tm = setTimeout(function(){
             process.exit();
-        }, 500);
+        }, 10);
         process.once("exit", function(){
             clearTimeout(tm);
         });

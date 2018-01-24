@@ -66,6 +66,9 @@ Router = function(port, timeout){
         });
 		this.server.listen(port);
 	}
+	this.close = () => {
+		return this.server.close();
+    }
 };
 
 Router.prototype = {

@@ -9,8 +9,9 @@ var Service = useRoot("System/Service");
 var ServiceProxy = useRoot("System/ServiceProxy");
 
 function ServicesManager(config, portCountingFunc){
-    this.debugMode = process.execArgv[0] && process.execArgv[0].indexOf("--inspect") >= 0;
+    this.debugMode = config.debugMode;
 	this.services = {};
+	this.params = {};
     var self = this;
     this.forksCount = 0;
     if (typeof portCountingFunc != "function"){
@@ -21,8 +22,28 @@ function ServicesManager(config, portCountingFunc){
     }
     this.getPort = portCountingFunc;
     this.StartService = function (serviceId, params) {
+        this.params[serviceId] = params;
         return self.startServiceAsync(serviceId, params).then(function () {
             return serviceId + " started";
+        });
+    };
+    this.StartServices = function (services, params) {
+        var index = 0;
+        function startNext(resolve, reject) {
+            var key = services[index];
+            if (key && index < services.length){
+                self.startServiceAsync(key, params[index]).then(()=>{
+                    startNext(resolve, reject);
+                }).catch((error)=>{
+                    reject(error);
+                });
+                index++;
+            } else {
+                resolve();
+            }
+        };
+        return new Promise((resolve, reject)=>{
+            startNext(resolve, reject);
         });
     };
     this.StopService = function (serviceId, params) {
@@ -30,10 +51,42 @@ function ServicesManager(config, portCountingFunc){
             return serviceId + " stopped";
         });
     };
+    this.StopServices = function (services) {
+        var index = services.length - 1;
+        function stopNext(resolve, reject) {
+            var key = services[index];
+            if (key && index >= 0){
+                self.stopServiceAsync(key, self.params[key]).then(()=>{
+                    stopNext(resolve, reject);
+                }).catch((error)=>{
+                    reject(error);
+                });
+                index--;
+            } else {
+                resolve();
+            }
+        };
+        return new Promise((resolve, reject)=>{
+            stopNext(resolve, reject);
+        });
+    };
     this.ResetService = function (serviceId, params) {
-        return self.stopServiceAsync(serviceId, params).then(self.startServiceAsync(serviceId, params)).then(() => {
+        return self.stopServiceAsync(serviceId, params).then(()=>{
+            return self.startServiceAsync(serviceId, params)
+        }).then(() => {
             return serviceId + " restarted";
         });
+    };
+    this.ResetServices = function (services, params) {
+        return self.StopServices(services, params).then(()=>{
+            return self.StartServices(services, params);
+        })
+    };
+    this.ResetAllServices = function () {
+        const services = Object.keys(self.services);
+        const params = [];
+        services.forEach(sid => params.push(self.params[sid]));
+        return self.ResetServices(services, params);
     };
     this.GetServices = function () {
         return new Promise(function(resolve, reject){ resolve(self.getServices()) });
@@ -54,16 +107,17 @@ function ServicesManager(config, portCountingFunc){
         if (typeof options != "object") options = {};
         options.serviceId = id;
         options.servicePort = port;
-        if (self.debugMode || (config && (config.debugMode || config.debugPort))) {
-            if (config && config.debugPort){
-                options.debugPort = config.debugPort + self.forksCount + 1;
-            }
-            else {
-                options.debugPort = port + 1;
-            }
-            console.log("Debugger activated on " + options.debugPort);
+        if (!options.debugMode){
+            options.debugMode = self.debugMode;
         }
-        var mon = new ForkMon(Frame.ilabPath + "/System/ServiceFrame.js", ["--inspect-brk=" + (port+1)], options);
+        if (options && (options.debugMode || options.debugPort)) {
+            options.debugMode = options.debugMode ? options.debugMode : "inspect";
+            if (!options.debugPort){
+                options.debugPort = config.debugPort ? config.debugPort + self.forksCount + 1 :  port + 1;
+            }
+            //console.log("Debugger activated on " + options.debugPort);
+        }
+        var mon = new ForkMon(Frame.ilabPath + "/System/ServiceFrame.js", [], options);
         self.forksCount++;
         mon.serviceId = id;
         mon.port = port;
@@ -132,7 +186,7 @@ Inherit(ServicesManager, Service, {
                             resolve(service, serviceId, params);
                         });
                         service.once("error", reject);
-                        service.start();
+                        service.start(params);
                     }
                     else{
                         reject("Service already working");
@@ -143,7 +197,11 @@ Inherit(ServicesManager, Service, {
                         service.removeListener("error", reject);
                         resolve(service, serviceId, params);
                     });
-                    service.once("error", reject);
+                    if (service) {
+                        service.once("error", reject);
+                    } else {
+                        reject("Can not find service " + serviceId);
+                    }
                 }
             }
             catch (err){
@@ -160,12 +218,13 @@ Inherit(ServicesManager, Service, {
         var self = this;
         var promise = new Promise((resolve, reject) => {
             try {
-                if (!this.isServiceAvailable(serviceId)) return reject("Service not available");
+                if (!this.isServiceAvailable(serviceId)) return reject("Service " + serviceId + " not available");
                 var service = this.services[serviceId];
                 if (service.code < ForkMon.STATUS_WORKING) return reject("Service not working");
                 service.once("exited", ()=>{
                    resolve(serviceId + " stopped");
                 });
+                console.log("Stopping service " + serviceId);
                 this.services[serviceId].stop();
             }
             catch (err){
@@ -184,7 +243,7 @@ Inherit(ServicesManager, Service, {
 		}
         function startService(service) {
             if (service.code < ForkMon.STATUS_WORKING) {
-                service.start();
+                service.start(params);
             }
             else{
                 this.emit("error", new Error("Service " + serviceId + " already work!"));
@@ -256,7 +315,7 @@ Inherit(ServicesManager, Service, {
         }
         function startNode(nodeFork) {
             if (nodeFork.code < ForkMon.STATUS_WORKING) {
-                nodeFork.start();
+                nodeFork.start(params);
             }
             else{
                 this.emit("error", new Error("Node " + nodeId + " already work!"));

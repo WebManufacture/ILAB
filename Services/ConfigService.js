@@ -73,12 +73,12 @@ Inherit(ConfigService, Service, {
     },
 
     reloadStore(doCheck, doReload){
-        var newStore = require(Path.resolve("./config.json"));
+        var newStore = JSON.parse(fs.readFileSync(Path.resolve("./config.json"), 'utf8'));;
         var self = this;
         if (doCheck){
             let servicesToStart = [];
             for (const serviceId in newStore){
-                let config = this.store[serviceId];
+                let config = self.store[serviceId];
                 let newConfig = newStore[serviceId];
                 if (config === undefined){
                     //console.log("")
@@ -90,34 +90,28 @@ Inherit(ConfigService, Service, {
                     var value = config[configKey];
                     delete config[configKey];
                     if (newConfig[configKey] != value){
-                        ServicesManager.StopService(serviceId);
                         servicesToStart.push(serviceId);
                         break;
                     }
                 }
 
                 if (Object.keys(config).length){
-                    ServicesManager.StopService(serviceId);
-                    servicesToStart.push(serviceId);
+                    if (servicesToStart.indexOf(serviceId) < 0) {
+                        servicesToStart.push(serviceId);
+                    }
                 }
 
-                delete this.store[serviceId];
+                delete self.store[serviceId];
             }
-            for (const serviceId in this.store){
-                ServicesManager.StopService(serviceId);
-            }
-            self.loadStore();
-            function restartService() {
-                if (servicesToStart[0]) {
-                    ServicesManager.StartService(serviceId, self.store[serviceId]).then(() => {
-                        servicesToStart.shift();
-                        restartService();
-                    });
+            for (const serviceId in self.store){
+                if (servicesToStart.indexOf(serviceId) < 0) {
+                    servicesToStart.push(serviceId);
                 }
             }
-            if (servicesToStart.length) {
-                restartService();
-            }
+            self.loadStore();
+            var params = [];
+            servicesToStart.forEach(sid => params.push(self.store[sid]));
+            ServicesManager.ResetServices(servicesToStart, params);
             return;
         }
         self.loadStore();
@@ -134,7 +128,7 @@ Inherit(ConfigService, Service, {
     },
 
     loadStore : function(serviceId){
-        this.store = require(Path.resolve("./config.json"));
+        this.store = JSON.parse(fs.readFileSync(Path.resolve("./config.json"), 'utf8'));
         return serviceId ? this.store[serviceId] : this.store;
     }
 });

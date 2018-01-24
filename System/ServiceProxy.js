@@ -163,7 +163,14 @@ Inherit(ServiceProxy, EventEmitter, {
                         resolve(message.stream);
                     }
                     if (message.type == "error") {
-                        raiseError(message.result)
+                        var err = new Error(message.result);
+                        console.log("Error while calling " + self.serviceId + ":" + self.port + ":" + methodName);
+                        if (message.stack){
+                            err.stack = message.stack;
+                        }
+                        console.error(err);
+                        self.emit('error', err);
+                        reject(err);
                     }
                 });
             }
@@ -291,12 +298,15 @@ Inherit(ServiceProxy, EventEmitter, {
                 });
                 eventSocket.once("close", function (err) {
                     self.connectionsCount--;
-                    console.log("Socket Closed at " + self.serviceId + ":" + self.port + ":" + self.connectionsCount);
-                    console.log("Waiting queue " + self.waiting.length);
-                    console.log(err);
-                    setImmediate(()=>{
-                        self._attachEventListener(eventName);
-                    });
+                    if (err) {
+                        //console.log("EventSocket error " + err + " at " + self.serviceId + ":" + self.port + ":" + self.connectionsCount);
+                        setImmediate(() => {
+                            self._attachEventListener(eventName);
+                        });
+                    }
+                    else{
+                        //console.log("EventSocket closed success at " + self.serviceId + ":" + self.port + ":" + self.connectionsCount);
+                    }
                 });
                 var messageHandlerFunction = function (message) {
                     if (message.type == "event") {
@@ -306,6 +316,12 @@ Inherit(ServiceProxy, EventEmitter, {
                         raiseError(message);
                     }
                 };
+                process.once("exiting", ()=> {
+                    eventSocket.end();
+                });
+                process.once("exit", ()=> {
+                    eventSocket.end();
+                });
                 eventSocket.on("json", messageHandlerFunction);
             });
         }

@@ -32,33 +32,36 @@ ForkMon.STATUS_STOPPING = 6;
 ForkMon.STATUS_WORKING = 7;
 
 Inherit(ForkMon, EventEmitter, {
-    start : function(args){
+    start : function(params){
         if (this.code >= ForkMon.STATUS_WORKING){
             return;
         }
-        if (typeof (args) == 'function'){
-            var callback = args;
+        if (typeof (params) == 'function'){
+            var callback = params;
+            params = null;
         }
-        if (!args) args = this.args;
-        if (!this.env) this.env = {};
-        var cwd =  process.cwd();
-        if (this.env && this.env.cwd){
-            cwd = this.env.cwd;
+        if (!params) params = {};
+        if (this.env) {
+            for (const key in this.env) {
+                if (!params.hasOwnProperty(key) && this.env.hasOwnProperty(key)){
+                    params[key] = this.env[key];
+                }
+            }
         }
-        if (!Array.isArray(args)) args = [JSON.stringify(args)];
-        var argsA = args;
-        //var debug = process.execArgv.indexOf('--debug');
-        //--debug-brk=<free port>
         var options = {
             silent: false,
-            cwd: cwd,
-            env: this.env
+            cwd : process.cwd(),
+            params : [JSON.stringify(params)],
+            env : params
         };
-        if (this.env.debugPort){
-            //console.log("debug port " + this.env.debugPort);
-            options.execArgv = ["--inspect=" + this.env.debugPort];
+        if (params && params.cwd){
+            options.cwd = params.cwd;
+        };
+        if (params.debugPort){
+            const key = this.env.debugMode == 'debug' ? "--inspect-brk" : "--inspect";
+            options.execArgv = [key + "=" + params.debugPort];
         }
-        var cp = this.process = ChildProcess.fork(this.path, argsA, options);
+        var cp = this.process = ChildProcess.fork(this.path, this.args, options);
         this.code = ForkMon.STATUS_WORKING;
         if (callback){
             var fork = this;

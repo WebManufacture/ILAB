@@ -15,6 +15,7 @@ Service = function(params){
         allowHalfOpen: false,
         pauseOnConnect: false
     }, this._onConnection.bind(this));
+    self.setMaxListeners(100);
     this.server.on("error", function (err) {
         try {
             this.emit('error', err);
@@ -32,6 +33,12 @@ Service = function(params){
     catch (error){
         throw ("Cannot start " + this.serviceId + " on " + this.port + "\n" + error.message);
     }
+    process.once("exiting", () =>{
+        self._closeServer();
+    });
+    process.once("exit", () =>{
+        self._closeServer();
+    });
     return EventEmitter.call(this);
 };
 
@@ -144,7 +151,13 @@ Inherit(Service, EventEmitter, {
         };
         var internalEventHandler = function (eventName, args) {
             //args.shift();
-            socket.write({ type: "event", name : eventName, args : args});
+            try {
+                if (!socket.closed) {
+                    socket.write({type: "event", name: eventName, args: args});
+                }
+            } catch(err){
+               //errorHandler(err);
+            }
         };
         var serverClosingHandler = function (eventName, args) {
             socket.end();
@@ -157,7 +170,13 @@ Inherit(Service, EventEmitter, {
             self.removeListener("closing-server", serverClosingHandler);
             socket.removeAllListeners();
         });
+        socket.once("end", function (isError) {
+            self.removeListener("internal-event", internalEventHandler);
+            self.removeListener("closing-server", serverClosingHandler);
+            socket.removeAllListeners();
+        });
         process.once("exit", function(){
+            socket.end();
             socket.close(true);
         });
     },

@@ -41,6 +41,12 @@ function WebSocketProxyService(param1){
         this.proxies[port + ""] = wss;
         wss.on('connection', this._onSocketConnection.bind(this));
         console.log("WebSocket PROXY ON " + port);
+        process.on('exiting', () => {
+            wss.close();
+        });
+        process.on('exit', () => {
+            wss.close();
+        });
         return true;
     };
     this.ClosePort = function (port) {

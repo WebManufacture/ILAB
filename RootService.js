@@ -32,35 +32,30 @@ Frame._initFrame = function () {
                 servicesToStart[arg] = null;
             }
         }
-
-        var services = new ServicesManager(servicesToStart['ServicesManager'], function () {
+        let debugMode = false;
+        if (process.execArgv[0] && process.execArgv[0].indexOf("--inspect") >= 0){
+            debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
+        };
+        let smConfig = servicesToStart['ServicesManager'];
+        if (!smConfig) smConfig = servicesToStart['ServicesManager'] = {};
+        if (debugMode) smConfig.debugMode = debugMode;
+        var servicesManager = new ServicesManager(smConfig, function () {
             return Frame._availablePort += 5;
         });
-        services.on("error", function (err) {
+        servicesManager.on("error", function (err) {
             if (err.serviceId) {
                 console.log("Service error: "  + err.serviceId);
             }
             console.error(err);
             err.handled = true;
         });
-        var keys = [];
-        for (var key in servicesToStart){
-            keys.push(key);
-        }
-        var index = 0;
-        var promise = null;
-
-        function onStarted() {
-            var key = keys[index];
-            if (key){
-                promise = services.StartService(key, servicesToStart[key]).then(onStarted).catch((error)=>{
-                    onStarted();
-                });
-            }
-            index++;
-        }
-
-        onStarted();
+        delete servicesToStart['ServicesManager'];
+        const services = Object.keys(servicesToStart);
+        const params = [];
+        services.forEach(sid => params.push(servicesToStart[sid]));
+        servicesManager.StartServices(services, params).catch((err)=>{
+            console.error(err);
+        });
 /*
 		var allSection = [];
 		for (var key in servicesToStart){
