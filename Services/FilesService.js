@@ -130,12 +130,10 @@ function FilesService(config){
                     stream.length = stats.size;
                     stream.encoding = encoding;
                     resolve(stream);
-                }).catch(function (err) {
-                    reject("File " + fpath + " read error " + err);
                 });
             }
             catch (err){
-                reject("error calling ReadStream: " + err);
+                reject("File " + fpath + " read error " + err);
             }
         });
     };

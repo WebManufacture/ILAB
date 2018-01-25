@@ -41,25 +41,26 @@ Inherit(ForkMon, EventEmitter, {
             params = null;
         }
         if (!params) params = {};
-        if (this.env) {
-            for (const key in this.env) {
-                if (!params.hasOwnProperty(key) && this.env.hasOwnProperty(key)){
-                    params[key] = this.env[key];
-                }
-            }
-        }
         var options = {
             silent: false,
             cwd : process.cwd(),
-            params : [JSON.stringify(params)],
-            env : params
+            env : {
+                params: JSON.stringify(params)
+            }
         };
+        if (this.env) {
+            for (const key in this.env) {
+                if (this.env.hasOwnProperty(key)){
+                    options.env[key] = this.env[key];
+                }
+            }
+        }
         if (params && params.cwd){
             options.cwd = params.cwd;
         };
-        if (params.debugPort){
+        if (this.env.debugPort){
             const key = this.env.debugMode == 'debug' ? "--inspect-brk" : "--inspect";
-            options.execArgv = [key + "=" + params.debugPort];
+            options.execArgv = [key + "=" + this.env.debugPort];
         }
         var cp = this.process = ChildProcess.fork(this.path, this.args, options);
         this.code = ForkMon.STATUS_WORKING;

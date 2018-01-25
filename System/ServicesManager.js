@@ -47,8 +47,8 @@ function ServicesManager(config, portCountingFunc){
         });
     };
     this.StopService = function (serviceId, params) {
-        return self.stopServiceAsync(serviceId, params).then(function () {
-            return serviceId + " stopped";
+        return self.stopServiceAsync(serviceId, params).then(function (result) {
+            return result;
         });
     };
     this.StopServices = function (services) {
@@ -71,11 +71,17 @@ function ServicesManager(config, portCountingFunc){
         });
     };
     this.ResetService = function (serviceId, params) {
-        return self.stopServiceAsync(serviceId, params).then(()=>{
-            return self.startServiceAsync(serviceId, params)
-        }).then(() => {
-            return serviceId + " restarted";
-        });
+        if (this.isServiceAvailable(serviceId)){
+            return self.stopServiceAsync(serviceId, params).then(()=>{
+                return self.startServiceAsync(serviceId, params);
+            }).then(() => {
+                return serviceId + " restarted";
+            });
+        } else {
+            return self.startServiceAsync(serviceId, params).then(() => {
+                return serviceId + " restarted";
+            });
+        }
     };
     this.ResetServices = function (services, params) {
         return self.StopServices(services, params).then(()=>{
@@ -254,12 +260,6 @@ Inherit(ServicesManager, Service, {
                 cwd : process.cwd(),
                 managerPort : self.port
             };
-			if (params){
-				for (var item in params){
-					env[item] = params[item];
-				}
-				env.params = JSON.stringify(params);
-			}
             var servicePath = serviceId;
             if (params && params.path) {
                 if (params.path.indexOf("http://") == 0 || params.path.indexOf("https://") == 0){

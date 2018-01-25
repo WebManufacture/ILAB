@@ -11,12 +11,12 @@ Service = function(params){
     var self = this;
     this.serviceId = Frame.serviceId;
     this.port = Frame.servicePort;
-    this.server = net.createServer({
+    this._netServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,
         pauseOnConnect: false
     }, this._onConnection.bind(this));
     self.setMaxListeners(100);
-    this.server.on("error", function (err) {
+    this._netServerForBaseInteraction.on("error", function (err) {
         try {
             this.emit('error', err);
         }
@@ -26,7 +26,7 @@ Service = function(params){
         }
     });
     try {
-        this.server.listen(this.port, function () {
+        this._netServerForBaseInteraction.listen(this.port, function () {
             console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
         });
     }
@@ -92,7 +92,7 @@ Inherit(Service, EventEmitter, {
                 }
                 catch (err){
                     if (message.id) {
-                        socket.write({"type": "error", id: message.id, result: err});
+                        socket.write({"type": "error", id: message.id, result: err, message: err.message, stack: err.stack});
                     }
                     return;
                 }
@@ -182,7 +182,7 @@ Inherit(Service, EventEmitter, {
     },
 
     _closeServer : function(){
-        this.server.close();
+        this._netServerForBaseInteraction.close();
         this.emit("closing-server");
     },
 
