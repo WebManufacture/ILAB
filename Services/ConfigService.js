@@ -21,23 +21,30 @@ function ConfigService(params) {
         return this.store[serviceId];
     };
 
+    this.GetConfigs = function (serviceId) {
+        return this.store;
+    };
+
     this.SaveConfig = function (serviceId, data, restartService) {
         this.store[serviceName] = data;
-        var promise = new Promise(function (resolve, reject) {
-            fs.writeFile(Path.resolve("./config.json"), JSON.stringify(this.store), function (err) {
+        var promise = this.Save(data);
+        if (restartService) {
+            return promise.then(function () {
+                return ServicesManager.ResetService(serviceName);
+            })
+        };
+        return promise;
+    };
+
+    this.Save = function (data) {
+        return new Promise(function (resolve, reject) {
+            fs.writeFile(Path.resolve("./config.json"), JSON.stringify(self.store), function (err) {
                 if (err) {
                     reject(err);
                 }
                 resolve(data);
             });
         });
-        if (restartService) {
-            return promise.then(function () {
-                return ServicesManager.ResetService(serviceName);
-            })
-        }
-        ;
-        return promise;
     };
 
     this.filesServiceId = params.filesServiceId ? params.filesServiceId : "FilesService";

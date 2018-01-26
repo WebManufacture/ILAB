@@ -27,7 +27,7 @@ Service = function(params){
     });
     try {
         this._netServerForBaseInteraction.listen(this.port, function () {
-            console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
+            //console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
         });
     }
     catch (error){
@@ -41,6 +41,15 @@ Service = function(params){
     });
     return EventEmitter.call(this);
 };
+
+Service.States = ["loading", "killed", "exited", "paused", "error", "reserved", "stopping", "working"];
+Service.STATUS_LOADING = 0;
+Service.STATUS_KILLED = 1;
+Service.STATUS_EXITED = 2;
+Service.STATUS_PAUSED = 3;
+Service.STATUS_ERROR = 4;
+Service.STATUS_STOPPING = 6;
+Service.STATUS_WORKING = 7;
 
 Service.CreateProxyObject = function (service) {
     if (!service) return {};

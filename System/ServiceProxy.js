@@ -223,7 +223,7 @@ Inherit(ServiceProxy, EventEmitter, {
             function (resolve, reject) {
                 try {
                     var socket = new JsonSocket(port, host, function (err) {
-                        console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
+                        //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
                         try {
                             socket.write({"type": "startup", args: self.startParams});
                         }

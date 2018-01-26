@@ -35,6 +35,7 @@ Frame.log = function(log){
 process.cwd(Frame.workingPath);
 
 Frame._initFrame = function () {
+    process.send({type: "control", state: "loaded", serviceId: Frame.serviceId});
     try {
         if (Frame.nodePath.indexOf("http://") == 0 || Frame.nodePath.indexOf("https://") == 0) {
             http.get(Frame.nodePath, (res) => {
@@ -124,7 +125,7 @@ Frame._startFrame = function (node) {
                 node = node(params);
                 console.log(Frame.nodePath + " node started");
             }
-            process.send({type: "control", state: "started", serviceId: Frame.serviceId});
+            process.send({type: "control", state: "started", serviceId: Frame.serviceId, nodeType : node.name});
         }
         catch (err){
             Frame.error(err);
