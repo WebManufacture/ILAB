@@ -5,23 +5,24 @@
   "ServicesWebSocketProxy": {
     "port": 5700
   },
-  "ConsoleService" :{
-
-  },
-  "ConfigService" :{
-
-  },
-  "SerialService":{
-    "version": "1.4",
-    "path":"http://klab.web-manufacture.net/HLAB/SerialService.js"
-  },
   "FilesService":{
-    "id": "filesBase",
-    "basepath": "./Services/Test"
+    "basepath": "./"
+  },
+  "ConfigService":{
+    "watchConfigFile" : true,
+    "watchServicesPaths": true,
+    "filesServiceId": "FilesService"
+  },
+  "ConsoleService": {
+    "port": 5100
   },
   "StaticService":{
-    "filesServiceId": "filesBase",
-    "port": "default",
+    "filesServiceId": "FilesService",
+    "rootFile":"./klab/fs.html",
+    "port": 80,
+    "keyFile": "./localhost.key",
+    "certFile": "./localhost.cert",
+    "useSecureProtocol": false,
     "allowOrigin": "*",
     "allowMethods": "ALL",
     "allowBrowse": true,

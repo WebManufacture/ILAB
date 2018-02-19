@@ -113,10 +113,6 @@
         };
 
         FS.LoadTreeComplete = function(files, status) {
-            files = JSON.parse(files);
-            if (typeof files == 'string'){
-                files = JSON.parse(files);
-            }
             FS.Tree.clear();
             if (FS.CurrentDir != "/"){
                 var fname = "..";
@@ -304,12 +300,13 @@
         };
 
         FS.LoadFile = function(file) {
-            var url = location + file.fileName;
+            var url = file.fileName;
             if (location.pathname != "/"){
                 url = location + "/" + file.fileName;
             }
+            url = "/klab/textEditor.htm?file=" + encodeURIComponent(url);
             //if (file.is(".css") || file.is(".htm") || file.is(".html") || file.is(".js") || file.is(".cs") || file.is() {
-            url += "?action=edit";
+            //url += "?action=edit";
             //}
             window.open(url);
         };

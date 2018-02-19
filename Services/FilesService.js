@@ -76,10 +76,11 @@ function FilesService(config){
     };
 
     this.Write = function (path, content) {
+        var self = this;
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
             try {
-                this.emit("writing", path);
+                self.emit("writing", path);
                 fs.writeFile(fpath, content, function (err, result) {
                     if (err) {
                         reject("File " + path + " write error " + err);
