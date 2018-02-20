@@ -79,7 +79,7 @@ Inherit(WebSocketProxyService, Service, {
     _onSocketConnection: function connection(ws) {
         var self = this;
         var url = ws.upgradeReq.url;
-        console.log('WSproxy: WSconnection', url);
+        //console.log('WSproxy: WSconnection', url);
         var services = null;
         var header = null;
 
@@ -90,7 +90,7 @@ Inherit(WebSocketProxyService, Service, {
         function connectService(serviceId, servicePort){
             if (servicePort) {
                 var socket = new JsonSocket(servicePort, "localhost", function () {
-                    console.log("WSproxy:  " + serviceId + " connected to " + servicePort);
+                    //console.log("WSproxy:  " + serviceId + " connected to " + servicePort);
                 });
                 socket.on('error', function (err) {
                     console.log("WSproxy: Socket error at " + serviceId + ":" + servicePort);
@@ -104,10 +104,10 @@ Inherit(WebSocketProxyService, Service, {
                 };
                 socket.on("json", messageHandlerFunction);
                 socket.once("close", function (isError) {
-                    console.log("WSproxy: Socket Closed at " + serviceId + ":" + servicePort);
+                    //console.log("WSproxy: Socket Closed at " + serviceId + ":" + servicePort);
                 });
                 var wsHandler = function (message) {
-                    console.log("WSproxy: calling method: " + message);
+                    //console.log("WSproxy: calling method: " + message);
                     socket.write(JSON.parse(message));
                 };
                 if (header){

@@ -26,11 +26,17 @@ ServiceProxy.Connect = function(url, serviceId){
 ServiceProxy.connected = false;
 
 ServiceProxy.Init = function(url){
+    if (!url) url = "";
     ServiceProxy.url = url;
     ServicesManager = ServiceProxy.instance = new ServiceProxy("ServicesManager");
     ServicesManager.Connect = ServiceProxy.Connect;
-    return ServicesManager.attach(url + "/ServicesManager").then(function(proxy){
+    return ServicesManager.attach(url ? url + "/ServicesManager" : "ws://localhost/ServicesManager").then(function(proxy){
         if (proxy) {
+            for (var item in proxy){
+                if (proxy.hasOwnProperty(item)){
+                    ServicesManager[item] = proxy[item];
+                }
+            }
             ServiceProxy.connected = true;
             return proxy.GetServices().then(function (services) {
                 ServicesManager.Services = services;
@@ -92,8 +98,10 @@ ServiceProxy.prototype = {
                 };
                 socket.onerror = raiseError;
                 socket.onclose = function (event) {
-                    if (!event.wasClean) {
-                        console.error('Обрыв соединения при вызове метода\n' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
+                    if (event.wasClean) {
+                        console.log('Соединение закрыто чисто');
+                    } else {
+                        console.error('Обрыв соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
                     }
                 };
                 socket.onmessage = function (message) {
@@ -152,6 +160,9 @@ ServiceProxy.prototype = {
 
     attach : function (url) {
         if (!url) throw new Error("Unknown url to attach in " + url);
+        if (url.indexOf("ws://") != 0){
+            url = "ws://" + url;
+        }
         this.url = url;
         var self = this;
         var promise = new Promise(
@@ -159,7 +170,7 @@ ServiceProxy.prototype = {
                 try {
                     var socket = new WebSocket(url);
                     socket.onopen = function(event){
-                        console.log(self.serviceId + ": Service proxy connected to " + url);
+                        console.log(self.serviceId + ": Service proxy opened connection to " + url);
                         try {
                             socket.send(JSON.stringify({"type": "startup", args: self.startParams}));
                         }
@@ -168,23 +179,19 @@ ServiceProxy.prototype = {
                         }
                     };
                     function raiseError(err) {
-                        console.error("Socket error at " + self.serviceId + ":" + url + "\n" + err);
-                        self.emit('error', err);
+                        console.error("Socket error at " + self.serviceId + ":" + url);
+                        console.log(event);
+                        self.emit('error', event);
                         socket.close();
                         reject(err);
                     };
                     socket.onerror = raiseError;
                     socket.onmessage = function (message) {
                         //console.dir(proxyObj);//debug
-                        var messageData = JSON.parse(message.data);
-                        if (messageData.type == 'error'){
-                            raiseError(messageData.result);
-                            return;
-                        }
-                        var proxyObj = messageData;
+                        var proxyObj = JSON.parse(message.data);
                         self.serviceId = proxyObj.serviceId;
                         //if (self.serviceId != "ServicesManager")
-                        console.log("Service proxy connected to " + url);
+                        console.log(self.serviceId + ": Service proxy connected to " + url);
                         for (var item in proxyObj){
                             if (proxyObj[item] == "method") {
                                 self._createFakeMethod(item, proxyObj[item]);
@@ -195,16 +202,18 @@ ServiceProxy.prototype = {
                         }
                         self.attached = true;
                         console.log(proxyObj);
-                        self._attachEventListener("*");
                         self.emit("connected", proxyObj);
                         socket.close();
                         resolve(self);
                     };
                     socket.onclose = function (event, isError) {
-                        if (!event.wasClean) {
-                            console.error('Обрыв соединения при подключении\n' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
+                        if (event.wasClean) {
+                            console.log('Соединение закрыто чисто');
+                        } else {
+                            console.error('Обрыв соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
                         }
                     };
+                    self._attachEventListener("*");
                 }
                 catch (err) {
                     self.emit('error', err);
@@ -225,9 +234,10 @@ ServiceProxy.prototype = {
                     eventSocket.close();
                     reject(err);
                 }
-                var eventSocket = self.eventSocket = new WebSocket(self.url);
+                var eventSocket = this.eventSocket = new WebSocket(self.url);
                 eventSocket.onopen = function () {
                     try {
+                        console.log(self.serviceId + ": EventListener attached to " + self.url + " : " + eventName);
                         eventSocket.send(JSON.stringify({"type": "subscribe", name: eventName}));
                     }
                     catch (err){
@@ -238,7 +248,6 @@ ServiceProxy.prototype = {
                 var messageHandlerFunction = function (message) {
                     message = JSON.parse(message.data);
                     if (message.type == "event") {
-                        message.args.unshift(message.name);
                         self.emit.apply(self, message.args);
                     }
                     if (message.type == "error") {
@@ -251,11 +260,9 @@ ServiceProxy.prototype = {
                     self.connectionsCount--;
                     if (event.wasClean) {
                         console.log('Event cоединение закрыто чисто');
-                        if (event.code < 4000) {
-                            setTimeout(() => {
-                                self._attachEventListener(eventName);
-                            }, 100);
-                        }
+                        setTimeout(()=>{
+                            self._attachEventListener(eventName);
+                        }, 3000);
                     } else {
                         console.error('Обрыв event соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
                     }
@@ -273,15 +280,8 @@ ServiceProxy.prototype = {
     },
 
     close : function(){
-        var self = this;
         if (this.eventSocket){
-            this.once("event-close", function (event) {
-                self.emit("close", event);
-            });
-            this.eventSocket.close(4000, "Сlosing proxy");
-        }
-        else {
-            self.emit("close", null);
+            this.eventSocket.close();
         }
     },
 
