@@ -52,15 +52,15 @@ function ConfigService(params) {
         if (filesService) {
             self.filesService = filesService;
             if (params.watchConfigFile) {
-                filesService.Watch("./config.json", false).then((fpath) => {
+                filesService.Watch("config.json", false).then((fpath) => {
                     filesService.on("watch:" + fpath, (change, path) => {
                         if (change == "change") {
                             self.reloadStore(true, true);
                         }
                     });
-                    console.log("Watching ./config.json");
+                    console.log("Watching config.json");
                 }).catch((err) => {
-                    console.log("Can't watch ./config.json!");
+                    console.log("Can't watch config.json!");
                     console.log(err);
                 });
             }
@@ -86,7 +86,7 @@ Inherit(ConfigService, Service, {
     watchServiceFileChange(serviceId, options){
         var self = this;
         //if (this.store[serviceId].id) serviceId = this.store[serviceId].id;
-        return self.filesService.Watch("./Services/" + serviceId + ".js", false).then((fpath) => {
+        return self.filesService.Watch("Services/" + serviceId + ".js", false).then((fpath) => {
             self.filesService.on("watch:" + fpath, (change, path) => {
                 console.log("Service " + serviceId + " " + change + " in path " + path);
                 if (change == "change") {

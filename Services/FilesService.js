@@ -149,11 +149,25 @@ function FilesService(config){
     this.Watch = function(path, recursive){
         const fpath = Path.resolve(self.preparePath(path));
         if (!self.watchingPath[fpath]){
-            self.watchingPath[fpath] = true;
-            fs.watch(fpath, { recursive: recursive }, function (eventType, path) {
-                self.emit("watch:" + fpath, eventType, path);
-                self.emit("watch", eventType, path);
-                self.emit("watch-" + eventType, path);
+            return new Promise(function (resolve, reject) {
+                    self.watchingPath[fpath] = true;
+                    fs.stat(fpath, function (err, stat) {
+                        if (err) {
+                            reject("File " + fpath + " watch error " + err);
+                            return;
+                        }
+                        try {
+                            fs.watch(fpath, {recursive: recursive}, function (eventType, npath) {
+                                self.emit("watch:" + fpath, eventType, path, npath);
+                                self.emit("watch-" + eventType, path, npath);
+                                self.emit("watch", eventType, path, npath);
+                            });
+                            resolve(fpath);
+                        }
+                        catch (err) {
+                            reject("File " + fpath + " watch error " + err);
+                        }
+                    });
             });
         }
         return fpath;
@@ -165,12 +179,12 @@ function FilesService(config){
 Inherit(FilesService, Service, {
 	preparePath : function(fpath){
 	    if (!fpath) fpath = '';
-		fpath = fpath.replace(/\//g, "\\");
-		if (!fpath.start("\\")) fpath = "\\" + fpath;
+		fpath = fpath.replace(/\\\\/g, "/");
+        fpath = fpath.replace(/\\/g, "/");
+		if (!fpath.start("/")) fpath = "/" + fpath;
 		fpath = this.basePath + fpath;
-		fpath = fpath.replace(/\//g, "\\");
-		if (fpath.end("\\")) fpath = fpath.substr(0, fpath.length - 1);
-		return fpath.toLowerCase();
+		if (fpath.end("/")) fpath = fpath.substr(0, fpath.length - 1);
+		return fpath;
 	},
 });
 
