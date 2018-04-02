@@ -42,7 +42,7 @@ function FilesService(config){
                     }
                     for (var i = 0; i < files.length; i++){
                         var fname = files[i];
-                        files[i] = fs.statSync(fpath + "\\" + fname);
+                        files[i] = fs.statSync(fpath + "/" + fname);
                         files[i].name = fname;
                         files[i].fileType = files[i].isDirectory() ? "directory" : files[i].isFile() ? "file" : "unknown";
                     }
@@ -51,7 +51,7 @@ function FilesService(config){
             }
             catch (err){
                 reject(err);
-            }
+            }	
         });
     };
 
