@@ -189,22 +189,29 @@ ServiceProxy.prototype = {
                     socket.onmessage = function (message) {
                         //console.dir(proxyObj);//debug
                         var proxyObj = JSON.parse(message.data);
-                        self.serviceId = proxyObj.serviceId;
-                        //if (self.serviceId != "ServicesManager")
-                        console.log(self.serviceId + ": Service proxy connected to " + url);
-                        for (var item in proxyObj){
-                            if (proxyObj[item] == "method") {
-                                self._createFakeMethod(item, proxyObj[item]);
-                            }
-                        }
-                        if (typeof callback == "function") {
-                            callback.call(self, proxyObj);
-                        }
-                        self.attached = true;
-                        console.log(proxyObj);
-                        self.emit("connected", proxyObj);
-                        socket.close();
-                        resolve(self);
+						if (proxyObj.type !== "error"){
+							self.serviceId = proxyObj.serviceId;
+							//if (self.serviceId != "ServicesManager")
+							console.log(self.serviceId + ": Service proxy connected to " + url);
+							for (var item in proxyObj){
+								if (proxyObj[item] == "method") {
+									self._createFakeMethod(item, proxyObj[item]);
+								}
+							}
+							if (typeof callback == "function") {
+								callback.call(self, proxyObj);
+							}
+							self.attached = true;
+							console.log(proxyObj);
+							self.emit("connected", proxyObj);
+							socket.close();
+							resolve(self);
+						} else {
+							console.log(proxyObj.result);
+							self.emit('error', proxyObj.result);
+							socket.close();
+							reject(proxyObj.result);
+						}
                     };
                     socket.onclose = function (event, isError) {
                         if (event.wasClean) {

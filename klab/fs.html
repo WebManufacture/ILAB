@@ -302,9 +302,9 @@
         FS.LoadFile = function(file) {
             var url = file.fileName;
             if (location.pathname != "/"){
-                url = location + "/" + file.fileName;
+                url = location.pathname + "/" + file.fileName;
             }
-            url = "/klab/textEditor.htm?file=" + encodeURIComponent(url);
+            url = "/klab/textEditor.htm?action=edit&file=" + encodeURIComponent(url);
             //if (file.is(".css") || file.is(".htm") || file.is(".html") || file.is(".js") || file.is(".cs") || file.is() {
             //url += "?action=edit";
             //}
@@ -375,7 +375,7 @@
                     file.attr("ext",fileName.substr(fileName.lastIndexOf(".") + 1));
                     FS.InitFileElement(file);
                     Notify.Show(file.fileName + " file created");
-                    window.open(cpath + fileName + "?action=create");
+                    window.open("/klab/textEditor.htm?action=create&file=" + encodeURIComponent(location.pathname + "/" +fileName));
                 }
                 else{
                     Net.get(cpath + fileName + "?action=dir", "", function(){

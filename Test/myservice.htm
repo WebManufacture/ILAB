@@ -1,0 +1,67 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>myService client</title>
+	<script src="http://services.web-manufacture.net/Base/v1.5?join=true" type="text/javascript"></script>
+	<link href="http://services.web-manufacture.net/Styles/System.default.css" rel="stylesheet">
+	<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+	<style type="text/css">
+		body{
+			font-size: 24px;
+			background: black;
+			color: white;
+		}
+
+	</style>
+
+	<script src="../Client/WebSocketProxy.js" type="text/javascript"></script>
+	<script type="text/javascript">
+
+        
+
+        WS.DOMload(function(){
+            ServiceProxy.Connect("ws://localhost:5700/myService.js").then(function (myService) {
+                window.myService = myService;
+                setInterval(function(){
+                    myService.GetUsers().then(function(users){
+                        document.querySelector("#actualUsers").textContent = JSON.stringify(users);
+                    });
+                }, 2000);
+            }).catch(function(error){
+                console.error(error);
+            });
+        });
+        
+        function AddUser(){
+            myService.PushUser(("User"+ Math.random()).replace("0.","")).then(function(user){
+                console.log(user);
+            }).catch(function(error){
+                console.error(error);
+            });
+        }
+        
+
+	</script>
+
+
+	<style>
+
+		body{
+			padding-top: 100px;
+			color: #9DA;
+			background-color: #202020;
+		}
+
+
+	</style>
+
+</head>
+<body>
+    <include url="http://services.web-manufacture.net/UI/buttons.htm"></include>
+    <div id="actualUsers"></div>
+    <div class='btn-ira ok' onclick="AddUser()">add user</div>
+
+</body>
+
+</html>
+</html>

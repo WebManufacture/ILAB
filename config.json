@@ -6,7 +6,7 @@
     "port": 5700
   },
   "FilesService":{
-    "basepath": "./"
+    "basepath": ""
   },
   "ConfigService":{
     "watchConfigFile" : true,
@@ -18,7 +18,7 @@
   },
   "StaticService":{
     "filesServiceId": "FilesService",
-    "rootFile":"./klab/fs.html",
+    "rootFile":"klab/fs.html",
     "port": 80,
     "keyFile": "./localhost.key",
     "certFile": "./localhost.cert",
@@ -29,5 +29,8 @@
     "aliases": {
 
     }
+  },
+  "myService.js":{
+  
   }
 }
