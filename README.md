@@ -6,9 +6,8 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
 
 УСТАНОВКА
 ========================
-    mkdir ILAB
-    cd ILAB
     git clone http://github.com/WebManufacture/ILAB-3.0
+    cd ILAB-3.0
     npm install
     node RootService.js --config
 
