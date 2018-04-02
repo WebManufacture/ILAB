@@ -6,10 +6,21 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
 
 УСТАНОВКА
 ========================
+  
     git clone http://github.com/WebManufacture/ILAB-3.0
     cd ILAB-3.0
     npm install
     node RootService.js --config
+    
+ Для пользователей UBUNTU, убедитесь, что вы пользуетесь версией NODE >= 8. Для этого наберите - 
+ 
+    node -v
+    
+  Если у вас версия 4.7.х то вам необходимо обновить версию node.
+  Для этого мы рекоммендуем NVM.
+  https://github.com/creationix/nvm/blob/master/README.md
+  После установки пакета и node нужной версии, произведите установку ILAB, как описано выше.
+  
 
 ЗАПУСК И ПЕРВЫЕ ШАГИ:
 ========================
