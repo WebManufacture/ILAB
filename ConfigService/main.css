@@ -50,6 +50,19 @@ body{
     font-size: 120%;
 }
 
+.logger .line div{
+    display: inline-block;
+    padding-left: 10px;
+}
+
+.logger .line .service-name{
+    color: green;
+}
+
+.logger .line .event-name{
+    color: orange;
+}
+
 #NodesBlock .object-item{
     display: inline-block;
     border: solid 1px gray;

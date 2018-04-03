@@ -34,6 +34,7 @@
                     Monitor.error(message.result);
                 });
                 Monitor.obj(ServicesManager);
+                Monitor.Start();
                 return ServicesManager;
             }).catch(function(error){
                 Monitor.error(error);
@@ -154,28 +155,28 @@
                     }
                 });
 
-                proxy.on("virtual-start", function(event, param){
+                proxy.on("virtual-start", function(param){
                     Monitor.info("virtual-start");
                 });
 
-                proxy.on("virtual-stop", function(event, param){
+                proxy.on("virtual-stop", function(param){
                     Monitor.info("virtual-stop");
                 });
 
-                proxy.on("virtual-exited", function(event, param){
+                proxy.on("virtual-exited", function(param){
                     Monitor.info("virtual-exited");
                 });
 
-                proxy.on("virtual-cmd", function(event, param){
+                proxy.on("virtual-cmd", function(param){
                     // Monitor.info("virtual-cmd: " + param);
                 });
 
-                proxy.on("virtual-error", function(event, error){
+                proxy.on("virtual-error", function(error){
                     Monitor.error("virtual-error: " + error);
                 });
 
 
-                proxy.on("virtual-output", function(event, param){
+                proxy.on("virtual-output", function(param){
                     Monitor.log(param);
                 });
 

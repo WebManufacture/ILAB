@@ -84,7 +84,20 @@ ConfManager.CreateSection = function(name, baseUrl){
             return configService.GetConfigs();
         })
     }).then((configs) => {
+        var log = WS.Body.div(".logger");
         for (var item in section.services){
+            var service = section.services[item];
+            ServiceProxy.Connect(baseUrl + "/" + item).then((service) => {
+                if (service){
+                    service.emit = function(name, msg){
+                        var line = DOM.div(".line");
+                        line.div(".service-name", item);
+                        line.div(".event-name", name);
+                        line.div(".message", JSON.stringify(msg));
+                        log.ins(line);
+                    };
+                }
+            });
             section.services[item].config = configs[item] ? configs[item] : {};
         }
         for (var item in configs){

@@ -1,5 +1,6 @@
 var fs = useSystem('fs');
 var Path = useSystem('path');
+var stream = useSystem('stream');
 var EventEmitter = useSystem('events');
 var os = useSystem("os");
 var ChildProcess = useSystem('child_process');
@@ -134,6 +135,19 @@ function ServicesManager(config, portCountingFunc){
         self._subscribeEvents(mon);
         return mon;
     };
+    
+    //For system use! Do not use this method;
+    this.Pipe = function(serviceId){
+        var service = this.services[serviceId];
+        if (service){
+            var str = new stream.Writeble();
+            service.on('message', (obj) => {
+               str.write(JSON.stringify(obj)); 
+            });
+            return str;
+        }
+        return null;
+    };
 
     this.on("error", function () {
 
@@ -153,7 +167,7 @@ Inherit(ServicesManager, Service, {
             }
         }
         service.on("error", subEvent("error"));
-        service.on("message", subEvent("error"));
+        service.on("message", subEvent("message"));
         service.on("service-started", function(serviceId, serviceType) {
             self.emit.call(self, "service-started", serviceId, service.port, serviceType);
         });

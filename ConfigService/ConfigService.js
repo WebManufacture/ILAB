@@ -85,8 +85,10 @@ Inherit(ConfigService, Service, {
 
     watchServiceFileChange(serviceId, options){
         var self = this;
-        //if (this.store[serviceId].id) serviceId = this.store[serviceId].id;
-        return self.filesService.Watch("Services/" + serviceId + ".js", false).then((fpath) => {
+        var config = this.store[serviceId];
+        var path = "Services/" + serviceId + ".js";
+        if (config && config.path) path = config.path;
+        return self.filesService.Watch(path, false).then((fpath) => {
             self.filesService.on("watch:" + fpath, (change, path) => {
                 console.log("Service " + serviceId + " " + change + " in path " + path);
                 if (change == "change") {
@@ -95,7 +97,7 @@ Inherit(ConfigService, Service, {
             });
             console.log("Watching " + fpath);
         }).catch((err) => {
-            console.log("Can't watch ./Services" + serviceId);
+            console.log("Can't watch "  + path);
             console.log(err);
         });
     },
