@@ -4,11 +4,829 @@
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
     <link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
     <script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.5/?join=true"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.1/ace.js" type="text/javascript" charset="utf-8"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.1/ext-language_tools.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.1/ext-elastic_tabstops_lite.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.7.5/beautify.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.7.5/beautify-css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-beautify/1.7.5/beautify-html.min.js"></script>
 
     <script src="../Client/WebSocketProxy.js" type="text/javascript"></script>
 
     <script type="text/javascript" key="TextEditor">
 
+        Editor = {};
+
+        MimeTypes = {
+            htm: "text/html; charset=utf-8",
+            html: "text/html; charset=utf-8",
+            js: "text/javascript; charset=utf-8",
+            css: "text/css; charset=utf-8",
+            json: "text/json; charset=utf-8",
+            png: "image/png",
+            gif: "image/gif",
+            jpg: "image/jpeg",
+            bmp: "image/bmp",
+            ttf: "font/truetype; charset=utf-8"
+        };
+
+        Editor.Init = function () {
+
+            ace.require("ace/ext/language_tools");
+            Editor.beautify = ace.require("ace/ext/beautify"); // get reference to extension
+
+        };
+
+        Editor.OpenFile = function(fileName){
+            DOM.all(".file-editor").del();
+            var div = WS.Body.div(".file-editor");
+            div.id = (Math.random() + " ").replace("0.", "");
+            div.attr("file-name", fileName);fileName
+            var editor = ace.edit(div.id);
+            var theme = window.localStorage.getItem("klab_ace_theme");
+            if (!theme) theme = "ace/theme/ambiance";
+            EditorThemeSelector.value = theme;
+            editor.setTheme(theme);
+            editor.setOptions({
+                enableBasicAutocompletion: true,
+                enableSnippets: true,
+                enableLiveAutocompletion: true
+            });
+
+            Editor.TextEditor = editor;
+
+            ServiceProxy.Connect('FilesService').then(function (filesService) {
+                filesService.Watch(Editor.fileName, false).then((fpath) => {
+                    filesService.on("watch", (change, path) => {
+                        console.log("Файл изменился: " + path);
+                        if (change == "change") {
+                            Notify.Show("Файл изменился на сервере");
+                            Editor.fileChanged();
+                        }
+                    });
+                    console.log("Watching " + Editor.fileName);
+                }).catch((err) => {
+                    console.log(err);
+                });
+                filesService.Read(fileName).then((result)=>{
+                    var parsers = "";
+
+                    var mime = fileName.split(".");
+                    mime = mime[mime.length-1];
+
+                    var header = mime ? MimeTypes[mime] : "text/plain";
+
+                    if (header) {
+                        if (header.Contains(["text/html", "text/htm"])) {
+                            parsers = "html";
+                        }
+                        if (header.Contains(["text/javascript", "application/javascript", "application/x-javascript", "text/js"])) {
+                            parsers = "javascript";
+                        }
+                        if (header.Contains(["text/json", "application/json"])) {
+                            parsers = "json";
+                        }
+                        if (header.Contains("text/css")) {
+                            parsers = "css";
+                        }
+                        if (header.Contains("text/xml")) {
+                            parsers = "xml";
+                        }
+                        if (header.Contains("text/plain")) {
+                            parsers = "csharp";
+                        }
+                    }
+
+                    div.attr("file-type", header);
+                    editor.session.setMode("ace/mode/" + (parsers ? parsers : "text"));
+                    let position = editor.getCursorPosition();
+                    editor.session.setValue(result, position);
+                }).catch(function (err) {
+                    if (err) {
+                        Notify.Error("Нет связи: " + err);
+                    }
+                });
+            });
+
+
+
+            window.onkeydown = Editor.KeyHandler;
+        };
+
+        Editor.GoUrl = function (url, key) {
+            if (url) {
+                if (key) {
+                    Net.POST(url, '', function (result) {
+                        Notify.Show(result);
+                    });
+                }
+                else {
+                    Net.get(url, function (result) {
+                        Notify.Show(result);
+                    });
+                }
+            }
+        };
+
+        Editor.GoUrlAll = function (url, key) {
+            if (url) {
+                if (key) {
+                    var channel = new HttpChannel(url, false);
+                    channel.onRead.subscribe(function (result) {
+                        Notify.Show(result);
+                    });
+                }
+                else {
+                    var channel = new HttpChannel(url, true);
+                    channel.onRead.subscribe(function (result) {
+                        Notify.Show(JSON.stringify(result));
+                    });
+                }
+            }
+        };
+
+        Editor.LoadFileComplete = function (result) {
+            var parsers = "";
+
+            var mime = Editor.fileName.split(".");
+            mime = mime[mime.length-1];
+
+            var header = mime ? MimeTypes[mime] : "text/plain";
+
+            if (header) {
+                if (header.Contains(["text/html", "text/htm"])) {
+                    parsers = "html";
+                }
+                if (header.Contains(["text/javascript", "application/javascript", "application/x-javascript", "text/js"])) {
+                    parsers = "javascript";
+                }
+                if (header.Contains(["text/json", "application/json"])) {
+                    parsers = "json";
+                }
+                if (header.Contains("text/css")) {
+                    parsers = "css";
+                }
+                if (header.Contains("text/xml")) {
+                    parsers = "xml";
+                }
+                if (header.Contains("text/plain")) {
+                    parsers = "csharp";
+                }
+            }
+
+            Editor.fileType = header;
+            var editor = Editor.TextEditor;
+            editor.session.setMode("ace/mode/" + (parsers ? parsers : "text"));
+            let position = editor.getCursorPosition();
+            editor.session.setValue(result, position);
+
+            /*Editor.TextEditor.on("cursorActivity", function() {
+        Editor.TextEditor.matchHighlight("CodeMirror-matchhighlight");
+        });*/
+
+            var title = WS.Header.add("<title>" + Editor.fileName + "</title>");
+        };
+
+        Editor.fileChanged = function () {
+            DOM.get(".menuitem.reload").add(".active");
+        };
+
+        Editor.Reload = function () {
+            var url = null;
+
+            if (Request.Params.url) {
+                url = Request.GetUrl(Request.Params.url, {AsText: true, rnd: Math.random()});
+                var paths = Url.Resolve(url);
+                Editor.fileName = paths.path[paths.path.length - 1];
+            }
+            if (Request.Params.file) {
+                url = Editor.fileName = Request.Params.file;
+            }
+            if (!url) {
+                url = location.pathname;
+                var paths = Url.Resolve(url);
+                Editor.fileName = paths.path[paths.path.length - 1];
+            }
+            //DOM(".menuitem.reload").add(".disabled");
+            DOM.get(".menuitem.reload").del(".active");
+            Server.Read(Editor.fileName).then(Editor.LoadFileComplete).catch(function (err) {
+                if (err) {
+                    Notify.Error("Нет связи: " + err);
+                }
+            });
+        };
+
+        Editor.GetFileUrl = function () {
+            if (Request.Params.url) {
+                return Request.Params.url;
+            }
+            if (Request.Params.UserDomain) {
+                if (Request.Params.SystemPath) {
+                    return "http://" + Request.Params.UserDomain + "/" + Request.Params.SystemPath + "/" + Editor.fileName;
+                }
+                else {
+                    return "http://" + Request.Params.UserDomain + "/" + Editor.fileName;
+                }
+            }
+            else {
+                if (Request.Params.SystemPath) {
+                    return "/" + Request.Params.SystemPath + "/" + Editor.fileName;
+                }
+                else {
+                    return Editor.fileName;
+                }
+            }
+        };
+
+
+        Editor.Reformat = function(){
+            var editor = Editor.TextEditor;
+            var text = js_beautify(Editor.TextEditor.getValue());
+            let position = editor.getCursorPosition();
+            editor.setValue(text, position);
+        };
+
+        Editor.GetStorageKey = function (datetime) {
+            var domain = Request.Params.UserDomain;
+            if (!domain) domain = location.host;
+            var path = Request.Params.SystemPath;
+            if (!path) path = location.pathname.replace('/' + Editor.fileName, '');
+            var key2 = (datetime + '_' + domain + "/" + path + "/" + Editor.fileName);
+            return key2;
+        };
+
+        Editor.SaveFile = function () {
+            if (Editor.SaveInProgress && Editor.SaveRequest) {
+                Editor.SaveRequest.abort();
+                return;
+            }
+            Editor.SaveInProgress = true;
+            DOM(".menuitem.save").add(".disabled");
+            var content = Editor.TextEditor.getValue();
+
+            //код local storage
+            var keyArray = [];
+            var key1 = Editor.HistoryKey;
+            var str = window.localStorage.getItem(key1);
+            var i = 0;
+            // if (str != null){
+            if (str) {
+                keyArray = str.split(",");
+                i = keyArray.length;
+            }
+
+            if (i >= 20) {
+                keyArray.shift();
+                i--;
+            }
+
+            var now = new Date();
+            now = now.valueOf();
+
+            keyArray[i] = now;
+            var str = keyArray.join(",");
+            window.localStorage.setItem(key1, str); //должна быть строка
+            var key2 = (Editor.GetStorageKey(now));
+            //window.localStorage.setItem(key2, content);
+
+            var url = "";
+
+            if (Request.Params.url) {
+                url = Request.GetUrl(Request.Params.url);
+            }
+            else {
+                if (Request.Params.file) {
+                    url = Request.Params.file;
+                }
+                else {
+                    url = location.pathname;
+                }
+            }
+
+            Server.Write(url, content).then(Editor.SaveComplete).catch(Editor.SaveError);
+        };
+
+        Editor.SaveError = function () {
+            Notify.Error("Ошибка сохранения!");
+            alert("Ошибка сохранения!!!!");
+            DOM.get(".menuitem.save").del(".disabled");
+            Editor.SaveInProgress = false;
+        };
+
+        Editor.ShowHistory = function () {
+            //--------------------------------
+            var vh = DOM.get("#VersionHistory"); //ссылка на див со списком сохранений
+            vh.show();
+            vh.all(".saveTime").del(); //.innerHTML = "";
+            var keyArray = [];
+            var str = window.localStorage.getItem(Editor.HistoryKey);
+            if (str) {
+                keyArray = str.split(",");
+            }
+
+            for (var j = 0; j < keyArray.length; j++) {
+                var saveDate = new Date(parseInt(keyArray[j]));
+                if (isNaN(saveDate)) continue;
+                var key2 = (Editor.GetStorageKey(keyArray[j]));
+                var divST = vh.div(".saveTime.keyAr", saveDate.formatDateRus(".") + " " + saveDate.formatTime(".") + "    " + Editor.fileName);
+                divST.Key2 = key2;
+                divST.onclick = Editor.LoadHistory;
+                //var h=keyArray[j].getHours();
+                //var h1=setHours(h);
+                //var m=keyArray[j].getMinutes();
+                //var m1=setMinutes(m);
+                //var s=keyArray[j].getSeconds();
+                //var s1=setSeconds(s);
+                //var sTime= (h1 + ":" + m1 + ":" + s1);
+
+                //divST.set(null, sTime);
+                //divST.add(".keyAr");
+                //divST.onclick = Editor.LoadHistory;
+
+                //divST.saveDate = keyArray[j];
+            }
+        };
+
+
+        Editor.LoadHistory = function () {
+            //this.saveDate;
+            //var dte = new Date("129123934123");
+            var content = window.localStorage.getItem(this.Key2);
+            Editor.TextEditor.setValue(content);
+            Notify.Show("Reloaded fom cache");
+        };
+
+        Editor.SaveComplete = function () {
+            var status = DOM.get(".header .status");
+            var div = DOM.div(null, this.responseText);
+            Notify.Show("Сохранено");
+            DOM.get(".menuitem.save").del(".disabled");
+            Editor.SaveInProgress = false;
+        };
+
+        Editor.RunFile = function () {
+            if (Request.Params.url) {
+                window.open(Request.GetUrl(Request.Params.url));
+                return;
+            }
+            if (Request.Params.file) {
+                var url = Request.Params.file;
+                if (Request.Params.SystemPath) {
+                    url = Request.Params.SystemPath + "/" + url;
+                }
+                if (Request.Params.UserDomain) {
+                    url = "http://" + Request.Params.UserDomain + "/" + url;
+                }
+                window.open(url);
+            }
+            var url = new Url(window.location + "");
+            url.search = "";
+            window.open(url);
+        };
+
+        Editor.RunOnServer = function () {
+            var content = Editor.TextEditor.getValue();
+            Net.POST("http://ilab.web-manufacture.net", content, function (data) {
+                console.log("RUN ON SERVER");
+                console.log(data);
+                Notify.Show(data);
+            });
+        };
+
+        Editor.OpenLogWindow = function () {
+            //alert('окно отладчика открывает '+ Request.Params.url);
+            var logWindowUrl = window.location.protocol + '//' + window.location.host + '/Monitoring.htm?url=' + encodeURIComponent(Request.Params.url);
+            window.open(logWindowUrl);
+            return;
+        };
+
+
+        Editor.TextReindentAll = function () {
+            this.TextEditor.reindent();
+        };
+
+        Editor.KeyHandler = function (event) {
+            // Ctrl + S event;
+            if (event.ctrlKey && event.keyCode > 0) {
+                console.log(event.keyCode);
+                if (event.ctrlKey && event.keyCode == 83) {
+                    Editor.SaveFile();
+                    event.stopPropagation();
+                    event.preventDefault();
+                    return false;
+                }
+                if (event.ctrlKey && event.charCode == 104) {
+                    DOM("#hkHint").show();
+                    return false;
+                }
+            }
+            return true;
+        };
+
+        Editor.ChangeTheme = function (theme) {
+            Editor.TextEditor.setTheme(theme);
+            window.localStorage.setItem("klab_ace_theme", theme);
+        };
+
+        WS.DOMload(Editor.Init);
+
+
+    </script>
+
+    <script type="text/javascript">
+
+        FS = {};
+
+        FS.Init = function() {
+            FS.Loaded = false;
+            FS.Tree = DOM.get(".files-block .tree-container");
+            FS.InputField = DOM("#FilterInput");
+            FS.InputField.onkeyup = FS.SearchFile;
+            //Drag.NoBodyDrop = true;
+            ServiceProxy.Init('ws://localhost:5700').then(function (services) {
+                ServiceProxy.Connect('FilesService').then(function (service) {
+                    FS.server = service;
+                    FS.ReloadSystem();
+                })
+            });
+            FS.CurrentDir = '/';
+        };
+
+        FS.ReloadSystem = function() {
+            FS.Loaded = false;
+            LoadingMask.show();
+            FS.server.Browse(FS.CurrentDir).then(FS.LoadTreeComplete);
+        };
+
+        FS.GetActiveFiles = function() {
+            return FS.Tree.all(".file.selected");
+        };
+
+        FS.LoadTreeComplete = function(files, status) {
+            FS.Tree.clear();
+            if (FS.CurrentDir != "/"){
+                var fname = "..";
+                var file = FS.Tree.div();
+                file.div(".name", fname);
+                file.fileType = "link";
+                file.fileName = fname;
+                FS.InitDirElement(file);
+            }
+            for (var i = 0; i < files.length; i++) {
+                if (files[i].fileType == "directory"){
+                    var fname = files[i].name;
+                    var file = FS.Tree.div();
+                    file.fileName = fname;
+                    file.fileType = "directory";
+                    FS.InitDirElement(file);
+                }
+            }
+            for (var i = 0; i < files.length; i++) {
+                if (files[i].fileType == "file"){
+                    var fname = files[i].name;
+                    var file = FS.Tree.div();
+                    file.fileName = fname;
+                    file.fileType = "file";
+                    FS.InitFileElement(file);
+                }
+            }
+            FS.Loaded = true;
+            LoadingMask.hide();
+        };
+
+        FS.InitFileElement = function(elem) {
+            var fileName = elem.fileName;// = elem.innerHTML;
+            elem.add(".file");
+            var buttons = elem.div(".buttons");
+            var editbtn = buttons.div(".edit-btn");
+            var nameDiv = elem.div(".name", fileName);
+            var splt = fileName.split(".");
+            if (splt.length < 2){
+                splt.push("unknown");
+            }
+            elem.ext = splt[splt.length-1];
+            elem.cls(elem.ext);
+            elem.attr("ext", elem.ext);
+            var name = elem.name = fileName.replace("." + elem.ext, "");
+            elem.add('@name', name.toLowerCase());
+            FS.InitExt(elem);
+            editbtn.onclick = function(){
+                FS.LoadFile(elem);
+            }
+            elem.onclick = FS.FileClick;
+            elem.ondblclick = FS.FileActivate;
+            //Drag.MakeDraggable(elem);
+        };
+
+        FS.InitDirElement = function(elem) {
+            var fileName = elem.name = elem.fileName;// = elem.innerHTML;
+            elem.div(".name").textContent = fileName;
+            if (elem.fileType == "link"){
+                elem.add(".link");
+                if (elem.name == "."){
+                    elem.add(".top");
+                }
+                if (elem.name == ".."){
+                    elem.add(".back");
+                }
+                elem.ondblclick = FS.DirActivate;
+
+            }
+            else{
+                elem.add(".dir");
+                elem.onclick = FS.DirClick;
+                elem.ondblclick = FS.DirActivate;
+                elem.touchmove = FS.DirActivate;
+            }
+            elem.add('@name', fileName.toLowerCase());
+            //Drag.MakeDraggable(elem);
+        };
+
+        FS.InitExt = function(elem){
+            var ext = DOM.div('.tag', '' + elem.ext);
+            ext.parent = elem;
+            ext.onclick = FS.SortTag;
+            elem.add(ext);
+        };
+
+        FS.SortTag = function(event){
+            FS.Tree.all('.file:not([ext=' +this.parent.ext + '])').hide();
+            event.stopPropagation();
+        };
+
+        FS.ClearTagFilter = function(){
+            FS.InputField.value='';
+            FS.Tree.all('.file').show();
+        };
+
+        FS.NewFileReturned = function(result) {
+            if (this.responseText == "Error!" || result == "Error!") {
+                Notify.Error("Error!");
+                return;
+            }
+            var files = W.Wrap(this.responseText);
+            if (files.has("tag")) {
+                FileSystem.InitTagElement(files);
+            }
+            Notify.Show("<h4>Добавлены файлы:<h4>" + result);
+        };
+
+
+        FS.FileClick = function(event) {
+            if (event.shiftKey) {
+                this.add(".selected");
+                return;
+            }
+            if (event.ctrlKey) {
+                FS.LoadFile(this);
+                return;
+            }
+            //this.toggle("selected");
+            FS._toggle(this, 'selected');
+        };
+
+        FS.DirClick = function(event) {
+            if (event.shiftKey) {
+                this.add(".selected");
+                return;
+            }
+            if (event.ctrlKey) {
+                if (location.pathname == "/"){
+                    window.open(location + this.name);
+                }
+                else{
+                    window.open(location + "/" + this.name);
+                }
+                return;
+            }
+            FS._toggle(this, 'selected');
+        };
+
+        FS.DirActivate = function(event) {
+            if (this.is(".link")){
+                if (this.is(".back")){
+                    var parts = FS.CurrentDir.split("/");
+                    FS.CurrentDir = "";
+                    for (var i = 0; i < parts.length - 1; i++){
+                        if (parts[i] != ""){
+                            FS.CurrentDir += "/" + parts[i];
+                        }
+                    }
+                    if (FS.CurrentDir == "") FS.CurrentDir = "/";
+                }
+                if (this.is(".top")){
+                    FS.CurrentDir = "/";
+                }
+            }
+            if (this.is(".dir")){
+                if (FS.CurrentDir == "/") FS.CurrentDir = "";
+                FS.CurrentDir += "/" + this.name;
+            }
+            history.pushState(null, FS.CurrentDir, FS.CurrentDir);
+            //location.pathname = FS.CurrentDir;
+            FS.ReloadSystem();
+        };
+
+        FS._toggle = function(elem, toggledclass){
+            if (elem.is('.' + toggledclass)){
+                elem.del('.' + toggledclass);
+            }else{
+                elem.add('.' + toggledclass);
+            };
+        };
+
+        FS.ClearSelect = function(){
+            FS.Tree.all('.file').del('.selected');
+        };
+
+        FS.FileActivate = function() {
+            Editor.OpenFile(this.fileName);
+            this.del('.selected');
+        };
+
+        FS.LoadFile = function(file) {
+            Editor.OpenFile(file.fileName);
+        };
+
+        FS.DeleteDocs = function() {
+            var elements = FS.GetActiveFiles();
+
+            if (!elements.length) {
+                alert('Нет выбранных файлов');
+                return;
+            };
+
+            var confirmString = ' файлов';
+            if(elements.length == 1) confirmString = ' файл';
+            if(elements.length > 1 && elements.length < 5) confirmString =  'файла';
+
+            if(confirm('Вы действительно хотите удалить ' + (elements.length) + confirmString + '?')){
+                for(var i = 0; i < elements.length; i++){
+                    FS.DeleteDoc(elements[i]);
+                }
+            };
+        };
+
+        FS.DeleteDoc = function(element) {
+            Net.Del(window.location.href + "/" + element.fileName, function(message){
+                Notify.info(message);
+                element.del();
+            });
+        };
+
+        FS.SearchFile = function(){
+            var text = FS.InputField.value;
+            text = text.trim("\n");
+            text = text.trim(" ");
+            text = text.replace("<br/>", "");
+            text = text.replace("<br>", "");
+            if (text.length > 0){
+                var files = FS.Tree.all(".file");
+                files.hide();
+                files = FS.Tree.all(".file[name*='" + text.toLowerCase() + "']");
+                files.show();
+
+            }
+            else{
+                //var files = FS.Tree.all(".file");
+                var folder = FS.Tree.all(".dir")
+                //files.show();
+                folder.show();
+                FS.InputField.value = "";
+            };
+        };
+
+        FS.LogResult = function() {
+            Notify.Show(this.responseText);
+        };
+
+        FS.CreateNewDoc = function() {
+            var fileName = FS.InputField.value;
+            var cpath = location.href;
+            if (!cpath.ends('/')) cpath += "/"
+            if(fileName.length > 0){
+                if (fileName.lastIndexOf(".") > 0){
+                    var file = FS.Tree.div('.File');
+                    //file.div(".name", fileName);
+                    file.fileName = fileName;
+                    file.attr("ext",fileName.substr(fileName.lastIndexOf(".") + 1));
+                    FS.InitFileElement(file);
+                    Notify.Show(file.fileName + " file created");
+                    window.open("/klab/textEditor.htm?action=create&file=" + encodeURIComponent(location.pathname + "/" +fileName));
+                }
+                else{
+                    Net.get(cpath + fileName + "?action=dir", "", function(){
+                        location.href = cpath + fileName;
+                    })
+
+                }
+            };
+
+            //var dialog = W.get(".edit-name-dialog");
+            //dialog.show();
+            //dialog.onapply = FileSystem.NewDocApply;
+        };
+
+        FS.NewDocApply = function(name) {
+            if (name.length > 0) {
+                X.ContentGet(escape(name), "new", FileSystem.NewDocCreated);
+            }
+        };
+
+
+        function UrlUpLoad() {
+            var dialog = W.get(".edit-name-dialog");
+            dialog.show();
+            dialog.onapply = FileSystem.OnUrlUpLoad;
+        }
+
+        FS.OnUrlUpLoad = function(result) {
+            var url = result;
+            if (url.length > 0) {
+                X.ContentGet(escape(url), "urlload", FileSystem.NewDocCreated);
+            }
+        }
+
+        function CopyFile() {
+            var file = GetActiveFile();
+            var url = file.attr("name");
+            url = GetProxiedUrl(escape(url), "filecopy");
+            $.get(url, null, NewFileReturned);
+        }
+
+        function OnUploadFile() {
+            $("#LoadDocDialog")[0].OnApply = OnUploadApply;
+            $("#LoadDocDialog").show();
+
+            var fileInput = document.getElementById("fileUploader");
+            //fileInput.
+        }
+
+        function OnUploadApply() {
+            $("#LoadDocDialog").hide();
+            var files = document.getElementById("fileUploader").files;
+            // object for allowed media types
+            var accept = {
+                binary: ["image/png", "image/jpeg"],
+                text: ["text/plain", "text/javascript", "text/css", "application/xml", "text/html"]
+            };
+            var file;
+            for (var i = 0; i < files.length; i++) {
+
+                file = files[i];
+                if (file !== null) {
+
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("POST", GetProxiedUrl(file.fileName, "save"));
+                    xhr.overrideMimeType(file.mediaType);
+                    xhr.onload = NewFileReturned;
+                    if (accept.binary.indexOf(file.type) > -1) {
+
+                        xhr.sendAsBinary(file.getAsBinary());
+                        continue;
+                    }
+                    if (accept.binary.indexOf(file.type) > -1) {
+                        xhr.sendAsText(file.getAsText());
+                        continue;
+                    }
+                }
+            }
+            $("#fileUploader").val("");
+        }
+
+
+        WS.DOMload(FS.Init);
+        WS.DOMload(function(){
+            WS.Body.ondragover = function(event) {
+                var types = event.dataTransfer.types;
+                if (types[2] && types[2] == "Files"){ event.preventDefault(); return true; }
+                return false;
+            };
+
+            function upload(file){
+                Notify.Show("Uploading " + file.name + "");
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST',  window.location + "/" + file.name, true);
+                xhr.onload = function(e) {
+                    Notify.Show("file " + file.name + " uploaded!");
+                    FS.ReloadSystem();
+                };
+                xhr.send(file);
+            }
+
+            WS.Body.ondrop = function(event) {
+                var types = event.dataTransfer.types;
+                var files = event.dataTransfer.files;
+                if (types && types.length && (types[0] == "Files" || types[0]== "application/x-moz-file") && files && files.length > 0){
+                    event.preventDefault();
+                    for (var i = 0; i < files.length; i++){
+                        upload(files[i]);
+                    }
+                    return true;
+                }
+                return false;
+            };
+        });
 
     </script>
 
@@ -16,15 +834,463 @@
         body {
             background-color: #fff;
         }
+
+        #VersionHistory {
+            left: 40%;
+            top: 40%;
+            border: solid 1px red;
+            width: 400px;
+            height: 300px;
+        }
+
+        #VersionHistory .keyAr {
+            color: navy;
+            cursor: pointer;
+        }
+
+        #VersionHistory .keyAr:hover {
+            font-weight: bold;
+        }
+
+        #EditorArea, .file-editor {
+            width: 80%;
+            position: absolute;
+            left:20%;
+            top:0;
+            line-height: 1.2em;
+            font-size: 14px;
+            font-family: monospace;
+            height: 100%;
+        }
+
+        .header.toolbar .menuitem.disabled {
+            background-color: red;
+        }
+
+        .header.toolbar .menuitem.active {
+            background-color: darkorange;
+        }
+
+        #hkHint {
+            background-color: white;
+            border: 1px solid navy;
+            border-radius: 10px 10px 10px 10px;
+            cursor: default;
+            font-size: 16px;
+            height: 85%;
+            text-align: left;
+            width: 12%;
+            opacity: 0.88;
+            position: fixed;
+            top: 4%;
+            right: 1%;
+            z-index: 20;
+            padding: 7px;
+            font-size: 12px;
+            overflow: hidden;
+        }
+
+        #hkHint .event {
+            color: #333;
+        }
+
+        #hkHint .event.first {
+            background-color: yellow;
+        }
+
+        #hkHint .event.error {
+            color: red;
+        }
+
+        #ServerToolBtn:active {
+            border: 1px solid green;
+        }
+
+        #ServerToolBtn.new {
+            background-color: gray;
+        }
+
+        #ServerToolBtn.working {
+            background-color: green;
+        }
+
+        #ServerToolBtn.exited {
+            background-color: purple;
+        }
+
+        #ServerToolBtn.error {
+            background-color: red;
+        }
+    </style>
+    <style type="text/css">
+        #LoadingMask{
+            position: fixed;
+            z-index: 1000;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(80,80,80,0.3);
+        }
+
+        #LoadingMask .loading-text{
+            background-color: white;
+            border: 1px solid black;
+            border-radius: 5px;
+            color: navy;
+            font-family: verdana;
+            font-size: 20px;
+            left: 45%;
+            padding: 30px 0;
+            position: absolute;
+            text-align: center;
+            top: 33%;
+            width: 170px;
+        }
+
+        #FilterBlock{
+            width: 250px;
+            float: left;
+            margin-left: 10px;
+        }
+
+        #FilterBlock #FilterInput{
+
+        }
+
+        #HeaderBar.toolbar{
+            text-align: left;
+        }
+
+        .search-elem {
+            width: 150px;
+            height: 25px;
+            border: solid 1px #3366FF;
+            float: left;
+            height: 25px;
+            margin-top: 13px;
+            text-align: left;
+            width: 150px;
+        }
+
+        .files-block{
+            position: absolute;
+            top: 5%;
+            width: 20%;
+            height: 95%;
+        }
+
+        .tree-container
+        {
+            position: relative;
+            padding-left: 10px;
+            padding-right: 10px;
+            box-sizing: border-box;
+            max-width: 600px;
+            -moz-box-sizing: border-box;
+            height: 100%;
+            width: 100%;
+            overflow-y : scroll;
+        }
+
+
+        .filter
+        {
+            color: #9900FF;
+            margin: 5px 10px 10px 5px;
+            display: block;
+            float: left;
+        }
+
+        .filter.active
+        {
+            background-color: #CCFF33;
+        }
+
+        .tree-container .file, .dir, .link
+        {
+            color: gray;
+            display: block;
+            clear: both;
+            padding-left: 50px;
+            padding-top: 5px;
+            padding-bottom: 5px;
+            cursor: pointer;
+        }
+
+        .link.back{
+            background-image: url("http://cdn1.iconfinder.com/data/icons/customicondesignoffice5/24/go-back.png");
+            background-position: 20px center;
+            background-repeat: no-repeat;
+        }
+
+        .dir{
+            background-image: url("http://cdn1.iconfinder.com/data/icons/momenticons-basic/16x16/folderopen1.png");
+            background-position: 20px center;
+            background-repeat: no-repeat;
+
+        }
+
+        .tree-container .tag
+        {
+            color: #3366AA;
+            display: inline;
+            float: right;
+        }
+
+        .tree-container .file.htm, .tree-container .file.html
+        {
+            color: navy;
+        }
+
+        .tree-container .file.css
+        {
+            color: #FF00CC;
+        }
+
+        .tree-container .file.js
+        {
+            color: #007766;
+        }
+
+        .tree-container .file.ERROR
+        {
+            background-color: #FF7766;
+        }
+
+        .files-block
+        {
+            display: block;
+        }
+
+        .tree-container .file.selected, .dir.selected
+        {
+            background-color: #EEE;
+        }
+
+
+        .tree-container .file.drop-ready
+        {
+            border: dotted 1px gray;
+            border-radius : 4px;
+            -moz-border-radius : 4px;
+        }
+
+        .tree-container .file.drop-selected
+        {
+            border: solid 1px gray;
+            background-color: #CCFFFF;
+        }
+
+        .tree-container .file:hover, .dir:hover, .link:hover
+        {
+            text-shadow: 1px 1px 1px #ccc;
+            border-bottom: dotted 1px gray;
+            color: red;
+        }
+
+
+        .tree-container .file .name, .dir .name, .link .name
+        {
+            display: inline;
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .tree-container .file .tags, .dir .tags{
+            float: right;
+        }
+
+        .tree-container .file .buttons{
+            position: absolute;
+            display: none;
+            margin-left: -32px;
+        }
+
+        .tree-container .file:hover .buttons{
+            display: block;
+        }
+
+        .tree-container .file .buttons>div{
+            height: 16px;
+            width: 16px;
+            display: inline-block;
+            border: solid 1px #ccc;
+        }
+
+        .tree-container .file .buttons .edit-btn{
+            background: transparent 0 0;
+            background-image:
+                    url("data:image/png;base64,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");
+            background-size: 16px;
+        }
+
+        .upload-frame
+        {
+            border: none;
+            height: 40px;
+            width: 300px;
+        }
+
+        #NewDocDialogInner
+        {
+            width: 300px;
+            height: 200px;
+        }
     </style>
 </head>
 <body>
+
 <include url='http://services.web-manufacture.net/ui/Toolbars.htm'></include>
 <include url='http://services.web-manufacture.net/ui/FrameWin.htm'></include>
 <include url='http://services.web-manufacture.net/ui/Win.htm'></include>
 <include url='http://services.web-manufacture.net/ui/Notification.htm'></include>
-<include url='http://services.web-manufacture.net/ui/fileSystem.htm'></include>
 
+<div id='Toolbar' class="header toolbar">
+    <div id='FilterBlock'>
+        <div class='title'>Фильтр и поиск:</div>
+        <input id="FilterInput" type='text'/>
+    </div>
+    <div class='menuitem file-manager-button' id='create-file-button' icon="http://system.web-manufacture.net/images/document-small.png" onclick="FS.CreateNewDoc()">
+        Создать
+    </div>
+    <div class='menuitem file-manager-button' id='delete-file' icon="http://system.web-manufacture.net/images/delete-mini.png" onclick="FS.DeleteDocs()">
+        Удалить
+    </div>
+    <div class="menuitem round" icon="http://system.web-manufacture.net/images/ButtonUSSR.png" onclick="FS.ClearTagFilter();">
+        Отменить фильтрацию
+    </div>
+    <div class="menuitem round" icon="" onclick="FS.ClearSelect();">
+        Убрать выделение
+    </div>
+    <div class="menuitem save" tooltip="Сохранить" icon="http://system.web-manufacture.net/Images/save-mini.png"
+         onclick="Editor.SaveFile();" style="background-image: url(http://system.web-manufacture.net/Images/save-mini.png);
+													 background-position: 50% 50%; background-repeat: no-repeat no-repeat;">
+    </div>
+    <div class="menuitem save history" tooltip="История сохранений"
+         icon="http://cdn1.iconfinder.com/data/icons/softwaredemo/PNG/32x32/Hourglass.png"
+         onclick="Editor.ShowHistory();" style="background-image: url(http://cdn1.iconfinder.com/data/icons/softwaredemo/PNG/32x32/Hourglass.png);
+														background-position: 50% 50%; background-repeat: no-repeat no-repeat;">
+    </div>
+    <div class="menuitem reload" tooltip="Перегрузить"
+         icon="http://cdn1.iconfinder.com/data/icons/humility-icons-MERGE/24x24/stock/gtk-refresh.png"
+         onclick="Editor.Reload();" style="background-image: url(http://cdn1.iconfinder.com/data/icons/humility-icons-MERGE/24x24/stock/gtk-refresh.png);
+												   background-position: 50% 50%; background-repeat: no-repeat no-repeat;">
+    </div>
+    <div class="separator">
+    </div>
+    <div class="menuitem color" style="background-size: 48px; background-image: url(http://system.web-manufacture.net/Images/color.png);
+											   background-position: 50% 50%; background-repeat: no-repeat no-repeat;"
+         tooltip="Палитра"
+         icon="http://system.web-manufacture.net/Images/color.png"
+         onclick="if (window.CPalette) CPalette.Show(); else M.LoadModule('http://system.web-manufacture.net/ColorPalette.htm');">
+    </div>
 
+    <div class="menuitem reformat" tooltip="Переформатировать"
+         icon="http://cdn1.iconfinder.com/data/icons/humility-icons-MERGE/24x24/stock/gtk-refresh.png"
+         onclick="Editor.Reformat()" style="background-image: url(http://cdn1.iconfinder.com/data/icons/humility-icons-MERGE/24x24/stock/gtk-refresh.png);
+												   background-position: 50% 50%; background-repeat: no-repeat no-repeat;">
+    </div>
+    <div class="separator">
+    </div>
+    <div class="menuitem" id='ServerRunBtn' tooltip="RunServer"
+         icon='http://cdn2.iconfinder.com/data/icons/stilllife/48x48/apps/gnome-server-config.png'
+         onclick='Editor.RunOnServer();'
+    >
+    </div>
+    <div class="menuitem" tooltip="Запустить" icon="http://system.web-manufacture.net/Images/emblem-system.png"
+         onclick="Editor.RunFile();" style="background-image: url(http://system.web-manufacture.net/Images/emblem-system.png);
+													background-position: 50% 50%; background-repeat: no-repeat no-repeat;">
+    </div>
+    <div class="separator">
+    </div>
+
+    <select id="EditorThemeSelector" size="1" onchange="Editor.ChangeTheme(this.value);">
+        <optgroup label="Bright">
+            <option value="ace/theme/chrome">Chrome</option>
+            <option value="ace/theme/clouds">Clouds</option>
+            <option value="ace/theme/crimson_editor">Crimson Editor</option>
+            <option value="ace/theme/dawn">Dawn</option>
+            <option value="ace/theme/dreamweaver">Dreamweaver</option>
+            <option value="ace/theme/eclipse">Eclipse</option>
+            <option value="ace/theme/github">GitHub</option>
+            <option value="ace/theme/iplastic">IPlastic</option>
+            <option value="ace/theme/solarized_light">Solarized Light</option>
+            <option value="ace/theme/textmate">TextMate</option>
+            <option value="ace/theme/tomorrow">Tomorrow</option>
+            <option value="ace/theme/xcode">XCode</option>
+            <option value="ace/theme/kuroir">Kuroir</option>
+            <option value="ace/theme/katzenmilch">KatzenMilch</option>
+            <option value="ace/theme/sqlserver">SQL Server</option>
+        </optgroup>
+        <optgroup label="Dark">
+            <option value="ace/theme/ambiance">Ambiance</option>
+            <option value="ace/theme/chaos">Chaos</option>
+            <option value="ace/theme/clouds_midnight">Clouds Midnight</option>
+            <option value="ace/theme/cobalt">Cobalt</option>
+            <option value="ace/theme/idle_fingers">idle Fingers</option>
+            <option value="ace/theme/kr_theme">krTheme</option>
+            <option value="ace/theme/merbivore">Merbivore</option>
+            <option value="ace/theme/merbivore_soft">Merbivore Soft</option>
+            <option value="ace/theme/mono_industrial">Mono Industrial</option>
+            <option value="ace/theme/monokai">Monokai</option>
+            <option value="ace/theme/pastel_on_dark">Pastel on dark</option>
+            <option value="ace/theme/solarized_dark">Solarized Dark</option>
+            <option value="ace/theme/terminal">Terminal</option>
+            <option value="ace/theme/tomorrow_night">Tomorrow Night</option>
+            <option value="ace/theme/tomorrow_night_blue">Tomorrow Night Blue</option>
+            <option value="ace/theme/tomorrow_night_bright">Tomorrow Night Bright</option>
+            <option value="ace/theme/tomorrow_night_eighties">Tomorrow Night 80s</option>
+            <option value="ace/theme/twilight">Twilight</option>
+            <option value="ace/theme/vibrant_ink">Vibrant Ink</option>
+        </optgroup>
+    </select>
+    <div class="separator">
+    </div>
+
+    <!--
+<div class="menuitem" tooltip="Restart on Server" icon="http://cdn1.iconfinder.com/data/icons/UltimateGnome/32x32/apps/gnome-session-reboot.png" onclick="Editor.ServerRestart();">
+</div>
+<div class="menuitem" tooltip="RUN on Server" icon="http://cdn1.iconfinder.com/data/icons/SUPERVISTA/security/png/48/status.png" onclick="Editor.ServerRun();">
+</div>
+<div class="menuitem" tooltip="Stop on Server" icon="http://cdn1.iconfinder.com/data/icons/CrystalClear/32x32/actions/exit.png" onclick="Editor.ServerStop();">
+</div>
+-->
+    <div class="menuitem invisible" tooltip="RUN" icon="http://system.web-manufacture.net/Images/exec.png"
+         onclick="window.open('system.index.htm?url=' + encodeURIComponent(Editor.GetFileUrl()));">
+    </div>
+    <div class="menuitem invisible" tooltip="Open log Window"
+         icon="http://cdn1.iconfinder.com/data/icons/CrystalClear/32x32/apps/xconsole.png"
+         onclick="Editor.OpenLogWindow();">
+    </div>
+    <div class="menuitem invisible" id='ServerToolBtn' class='server-tool' tooltip="ServerTool"
+         icon='http://cdn2.iconfinder.com/data/icons/stilllife/48x48/apps/gnome-server-config.png'>
+    </div>
+    <div class="separator">
+    </div>
+    <input id='urlBar' type='text' class='invisible'/>
+    <div class='menuitem  invisible' tooltip='Go URL'
+         icon='http://cdn1.iconfinder.com/data/icons/snowish/48x48/actions/forward.png'
+         onclick='Editor.GoUrl(DOM("#urlBar").value, event.ctrlKey);'>
+    </div>
+    <div class='menuitem  invisible' tooltip='Go URL ALL'
+         icon='http://cdn1.iconfinder.com/data/icons/snowish/48x48/actions/finish.png'
+         onclick='Editor.GoUrlAll(DOM("#urlBar").value, event.ctrlKey);'>
+    </div>
+    <div class='menuitem  invisible' tooltip='Go URL in new window'
+         icon='http://cdn3.iconfinder.com/data/icons/snowish/48x48/actions/document-new.png'
+         onclick='Editor.GoUrl(DOM("#urlBar").value, true);'>
+    </div>
+    <div class="status">
+    </div>
+</div>
+<div id="files-block" class="files-block" title="File System">
+    <div class="tree-container">
+
+    </div>
+</div>
+<div id='LoadingMask'>
+    <div class='loading-text'>Loading...</div>
+</div>
+<div id='VersionHistory' class='invisible window smallwindow' title='История' onclick='this.hide();'>
+</div>
 </body>
 </html>
