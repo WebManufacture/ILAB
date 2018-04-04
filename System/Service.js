@@ -144,8 +144,7 @@ Inherit(Service, EventEmitter, {
                             socket.netSocket.setEncoding('binary');
                         }
                         result.pipe(socket.netSocket);
-                    }
-                    if (message.id) {
+                    } else {
                         socket.write({"type": "result", id: message.id, result: result})
                     }
                 }

@@ -138,15 +138,10 @@ function ServicesManager(config, portCountingFunc){
     
     //For system use! Do not use this method;
     this.Pipe = function(serviceId){
-        var service = this.services[serviceId];
-        if (service){
-            var str = new stream.Writeble();
-            service.on('message', (obj) => {
-               str.write(JSON.stringify(obj)); 
-            });
-            return str;
-        }
-        return null;
+        return new Promise(function(resolve, reject){
+            //resolve(process.stdout);
+            reject('For system use! Do not use this method;');
+        });
     };
 
     this.on("error", function () {

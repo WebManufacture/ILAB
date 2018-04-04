@@ -58,6 +58,7 @@ ConfManager.CreateSection = function(name, baseUrl){
         configService: null
     };
     ConfManager.sections[name] = section;
+    loggerDiv = WS.Body.div(".logger");
     ServiceProxy.Connect(baseUrl + "/ServicesManager").then((servicesManager) => {
         section.servicesManager = servicesManager;
         section.Start = function (item) {
@@ -71,8 +72,16 @@ ConfManager.CreateSection = function(name, baseUrl){
         section.Reset = function (item) {if (!item) return null;
             return servicesManager.ResetService(item);
         };
-
+        servicesManager.emit = function(name, msg){
+            var line = DOM.div(".line");
+            line.div(".service-name", "Root");
+            line.div(".event-name", name);
+            line.div(".message", JSON.stringify(msg));
+            loggerDiv.ins(line);
+            return this.__proto__.emit.apply(this, arguments);
+        }
         return servicesManager.GetServicesInfo();
+        
     }).then((services) => {
         section.services = services;
         return ServiceProxy.Connect(baseUrl + "/ConfigService").then((configService)=>{
@@ -84,20 +93,9 @@ ConfManager.CreateSection = function(name, baseUrl){
             return configService.GetConfigs();
         })
     }).then((configs) => {
-        var log = WS.Body.div(".logger");
         for (var item in section.services){
             var service = section.services[item];
-            ServiceProxy.Connect(baseUrl + "/" + item).then((service) => {
-                if (service){
-                    service.emit = function(name, msg){
-                        var line = DOM.div(".line");
-                        line.div(".service-name", item);
-                        line.div(".event-name", name);
-                        line.div(".message", JSON.stringify(msg));
-                        log.ins(line);
-                    };
-                }
-            });
+            ConfManager.ConnectServiceLog(baseUrl, item);
             section.services[item].config = configs[item] ? configs[item] : {};
         }
         for (var item in configs){
@@ -115,6 +113,21 @@ ConfManager.CreateSection = function(name, baseUrl){
         ConfManager.ShowSection(section);
     });
 };
+
+ConfManager.ConnectServiceLog = function(baseUrl, serviceId){
+    ServiceProxy.Connect(baseUrl + "/" + serviceId).then((service) => {
+        if (service){
+            service.emit = function(name, msg){
+                var line = DOM.div(".line");
+                line.div(".service-name", serviceId);
+                line.div(".event-name", name);
+                line.div(".message", JSON.stringify(msg));
+                loggerDiv.ins(line);
+                return this.__proto__.emit.apply(this, arguments);
+            };
+        }
+    });
+}
 
 
 ConfManager.ShowSection = function(section){
