@@ -10,7 +10,7 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
     git clone http://github.com/WebManufacture/ILAB-3.0
     cd ILAB-3.0
     npm install
-    node RootService.js --config
+    node RootService.js --demo
     
  Для пользователей UBUNTU, убедитесь, что вы пользуетесь версией NODE >= 8. Для этого наберите - 
  
@@ -29,12 +29,14 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
 
     node RootService.js
      
-Для того, чтобы стартовать минимальный набор сервисов, добавим конфиг:
+Для того, чтобы стартовать минимальный набор сервисов, нужно добавить файл config.json в корень ILAB-3.0, можно скопировать его из файла config-sample.json, который лежит там же. После этого можно использовать преконфигурированную загрузку:
     
     node RootService.js --config
     
 Ну и для запуска своего сервиса, его можно добавить как в конфиг,
 так и просто в командную строку. Причем можно добавлять несколько через пробел.
+    
+    node RootService.js myService.js
 
     node RootService.js --config myService.js
 
