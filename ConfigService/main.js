@@ -227,7 +227,7 @@ ConfManager.UpdateItem = function (item, data) {
 }
 
 ConfManager.ShowLogs = function (item) {
-    window.open("Monitoring.htm?fork=" + item.key);
+    window.open("Monitoring.htm?service=" + item.key);
 };
 
 ConfManager.GetNode = function (nodeId) {

@@ -2,21 +2,14 @@
 
 <html>
 	<head>
-		<title>Monitoring</title>
-		<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
-		<link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css" />
-		
-		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.4/Utils.js"></script>
-		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.4/DOM.js"></script>
-		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.4/Events.js"></script>
-		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.4/Log.js"></script>
-		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.4/Url.js"></script>
-		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.4/Net.js"></script>
-		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.4/Jasp.js"></script>
-		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.4/Modules.js"></script>
-		<script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.4/ui.js"></script>
-		
-		<script src="/socket.io/socket.io.js"></script>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
+    <link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
+    <script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.5?join=true"></script>
+    <script type="text/javascript" src="http://Services.web-manufacture.net/ilab-socket.js"></script>
+
+    <title>Конфигурация сервера</title>
+    
+    <link type='text/css' rel='stylesheet' href="main.css"/>
 		
 		<script>
 			M.ServicesUrl = "http://services.web-manufacture.net";
@@ -68,61 +61,64 @@
 				//Monitor.startDate = Monitor.startDate.getTime();
 				//Monitor.Url = (this.location + "").replace(this.location.search, "").toLowerCase();
 				//Monitor.Url = Monitor.Url.replace("/monitoring.htm", "");
-				Monitor.ForkId = Request.Params.fork;
-				if (!Monitor.ForkId.start("/")) Monitor.ForkId = "/" + Monitor.ForkId;
-				DOM("#urlBar").set(Monitor.ForkId);
-				Monitor.Url = "/channels" + Monitor.ForkId;
+				Monitor.serviceId = Request.Params.service;
+				document.title = Monitor.serviceId;
+				DOM("#urlBar").set(Monitor.serviceId);
 				
 				Server = {};
 
 				Server.Start = function(item){
-					send(Monitor.ForkId + "/control.start");
+				    if (Monitor.servicesManager){
+				        Monitor.servicesManager.StartService(Monitor.serviceId);
+				    }
 				}
 				Server.Stop = function(item){
-					send(Monitor.ForkId + "/control.stop");
+					if (Monitor.servicesManager){
+				        Monitor.servicesManager.StopService(Monitor.serviceId);
+				    }
 				}
 				Server.Reset = function(item){
-					send(Monitor.ForkId + "/control.reset");
+					if (Monitor.servicesManager){
+				        Monitor.servicesManager.ResetService(Monitor.serviceId);
+				    }
 				} 
+
+                ServiceProxy.Init("ws://localhost:5700").then((servicesManager) => {
+                    Monitor.servicesManager = servicesManager;
+                    servicesManager.on("service-started", (params) => {
+                        Monitor.ServerStatus(params);
+                    });
+                    servicesManager.on("service-loaded", (params) => {
+                        Monitor.ServerStatus(params);
+                        Monitor.ConnectService();
+                    });
+                    servicesManager.on("service-connected", (params) => {
+                        Monitor.ServerStatus(params);
+                    });
+                    servicesManager.on("service-exited", (params) => {
+                        Monitor.ServerStatus(params);
+                    });
+                    servicesManager.on("service-error", (params) => {
+                        Monitor.ServerStatus(params);
+                    });
+                })
 				
-								
-				logsChannel = new HttpChannel("/channels/fork" + Monitor.ForkId + "/process/log", true);
-				logsChannel.onRead.subscribe(function(message){
-					if (message.length >= 2 ){
-						var arg = message[1];
-						var message = message[0];						
-						if (arg){
-							Monitor.LogMessage(arg, message);				
-						}
-					}
-				});
-				
-				var socket = io.connect('');
-				socket.on('connect', function(s){
-					console.log('connected');
-				});
-				socket.on('message', function(messages){
-					if (messages.length >= 2 ){
-						var arg = messages[1];
-						var message = messages[0];						
-						if (arg && arg.state){
-							Monitor.ServerStatus(arg.state);				
-						}
-					}
-				});
-				var send = function(path, data){
-					socket.send(JSON.stringify({path : path, data: data}));
-				}
-				
-				Net.get("/nodes" + Monitor.ForkId, function (result, status){
-					if (status == 200){
-						Monitor.ServerStatus(result.state);	
-					}
-					else{
-						Monitor.ServerStatus("error");	
-					}					
-				});
+				Monitor.ConnectService();
 			};
+			
+			Monitor.ConnectService = function(){
+			    ServiceProxy.Connect("ws://localhost:5700/" + Monitor.serviceId).then((service) => {
+                    if (service){
+                        service.emit = function(name, msg){
+                            Monitor.LogMessage(name, msg);				
+                            return this.__proto__.emit.apply(this, arguments);
+                        };
+                        service.on("closing-server", () => {
+                           service.close(); 
+                        });
+                    }
+                });
+			}
 						
 			
 			Monitor.ServerStatus = function (status) {
@@ -134,24 +130,24 @@
 				}
 			}; 		
 						
-			Monitor.LogMessage = function(log, msg){
+			Monitor.LogMessage = function(type, msg){
 				var logDiv = DOM.get('#logsMonitor');
-				if (log.type == "?") log.type = "log";
-				var proto = logDiv.get(".prototype." + log.type);
+				if (!type) type = "log";
+				var proto = logDiv.get(".prototype." + type);
 				if (!proto){
 					proto = logDiv.get(".prototype.log");	
 				}
 				proto = proto.clone();
-				log.datetime = new Date(log.datetime);
-				proto.get(".datetime").set(log.datetime.formatTime(true));
-				if (log.type == "error"){
-					proto.get(".text").set(log.content.message);	
-					proto.add(Monitor.ParseStack(log.content));	
+				var datetime = new Date();
+				proto.get(".datetime").set(datetime.formatTime(true));
+				if (type == "error"){
+					proto.get(".text").set(msg);	
+					proto.add(Monitor.ParseStack(msg));	
 				}
 				else{
 					var content = '';
 					var color = '';
-					var text = log.content;
+					var text = msg;
 					var mode = 0;
 					if (text){
 						for (var i = 0; i < text.length; i++){
