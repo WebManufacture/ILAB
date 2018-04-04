@@ -23,13 +23,25 @@ Frame._initFrame = function () {
             if (!arg) continue;
             if (arg === "--config") {
                 // используется config.json если третьим аргументом идёт флаг --config
-                var configFile = require(Path.resolve("./config.json"));
-                for (var key in configFile) {
-                    servicesToStart[key] = configFile[key];
+                if (fs.existsSync(Path.resolve("config.json"))) {
+                    var configFile = require(Path.resolve("config.json"));
+                    for (var key in configFile) {
+                        servicesToStart[key] = configFile[key];
+                    }
                 }
             }
             else{
-                servicesToStart[arg] = null;
+                if (arg === "--demo") {
+                    // используется config.json если третьим аргументом идёт флаг --config
+                    if (fs.existsSync(Path.resolve("config-sample.json"))) {
+                        var configFile = require(Path.resolve("config-samplejson"));
+                        for (var key in configFile) {
+                            servicesToStart[key] = configFile[key];
+                        }
+                    }
+                } else {
+                    servicesToStart[arg] = null;
+                }
             }
         }
         let debugMode = false;
