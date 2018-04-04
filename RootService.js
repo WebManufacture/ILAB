@@ -34,7 +34,7 @@ Frame._initFrame = function () {
                 if (arg === "--demo") {
                     // используется config.json если третьим аргументом идёт флаг --config
                     if (fs.existsSync(Path.resolve("config-sample.json"))) {
-                        var configFile = require(Path.resolve("config-samplejson"));
+                        var configFile = require(Path.resolve("config-sample.json"));
                         for (var key in configFile) {
                             servicesToStart[key] = configFile[key];
                         }
