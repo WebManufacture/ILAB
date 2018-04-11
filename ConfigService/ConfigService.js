@@ -30,7 +30,7 @@ function ConfigService(params) {
         var promise = this.Save(data);
         if (restartService) {
             return promise.then(function () {
-                return ServicesManager.ResetService(serviceName);
+                return ServicesManager.ResetService(serviceName).catch(err => {});
             })
         };
         return promise;
@@ -92,7 +92,7 @@ Inherit(ConfigService, Service, {
             self.filesService.on("watch:" + fpath, (change, path) => {
                 console.log("Service " + serviceId + " " + change + " in path " + path);
                 if (change == "change") {
-                    return ServicesManager.ResetService(serviceId, options);
+                    return ServicesManager.ResetService(serviceId, options).catch(err => {});
                 }
             });
             console.log("Watching " + fpath);

@@ -108,7 +108,23 @@
 			
 			Monitor.ConnectService = function(){
 			    ServiceProxy.Connect("ws://localhost:5700/" + Monitor.serviceId).then((service) => {
+			        ServiceName.set(Monitor.serviceId);
                     if (service){
+                        for (var item in service){
+                            if (service.hasOwnProperty(item) && typeof(service[item]) == "function") {
+                                var methodDiv = ServiceMethods.div(".method", item + "()");
+                                methodDiv.methodName = item;
+                                methodDiv.onclick = function () {
+                                    var methodName = this.methodName;
+                                    service[this.methodName]().then(function (result) {
+                                        //JSON.stringify(result);
+                                        Monitor.LogCall(methodName, result);
+                                    }).catch(function (err) {
+                                        Monitor.LogMessage("error", methodName + "() >> <br/>");
+                                    });
+                                }
+                            }
+						}
                         service.emit = function(name, msg){
                             Monitor.LogMessage(name, msg);				
                             return this.__proto__.emit.apply(this, arguments);
@@ -128,9 +144,40 @@
 					Notify.Show(status);
 					WS.Body.set("@status", status);
 				}
-			}; 		
-						
-			Monitor.LogMessage = function(type, msg){
+			};
+
+            Monitor.LogCall = function(methodName, obj){
+                var logDiv = DOM.get('#logsMonitor');
+                proto = logDiv.get(".prototype.call");
+                var datetime = new Date();
+                proto.get(".datetime").set(datetime.formatTime(true));
+            	proto.get(".method").set(methodName + "() >>");
+            	proto.div(".result", DOM.formatJSON(obj, true));
+                logDiv.ins(proto);
+                setTimeout(function(){
+                    proto.add(".old");
+                }, 60000 * 3);
+            };
+
+            Monitor.LogError = function(msg, methodName){
+                var logDiv = DOM.get('#logsMonitor');
+                var proto = logDiv.get(".prototype.error");
+                proto = proto.clone();
+                var datetime = new Date();
+                proto.get(".datetime").set(datetime.formatTime(true));
+                if (methodName){
+                    proto.get(".text").set(methodName + "() >> <br/>" + msg.message);
+				} else {
+                    proto.get(".text").set(msg.message);
+                }
+                proto.add(Monitor.ParseStack(msg));
+                logDiv.ins(proto);
+                setTimeout(function(){
+                    proto.add(".old");
+                }, 60000 * 3)
+            };
+
+			Monitor.LogMessage = function(type, msg, arg1){
 				var logDiv = DOM.get('#logsMonitor');
 				if (!type) type = "log";
 				var proto = logDiv.get(".prototype." + type);
@@ -141,40 +188,51 @@
 				var datetime = new Date();
 				proto.get(".datetime").set(datetime.formatTime(true));
 				if (type == "error"){
-					proto.get(".text").set(msg);	
-					proto.add(Monitor.ParseStack(msg));	
+					if (typeof(msg) == "object"){
+					    proto.add(Monitor.ParseStack(msg));	
+					} else {
+					    proto.get(".text").set(msg);
+					}
 				}
 				else{
-					var content = '';
-					var color = '';
-					var text = msg;
-					var mode = 0;
-					if (text){
-						for (var i = 0; i < text.length; i++){
-							if (mode == 0){
-								if (text[i] == ">"){
-									content += "</span>";
-								}
-								if (text[i] == "<"){
-									mode = 1;
-									color = '';
-									continue;
-								}
-								content += text[i];
-								continue;
-							}
-							if (mode == 1){
-								if (text[i] == ">" || text[i] == ":"){
-									content += "<span class='user-color' style='color:" + color + "'>";
-									mode = 0;
-									continue;
-								}
-								color += text[i];
-								continue;
-							}
-						}
+                    if (typeof msg == "string") {
+                        var content = '';
+                        var color = '';
+                        var text = msg;
+                        var mode = 0;
+                        if (text) {
+                            for (var i = 0; i < text.length; i++) {
+                                if (mode == 0) {
+                                    if (text[i] == "\n") {
+                                        content += "<br/>"
+                                    }
+                                    if (text[i] == ">") {
+                                        content += "</span>";
+                                    }
+                                    if (text[i] == "<") {
+                                        mode = 1;
+                                        color = '';
+                                        continue;
+                                    }
+                                    content += text[i];
+                                    continue;
+                                }
+                                if (mode == 1) {
+                                    if (text[i] == ">" || text[i] == ":") {
+                                        content += "<span class='user-color' style='color:" + color + "'>";
+                                        mode = 0;
+                                        continue;
+                                    }
+                                    color += text[i];
+                                    continue;
+                                }
+                            }
+                        }
+                        proto.get(".text").set(content);
+                    }
+                    else {
+                        proto.get(".text").set(JSON.stringify(msg));
 					}
-					proto.get(".text").set(content);	
 				}
 				logDiv.ins(proto);
 				setTimeout(function(){
@@ -227,20 +285,75 @@
 		<style>
 			
 			body{
-				padding-top: 100px;	
+
 			}
 			
-			body.loading .header.toolbar .menuitem.server-control {
+			body.loading #ServiceControl .toolbar .menuitem.server-control {
 				display: none;	
 			}
-			
+
+			#ServiceControl{
+				display: block;
+				font-size: 12px;
+				text-align: left;
+				font-family: monospace;
+				width:20%;
+				float: left;
+				height: 100%;
+				border: solid 1px gray;
+				position: relative;
+				padding: 10px;
+				padding-top: 70px;
+				box-sizing: border-box;
+			}
+
+			#ServiceControl .toolbar{
+				width: 100%;
+				height: 70px;
+				border:none;
+				background: #afa;
+				position: absolute;
+				top:0;
+				left: 0;
+			}
+
+			#ServiceControl #ServiceInfo{
+				height: 100%;
+				width: 100%;
+				overflow-y: auto;
+			}
+
+			#ServiceControl #ServiceInfo #ServiceName{
+				padding-top: 15px;
+				padding-bottom: 10px;
+				font-size: 150%;
+				font-weight: bold;
+			}
+
+
+			#ServiceMethods .method{
+				padding: 2px;
+				cursor: pointer;
+			}
+
+			#ServiceMethods .method:hover{
+				text-shadow: 2px 2px 2px #ccc;
+			}
+
+			#ServiceMethods .method:active{
+				color: blue;
+			}
+
 			#logsMonitor {
 				display: block;
 				font-size: 12px;
 				padding: 2px;
 				text-align: left;
+				float: left;
 				font-family: monospace;
-				width:80%;
+				width:75%;
+				overflow-y: auto;
+				height: 100%;
 			}
 			
 			#logsMonitor .log-item{
@@ -287,38 +400,7 @@
 				color: navy;
 				font-weight: bold;
 			}
-			
-			#Notify{
-				background-color: white;
-				border: 1px solid navy;
-				border-radius: 10px 10px 10px 10px;
-				cursor: default;
-				font-size: 16px;
-				text-align: left;
-				opacity: 0.5;
-				position: absolute;
-				top: 10%;
-				right: 1%;
-				z-index: 20;
-				padding: 7px;
-				font-size: 12px;
-				overflow: hidden;
-				width: 10%;
-				height: 60%;
-			}
-			
-			#Notify .event{
-				color: #333;
-			}
-			
-			#Notify .event.first{
-				background-color:yellow;
-			}
-			
-			#Notify .event.error{
-				color: red;
-			}
-			
+
 			body[status='working'] #Notify {
 				background-color: #99FF99;
 			}
@@ -348,23 +430,26 @@
 		
 	</head>
 	<body>
-		
+		<include url='http://services.web-manufacture.net/UI/UiUtils.htm'></include>
 		<include url='http://services.web-manufacture.net/UI/toolbars.htm'></include>
-		<div class='header toolbar'>			
-			<div class='menuitem server-control' id='serverStart' onclick="Server.Start();">
-				СТАРТ
+		<div id="ServiceControl">
+			<div class='toolbar'>
+				<div class='menuitem server-control' id='serverStart' onclick="Server.Start();">
+					СТАРТ
+				</div>
+				<div class='menuitem server-control' id='serverStop' onclick="Server.Stop();">
+					СТОП
+				</div>
+				<div class='menuitem server-control' id='serverRestart' onclick="Server.Reset();">
+					РЕСТАРТ
+				</div>
+				<div class="menuitem server-control url-go invisible" onclick="Monitor.GoUrl(DOM('#urlBar').innerHTML);">GO!</div>
+				<div id="urlBar" class="invisible" contenteditable="true" ></div>
 			</div>
-			<div class='menuitem server-control' id='serverStop' onclick="Server.Stop();">
-				СТОП
+			<div id="ServiceInfo">
+				<div id="ServiceName"></div>
+				<div id="ServiceMethods"></div>
 			</div>
-			<div class='menuitem server-control' id='serverRestart' onclick="Server.Reset();">
-				РЕСТАРТ
-			</div>
-			
-			<div class="menuitem server-control url-go invisible" onclick="Monitor.GoUrl(DOM('#urlBar').innerHTML);">GO!</div>
-			<div id="urlBar" class="invisible" contenteditable="true" ></div>
-		</div>
-		<div  id='Notify'>
 		</div>
 		<div  id='logsMonitor'>
 			<div class='log-item info prototype'>
@@ -391,6 +476,12 @@
 				<span class='datetime'></span>
 				<span class='path'></span>
 				<span class='text'></span>
+			</div>
+			<div class='log-item call prototype'>
+				<div class="first-line">
+					<span class='datetime'></span>
+					<span class='method'></span>
+				</div>
 			</div>
 		</div>
 	</body>
