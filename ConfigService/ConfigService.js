@@ -89,10 +89,12 @@ Inherit(ConfigService, Service, {
         var path = "Services/" + serviceId + ".js";
         if (config && config.path) path = config.path;
         return self.filesService.Watch(path, false).then((fpath) => {
+            var changing = false;
             self.filesService.on("watch:" + fpath, (change, path) => {
                 console.log("Service " + serviceId + " " + change + " in path " + path);
-                if (change == "change") {
-                    return ServicesManager.ResetService(serviceId, options).catch(err => {});
+                if (change == "change" && !changing) {
+                    changing = true;
+                    return ServicesManager.ResetService(serviceId, options).then(()=>{changing = false;}).catch(err => {changing = false;});
                 }
             });
             console.log("Watching " + fpath);

@@ -16,44 +16,7 @@
 			M.ModulesUrl = "http://modules.web-manufacture.net";
 			M.SystemUrl = "http://system.web-mnanufacture.net";
 			
-			Notify = {};
-			
-			Notify.Show = function (message) {
-				var nf = DOM("#Notify");
-				var ev = nf.div(".event.first", (new Date()).formatTime() + " " + message);
-				nf.show();
-				nf.ins(ev);
-				Notify.setTimeout();
-			};
-			
-			Notify.ShowMessage = function (message) {
-				var nf = DOM("#Notify");
-				var ev = nf.div(".event.first", (new Date()).formatTime() + " " + JSON.stringify(message));
-				nf.show();
-				nf.ins(ev);
-				Notify.setTimeout();
-			};
-			
-			Notify.Error = function (error) {
-				var nf = DOM("#Notify");
-				var ev = nf.div(".event.error.first", (new Date()).formatTime() + " " + error);
-				nf.show();
-				nf.ins(ev);
-				Notify.setTimeout();
-			};
-			
-			Notify.setTimeout = function () {
-				if (Notify.timeout) {
-					window.clearTimeout(Notify.timeout);
-				}
-				Notify.timeout = window.setTimeout(Notify.clearFirst, 3000);
-			};
-			
-			Notify.clearFirst = function () {
-				DOM.all("#Notify .event.first").del(".first");
-			};
-			
-			Monitor = {}; 
+			Monitor = {};
 			
 			Monitor.Init = function(){
 				Monitor.startDate = new Date();
@@ -85,22 +48,10 @@
 
                 ServiceProxy.Init("ws://localhost:5700").then((servicesManager) => {
                     Monitor.servicesManager = servicesManager;
-                    servicesManager.on("service-started", (params) => {
-                        Monitor.ServerStatus(params);
-                    });
                     servicesManager.on("service-loaded", (params) => {
-                        Monitor.ServerStatus(params);
                         Monitor.ConnectService();
                     });
-                    servicesManager.on("service-connected", (params) => {
-                        Monitor.ServerStatus(params);
-                    });
-                    servicesManager.on("service-exited", (params) => {
-                        Monitor.ServerStatus(params);
-                    });
-                    servicesManager.on("service-error", (params) => {
-                        Monitor.ServerStatus(params);
-                    });
+                    servicesManager.on("*",Monitor.ServerStatus);
                 })
 				
 				Monitor.ConnectService();
@@ -109,6 +60,7 @@
 			Monitor.ConnectService = function(){
 			    ServiceProxy.Connect("ws://localhost:5700/" + Monitor.serviceId).then((service) => {
 			        ServiceName.set(Monitor.serviceId);
+                    ServiceMethods.clear();
                     if (service){
                         for (var item in service){
                             if (service.hasOwnProperty(item) && typeof(service[item]) == "function") {
@@ -125,10 +77,9 @@
                                 }
                             }
 						}
-                        service.emit = function(name, msg){
-                            Monitor.LogMessage(name, msg);				
-                            return this.__proto__.emit.apply(this, arguments);
-                        };
+                        service.on("*",function(name, msg){
+                            Monitor.LogMessage("log", name + ": >> " + msg);
+                        });
                         service.on("closing-server", () => {
                            service.close(); 
                         });
@@ -137,11 +88,11 @@
 			}
 						
 			
-			Monitor.ServerStatus = function (status) {
+			Monitor.ServerStatus = function (status, params) {
 				WS.Body.del(".loading");
 				if (Monitor.Status != status){
 					Monitor.Status = status;
-					Notify.Show(status);
+                    Monitor.LogMessage("log", status);
 					WS.Body.set("@status", status);
 				}
 			};
@@ -317,6 +268,23 @@
 				left: 0;
 			}
 
+			body[status='service-started'] #ServiceControl .toolbar {
+				background-color: #99FF99;
+			}
+
+			body[status='service-loaded'] #ServiceControl .toolbar {
+				background-color: #FFFF99;
+			}
+
+			body[status='service-exited'] #ServiceControl .toolbar {
+				background-color: #66bbff;
+			}
+
+			body[status='service-error'] #ServiceControl .toolbar {
+				background-color: #FF3366;
+			}
+
+
 			#ServiceControl #ServiceInfo{
 				height: 100%;
 				width: 100%;
@@ -401,19 +369,6 @@
 				font-weight: bold;
 			}
 
-			body[status='working'] #Notify {
-				background-color: #99FF99;
-			}
-			
-			body[status='exited'] #Notify,
-			body[status='idle'] #Notify{
-				background-color: #FFFF99;
-			}
-			
-			body[status='error'] #Notify {
-				background-color: #FF3366;
-			}
-			
 			.header.toolbar .menuitem.server-control:active{
 				border:  1px solid black;
 			}

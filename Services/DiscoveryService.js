@@ -11,7 +11,7 @@ function DiscoveryService(params){
     
     this.GetARP = function() {
         return new Promise(function (resolve, reject) {
-            var hosts = {};
+           var hosts = [];
            try {
                child.exec("arp -a", function (err, res) {
                    if (err) reject(err);
@@ -19,11 +19,16 @@ function DiscoveryService(params){
                        var list = res.split("\n").filter(function (x) {
                            return x !== "";
                        });
-                       list.map(function (x) {
-                           hosts[x] = x;
-                       });
+                       for(var i = 3; i < list.length; i++){
+                           var items = list[i].split(/\s+/ig).filter((x)=>x !== "");
+                           hosts.push({
+                               ip4: items[0],
+                               ip6: items[1],
+                               type: items[2]
+                           });
+                       }
+                       resolve(hosts);
                    }
-                   resolve(list, hosts);
                });
            }
            catch (err){

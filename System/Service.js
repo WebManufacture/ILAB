@@ -18,7 +18,7 @@ Service = function(params){
     self.setMaxListeners(100);
     this._netServerForBaseInteraction.on("error", function (err) {
         try {
-            this.emit('error', err);
+            self.emit('error', err);
         }
         catch (e){
             console.log(err);
