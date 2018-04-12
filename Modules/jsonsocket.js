@@ -29,11 +29,12 @@ function JsonSocket() {
         json += parts.shift();
         while (parts.length > 0) {
             try {
-                self.emit('json', JSON.parse(json));
+                json = JSON.parse(json);
             }
             catch (err) {
                 self.emit("error", new Error("Socket JSON Error parsing"))
             }
+            self.emit('json', json);
             json = parts.shift();
         }
     });
@@ -43,6 +44,7 @@ function JsonSocket() {
     });
 
     socket.on('close', function (is_end, err) {
+        self.closed = true;
         self.emit('close', is_end, err);
     });
 
@@ -53,11 +55,13 @@ function JsonSocket() {
     });
 
     self.write = self.send = function (data) {
-        if (data != undefined && data != null) {
-            socket.write(JSON.stringify(data) + '\0');
-        }
-        else{
-            self.emit("error", new Error("Error sending data"))
+        if (!self.closed) {
+            if (data != undefined && data != null) {
+                socket.write(JSON.stringify(data) + '\0');
+            }
+            else {
+                self.emit("error", new Error("Error sending data"));
+            }
         }
     };
 

@@ -31,6 +31,14 @@ HttpProxyService = function(params){
         self.removeServiceHandler(serviceId, servicePort);
     });
     console.log("HTTP PROXY ON " + this.router.port);
+
+
+    process.once('exiting', () => {
+        self.router.close();
+    });
+    process.once('exit', () => {
+        self.router.close();
+    });
     return result;
 };
 
@@ -75,7 +83,6 @@ Inherit(HttpProxyService, Service, {
                         context.finish(result);
                     }
                 }).catch((err) => {
-                    console.error(err);
                     context.error(err);
                 })
             }

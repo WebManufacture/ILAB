@@ -2,7 +2,7 @@ var fs = useSystem('fs');
 var Path = useSystem('path');
 var EventEmitter = useSystem('events');
 var os = useSystem("os");
-var ChildProcess = useSystem('child-process-debug');
+var ChildProcess = useSystem('child_process');
 var util = useModule('utils');
 
 function ForkMon(path, args, env){
@@ -32,24 +32,37 @@ ForkMon.STATUS_STOPPING = 6;
 ForkMon.STATUS_WORKING = 7;
 
 Inherit(ForkMon, EventEmitter, {
-    start : function(args){
+    start : function(params){
         if (this.code >= ForkMon.STATUS_WORKING){
             return;
         }
-        if (typeof (args) == 'function'){
-            var callback = args;
+        if (typeof (params) == 'function'){
+            var callback = params;
+            params = null;
         }
-        if (!args) args = this.args;
-        if (!this.env) this.env = {};
-        var cwd =  process.cwd();
-        if (this.env && this.env.cwd){
-            cwd = args.cwd;
+        if (!params) params = {};
+        var options = {
+            silent: false,
+            cwd : process.cwd(),
+            env : {
+                params: JSON.stringify(params)
+            }
+        };
+        if (this.env) {
+            for (const key in this.env) {
+                if (this.env.hasOwnProperty(key)){
+                    options.env[key] = this.env[key];
+                }
+            }
         }
-        if (!Array.isArray(args)) args = [JSON.stringify(args)];
-        var argsA = args;
-        //var debug = process.execArgv.indexOf('--debug');
-        //--debug-brk=<free port>
-        var cp = this.process = ChildProcess.fork(this.path, argsA, { silent: false, cwd: cwd, env: this.env  });
+        if (params && params.cwd){
+            options.cwd = params.cwd;
+        };
+        if (this.env.debugPort){
+            const key = this.env.debugMode == 'debug' ? "--inspect-brk" : "--inspect";
+            options.execArgv = [key + "=" + this.env.debugPort];
+        }
+        var cp = this.process = ChildProcess.fork(this.path, this.args, options);
         this.code = ForkMon.STATUS_WORKING;
         if (callback){
             var fork = this;
@@ -94,6 +107,13 @@ Inherit(ForkMon, EventEmitter, {
 
     getStatus : function(){
         return ForkMon.Statuses[this.code];
+    },
+    
+    getOutputStream: function(){
+        if (this.process){
+            return this.process.stdout;
+        }
+        return null;
     },
 
     info : function(){

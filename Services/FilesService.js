@@ -9,84 +9,111 @@ function FilesService(config){
     var self = this;
     this.basePath = config.basepath ? config.basepath : "./";
     this.aliases = config.aliases ? config.aliases : {};
+    this.watchingPath = {};
 
     this.Stats = function(path) {
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
-            fs.stat(fpath, function(err, stat){
-                if (err){
-                    reject(err);
-                    return;
-                }
-                stat.isDirectory = stat.isDirectory();
-                stat.isFile = stat.isFile();
-                resolve(stat);
-            });
+            try {
+                fs.stat(fpath, function (err, stat) {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    stat.isDirectory = stat.isDirectory();
+                    stat.isFile = stat.isFile();
+                    resolve(stat);
+                });
+            }
+            catch (err){
+                reject(err);
+            }
         });
     };
 
 	this.Browse = function(path) {
 		const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
-            fs.readdir(fpath, function(err, files){
-                if (err){
-					reject("readdir " + fpath + " error " + err);
-					return;
-                }
-                for (var i = 0; i < files.length; i++){
-                    var fname = files[i];
-                    files[i] = fs.statSync(fpath + "\\" + fname);
-                    files[i].name = fname;
-                    files[i].fileType = files[i].isDirectory() ? "directory" : files[i].isFile() ? "file" : "unknown";
-                }
-                resolve(files);
-            });
+            try {
+                fs.readdir(fpath, function(err, files){
+                    if (err){
+                        reject("readdir " + fpath + " error " + err);
+                        return;
+                    }
+                    for (var i = 0; i < files.length; i++){
+                        var fname = files[i];
+                        files[i] = fs.statSync(fpath + "/" + fname);
+                        files[i].name = fname;
+                        files[i].fileType = files[i].isDirectory() ? "directory" : files[i].isFile() ? "file" : "unknown";
+                    }
+                    resolve(files);
+                });
+            }
+            catch (err){
+                reject(err);
+            }	
         });
     };
 
 	this.Delete = function (path) {
 		const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
-			self.emit("deleting", path);
-			fs.unlink(fpath, function (err, result) {
-				if (err) {
-					reject("Delete error " + path + " " + err);
-					return;
-				}
-				self.emit("deleted", path);
-				resolve(path, stats);
-			});
+            try{
+                self.emit("deleting", path);
+                fs.unlink(fpath, function (err, result) {
+                    if (err) {
+                        reject("Delete error " + path + " " + err);
+                        return;
+                    }
+                    self.emit("deleted", path);
+                    resolve(path, stats);
+                });
+            }
+            catch (err){
+                reject(err);
+            }
         });
     };
 
     this.Write = function (path, content) {
+        var self = this;
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
-            this.emit("writing", path);
-            fs.writeFile(fpath, content, function(err, result){
-                if (err){
-                    reject("File " + path + " write error " + err);
-                    return;
-                }
-                resolve(path);
-            });
+            try {
+                self.emit("writing", path);
+                fs.writeFile(fpath, content, function (err, result) {
+                    if (err) {
+                        reject("File " + path + " write error " + err);
+                        return;
+                    }
+                    resolve(path);
+                });
+            }
+            catch (err){
+                reject(err);
+            }
         });
     };
 
     this.Read = function(path){
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
-            fs.readFile(Path.resolve(fpath), 'utf8', function (err, result) {
-                if (err) {
-                    reject("File " + fpath + " read error " + err);
-                    return;
-                }
-                if (result.length >= 1000000) {
-                    reject("File " + fpath + " too big ");
-                    return
-                }
-                resolve(result);
-            });
+            try{
+                fs.readFile(Path.resolve(fpath), 'utf8', function (err, result) {
+                    if (err) {
+                        reject("File " + fpath + " read error " + err);
+                        return;
+                    }
+                    if (result.length >= 1000000) {
+                        reject("File " + fpath + " too big ");
+                        return
+                    }
+                    resolve(result);
+                });
+            }
+            catch (err){
+                reject(err);
+            }
         });
     };
 
@@ -94,15 +121,21 @@ function FilesService(config){
         if (!encoding) encoding = 'binary';
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
-            fs.stat(fpath, function (err, stats) {
-                if (err) {
-                    reject("File " + fpath + " read error " + err);
-                    return;
-                }
-                const stream = fs.createReadStream(fpath, encoding);
-                stream.length = stats.size;
-                resolve(stream);
-            });
+            try {
+                fs.stat(fpath, function (err, stats) {
+                    if (err) {
+                        reject("File " + fpath + " read error " + err);
+                        return;
+                    }
+                    const stream = fs.createReadStream(fpath, encoding);
+                    stream.length = stats.size;
+                    stream.encoding = encoding;
+                    resolve(stream);
+                });
+            }
+            catch (err){
+                reject("File " + fpath + " read error " + err);
+            }
         });
     };
 
@@ -113,18 +146,45 @@ function FilesService(config){
         return fs.createWriteStream(fpath, socket, encoding);
     };
 
+    this.Watch = function(path, recursive){
+        const fpath = Path.resolve(self.preparePath(path));
+        if (!self.watchingPath[fpath]){
+            return new Promise(function (resolve, reject) {
+                    self.watchingPath[fpath] = true;
+                    fs.stat(fpath, function (err, stat) {
+                        if (err) {
+                            reject("File " + fpath + " watch error " + err);
+                            return;
+                        }
+                        try {
+                            fs.watch(fpath, {recursive: recursive}, function (eventType, npath) {
+                                self.emit("watch:" + fpath, eventType, path, npath);
+                                self.emit("watch-" + eventType, path, npath);
+                                self.emit("watch", eventType, path, npath);
+                            });
+                            resolve(fpath);
+                        }
+                        catch (err) {
+                            reject("File " + fpath + " watch error " + err);
+                        }
+                    });
+            });
+        }
+        return fpath;
+    };
+
     return Service.call(this, config);
 };
 
 Inherit(FilesService, Service, {
 	preparePath : function(fpath){
 	    if (!fpath) fpath = '';
-		fpath = fpath.replace(/\//g, "\\");
-		if (!fpath.start("\\")) fpath = "\\" + fpath;
+		fpath = fpath.replace(/\\\\/g, "/");
+        fpath = fpath.replace(/\\/g, "/");
+		if (!fpath.start("/")) fpath = "/" + fpath;
 		fpath = this.basePath + fpath;
-		fpath = fpath.replace(/\//g, "\\");
-		if (fpath.end("\\")) fpath = fpath.substr(0, fpath.length - 1);
-		return fpath.toLowerCase();
+		if (fpath.end("/")) fpath = fpath.substr(0, fpath.length - 1);
+		return fpath;
 	},
 });
 

@@ -1,0 +1,444 @@
+<!DOCTYPE HTML>
+
+<html>
+	<head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
+    <link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
+    <script type="text/javascript" src="http://services.web-manufacture.net/Base/v1.5?join=true"></script>
+    <script type="text/javascript" src="http://services.web-manufacture.net/ilab-socket.js"></script>
+
+    <title>Конфигурация сервера</title>
+    
+    <link type='text/css' rel='stylesheet' href="main.css"/>
+		
+		<script>
+			M.ServicesUrl = "http://services.web-manufacture.net";
+			M.ModulesUrl = "http://modules.web-manufacture.net";
+			M.SystemUrl = "http://system.web-mnanufacture.net";
+			
+			Monitor = {};
+			
+			Monitor.Init = function(){
+				Monitor.startDate = new Date();
+				Monitor.lastLogDate == null;
+				//Monitor.startDate = Monitor.startDate.getTime();
+				//Monitor.Url = (this.location + "").replace(this.location.search, "").toLowerCase();
+				//Monitor.Url = Monitor.Url.replace("/monitoring.htm", "");
+				Monitor.serviceId = Request.Params.service;
+				document.title = Monitor.serviceId;
+				DOM("#urlBar").set(Monitor.serviceId);
+				
+				Server = {};
+
+				Server.Start = function(item){
+				    if (Monitor.servicesManager){
+				        Monitor.servicesManager.StartService(Monitor.serviceId);
+				    }
+				}
+				Server.Stop = function(item){
+					if (Monitor.servicesManager){
+				        Monitor.servicesManager.StopService(Monitor.serviceId);
+				    }
+				}
+				Server.Reset = function(item){
+					if (Monitor.servicesManager){
+				        Monitor.servicesManager.ResetService(Monitor.serviceId);
+				    }
+				} 
+
+                ServiceProxy.Init("ws://localhost:5700").then((servicesManager) => {
+                    Monitor.servicesManager = servicesManager;
+                    servicesManager.on("service-loaded", (params) => {
+                        Monitor.ConnectService();
+                    });
+                    servicesManager.on("*",Monitor.ServerStatus);
+                })
+				
+				Monitor.ConnectService();
+			};
+			
+			Monitor.ConnectService = function(){
+			    ServiceProxy.Connect("ws://localhost:5700/" + Monitor.serviceId).then((service) => {
+			        ServiceName.set(Monitor.serviceId);
+                    ServiceMethods.clear();
+                    if (service){
+                        for (var item in service){
+                            if (service.hasOwnProperty(item) && typeof(service[item]) == "function") {
+                                var methodDiv = ServiceMethods.div(".method", item + "()");
+                                methodDiv.methodName = item;
+                                methodDiv.onclick = function () {
+                                    var methodName = this.methodName;
+                                    service[this.methodName]().then(function (result) {
+                                        //JSON.stringify(result);
+                                        Monitor.LogCall(methodName, result);
+                                    }).catch(function (err) {
+                                        Monitor.LogMessage("error", methodName + "() >> <br/>");
+                                    });
+                                }
+                            }
+						}
+                        service.on("*",function(name, msg){
+                            Monitor.LogMessage("log", name + ": >> " + msg);
+                        });
+                        service.on("closing-server", () => {
+                           service.close(); 
+                        });
+                    }
+                });
+			}
+						
+			
+			Monitor.ServerStatus = function (status, params) {
+				WS.Body.del(".loading");
+				if (Monitor.Status != status){
+					Monitor.Status = status;
+                    Monitor.LogMessage("log", status);
+					WS.Body.set("@status", status);
+				}
+			};
+
+            Monitor.LogCall = function(methodName, obj){
+                var logDiv = DOM.get('#logsMonitor');
+                proto = logDiv.get(".prototype.call");
+                var datetime = new Date();
+                proto.get(".datetime").set(datetime.formatTime(true));
+            	proto.get(".method").set(methodName + "() >>");
+            	proto.div(".result", DOM.formatJSON(obj, true));
+                logDiv.ins(proto);
+                setTimeout(function(){
+                    proto.add(".old");
+                }, 60000 * 3);
+            };
+
+            Monitor.LogError = function(msg, methodName){
+                var logDiv = DOM.get('#logsMonitor');
+                var proto = logDiv.get(".prototype.error");
+                proto = proto.clone();
+                var datetime = new Date();
+                proto.get(".datetime").set(datetime.formatTime(true));
+                if (methodName){
+                    proto.get(".text").set(methodName + "() >> <br/>" + msg.message);
+				} else {
+                    proto.get(".text").set(msg.message);
+                }
+                proto.add(Monitor.ParseStack(msg));
+                logDiv.ins(proto);
+                setTimeout(function(){
+                    proto.add(".old");
+                }, 60000 * 3)
+            };
+
+			Monitor.LogMessage = function(type, msg, arg1){
+				var logDiv = DOM.get('#logsMonitor');
+				if (!type) type = "log";
+				var proto = logDiv.get(".prototype." + type);
+				if (!proto){
+					proto = logDiv.get(".prototype.log");	
+				}
+				proto = proto.clone();
+				var datetime = new Date();
+				proto.get(".datetime").set(datetime.formatTime(true));
+				if (type == "error"){
+					if (typeof(msg) == "object"){
+					    proto.add(Monitor.ParseStack(msg));	
+					} else {
+					    proto.get(".text").set(msg);
+					}
+				}
+				else{
+                    if (typeof msg == "string") {
+                        var content = '';
+                        var color = '';
+                        var text = msg;
+                        var mode = 0;
+                        if (text) {
+                            for (var i = 0; i < text.length; i++) {
+                                if (mode == 0) {
+                                    if (text[i] == "\n") {
+                                        content += "<br/>"
+                                    }
+                                    if (text[i] == ">") {
+                                        content += "</span>";
+                                    }
+                                    if (text[i] == "<") {
+                                        mode = 1;
+                                        color = '';
+                                        continue;
+                                    }
+                                    content += text[i];
+                                    continue;
+                                }
+                                if (mode == 1) {
+                                    if (text[i] == ">" || text[i] == ":") {
+                                        content += "<span class='user-color' style='color:" + color + "'>";
+                                        mode = 0;
+                                        continue;
+                                    }
+                                    color += text[i];
+                                    continue;
+                                }
+                            }
+                        }
+                        proto.get(".text").set(content);
+                    }
+                    else {
+                        proto.get(".text").set(JSON.stringify(msg));
+					}
+				}
+				logDiv.ins(proto);
+				setTimeout(function(){
+					proto.add(".old");	
+				}, 60000 * 3)
+			};
+			
+			Monitor.ParseStack = function(error){
+				try{
+					var errorDiv = DOM.div(".stack");
+					var stack = error.stack.split('\n');
+					for (var i = 0; i < stack.length; i++){
+						var line = stack[i];
+						line = line.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+						line = line.replace(/\s?at\s/, "");
+						var sl = errorDiv.div(".stack-line");
+						var iofaddr = line.indexOf("(");
+						if (iofaddr >= 0){
+							line = line.replace(/\((\w):\\/, "($1\\");
+							var mod = /\(([^:]+):(\d+):(\d+)\)/.exec(line);
+							line = line.substr(0, iofaddr);
+							//sl.div(".module-name.stack-part.stack-part-prefix", mod[1] + " : " + mod[2] + "(" + mod[3] + ")");
+							//sl.div(".row.stack-part.stack-part-prefix", mod[2] + "(" + mod[3] + ")");
+							//sl.div(".col.stack-part.stack-part-prefix", mod[3]);
+							sl.div(".function.stack-part", line);
+							if (mod){
+								sl.div(".module-name.stack-part", mod[1]);
+								sl.div(".line.stack-part", " : " + mod[2]);
+								sl.div(".column.stack-part", "(" + mod[3] + ")");							
+							}
+						}
+						else{
+							sl.set(null, line);	
+						}
+					}
+				}
+				catch (ex){
+					return "Error parsing object: " + error;
+				}
+				return errorDiv;
+			};
+			
+			
+			
+			WS.DOMload(Monitor.Init);	
+			
+		</script>
+		
+		
+		<style>
+			
+			body{
+
+			}
+			
+			body.loading #ServiceControl .toolbar .menuitem.server-control {
+				display: none;	
+			}
+
+			#ServiceControl{
+				display: block;
+				font-size: 12px;
+				text-align: left;
+				font-family: monospace;
+				width:20%;
+				float: left;
+				height: 100%;
+				border: solid 1px gray;
+				position: relative;
+				padding: 10px;
+				padding-top: 70px;
+				box-sizing: border-box;
+			}
+
+			#ServiceControl .toolbar{
+				width: 100%;
+				height: 70px;
+				border:none;
+				background: #afa;
+				position: absolute;
+				top:0;
+				left: 0;
+			}
+
+			body[status='service-started'] #ServiceControl .toolbar {
+				background-color: #99FF99;
+			}
+
+			body[status='service-loaded'] #ServiceControl .toolbar {
+				background-color: #FFFF99;
+			}
+
+			body[status='service-exited'] #ServiceControl .toolbar {
+				background-color: #66bbff;
+			}
+
+			body[status='service-error'] #ServiceControl .toolbar {
+				background-color: #FF3366;
+			}
+
+
+			#ServiceControl #ServiceInfo{
+				height: 100%;
+				width: 100%;
+				overflow-y: auto;
+			}
+
+			#ServiceControl #ServiceInfo #ServiceName{
+				padding-top: 15px;
+				padding-bottom: 10px;
+				font-size: 150%;
+				font-weight: bold;
+			}
+
+
+			#ServiceMethods .method{
+				padding: 2px;
+				cursor: pointer;
+			}
+
+			#ServiceMethods .method:hover{
+				text-shadow: 2px 2px 2px #ccc;
+			}
+
+			#ServiceMethods .method:active{
+				color: blue;
+			}
+
+			#logsMonitor {
+				display: block;
+				font-size: 12px;
+				padding: 2px;
+				text-align: left;
+				float: left;
+				font-family: monospace;
+				width:75%;
+				overflow-y: auto;
+				height: 100%;
+			}
+			
+			#logsMonitor .log-item{
+				display: inline-block;
+				padding-left: 10px;	
+				width: 100%;
+			}
+			
+			#logsMonitor .log-item.old:first-child{
+				margin-top: 10px;
+			}
+			
+			#logsMonitor .log-item.old{
+				opacity: 0.5;
+			}
+			
+			#logsMonitor .log-item.old:hover{
+				opacity: 1;	
+			}
+			
+			#logsMonitor .log-item.error .datetime{
+				color: red;
+			}
+			
+			.stack-line{
+				float: none;	
+				clear:both;
+			}
+			
+			.stack-line .stack-part{
+				display: inline-block;
+				padding-left: 5px;
+			}
+			
+			.stack-line .stack-part.function{
+				color: green;
+			}
+			
+			.stack-line .stack-part.module-name{
+				color: gray;
+			}
+			
+			.stack-line .stack-part.line{
+				color: navy;
+				font-weight: bold;
+			}
+
+			.header.toolbar .menuitem.server-control:active{
+				border:  1px solid black;
+			}
+			
+			.header.toolbar #urlBar {
+				border: 1px solid silver;
+				border-radius: 5px;
+				display: inline-block;
+				width: 500px;
+			}
+			
+			
+		</style>
+		
+	</head>
+	<body>
+		<include url='http://services.web-manufacture.net/UI/UiUtils.htm'></include>
+		<include url='http://services.web-manufacture.net/UI/toolbars.htm'></include>
+		<div id="ServiceControl">
+			<div class='toolbar'>
+				<div class='menuitem server-control' id='serverStart' onclick="Server.Start();">
+					СТАРТ
+				</div>
+				<div class='menuitem server-control' id='serverStop' onclick="Server.Stop();">
+					СТОП
+				</div>
+				<div class='menuitem server-control' id='serverRestart' onclick="Server.Reset();">
+					РЕСТАРТ
+				</div>
+				<div class="menuitem server-control url-go invisible" onclick="Monitor.GoUrl(DOM('#urlBar').innerHTML);">GO!</div>
+				<div id="urlBar" class="invisible" contenteditable="true" ></div>
+			</div>
+			<div id="ServiceInfo">
+				<div id="ServiceName"></div>
+				<div id="ServiceMethods"></div>
+			</div>
+		</div>
+		<div  id='logsMonitor'>
+			<div class='log-item info prototype'>
+				<span class='datetime'></span>
+				<span class='path'></span>
+				<span class='text'></span>
+			</div>
+			<div class='log-item debug prototype'>
+				<span class='datetime'></span>
+				<span class='path'></span>
+				<span class='text'></span>
+			</div>
+			<div class='log-item warn prototype'>
+				<span class='datetime'></span>
+				<span class='path'></span>
+				<span class='text'></span>
+			</div>
+			<div class='log-item error prototype'>
+				<span class='datetime'></span>
+				<span class='path'></span>
+				<span class='text'></span>
+			</div>
+			<div class='log-item log prototype'>
+				<span class='datetime'></span>
+				<span class='path'></span>
+				<span class='text'></span>
+			</div>
+			<div class='log-item call prototype'>
+				<div class="first-line">
+					<span class='datetime'></span>
+					<span class='method'></span>
+				</div>
+			</div>
+		</div>
+	</body>
+	
+</html>	  

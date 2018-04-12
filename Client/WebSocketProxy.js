@@ -5,13 +5,15 @@ ServiceProxy = function(serviceName){
     this.timeout = 5000; // время ожидания ответа (мс), для удалённых сервисов можно увеличивать, для локальных - уменьшать
     this.waiting = []; // очередь отправленных сообщений ждущих ответа
     this.connectionsCount = 0;
-    return EventEmitter.call(this);
+    this.handlers = {};
 };
 
 ServiceProxy.Connect = function(url, serviceId){
-    if (ServiceProxy.connected){
-        serviceId = url;
-        url = ServiceProxy.url;
+    if (!url.start("ws://")){
+        if (ServiceProxy.connected){
+            serviceId = url;
+            url = ServiceProxy.url;
+        }
     }
     var proxy = new ServiceProxy(serviceId);
     if (serviceId){
@@ -26,11 +28,17 @@ ServiceProxy.Connect = function(url, serviceId){
 ServiceProxy.connected = false;
 
 ServiceProxy.Init = function(url){
+    if (!url) url = "";
     ServiceProxy.url = url;
     ServicesManager = ServiceProxy.instance = new ServiceProxy("ServicesManager");
     ServicesManager.Connect = ServiceProxy.Connect;
-    return ServicesManager.attach(url + "/ServicesManager").then(function(proxy){
+    return ServicesManager.attach(url ? url + "/ServicesManager" : "ws://localhost/ServicesManager").then(function(proxy){
         if (proxy) {
+            for (var item in proxy){
+                if (proxy.hasOwnProperty(item)){
+                    ServicesManager[item] = proxy[item];
+                }
+            }
             ServiceProxy.connected = true;
             return proxy.GetServices().then(function (services) {
                 ServicesManager.Services = services;
@@ -62,7 +70,7 @@ ServiceProxy.CreateProxyObject = function (service) {
     return obj;
 };
 
-Inherit(ServiceProxy, EventEmitter, {
+ServiceProxy.prototype = {
     _callMethod : function (methodName, args) {
         var self = this;
         return new Promise(function (resolve, reject) {
@@ -82,7 +90,9 @@ Inherit(ServiceProxy, EventEmitter, {
                 var socket = new WebSocket(self.url);
                 socket.onopen = function () {
                     try {
-                        socket.send(JSON.stringify(obj));
+                        setTimeout(function() {
+                            socket.send(JSON.stringify(obj));
+                        }, 10);
                     }
                     catch (err) {
                         raiseError(err);
@@ -152,6 +162,9 @@ Inherit(ServiceProxy, EventEmitter, {
 
     attach : function (url) {
         if (!url) throw new Error("Unknown url to attach in " + url);
+        if (url.indexOf("ws://") != 0){
+            url = "ws://" + url;
+        }
         this.url = url;
         var self = this;
         var promise = new Promise(
@@ -159,7 +172,7 @@ Inherit(ServiceProxy, EventEmitter, {
                 try {
                     var socket = new WebSocket(url);
                     socket.onopen = function(event){
-                        console.log(self.serviceId + ": Service proxy connected to " + url);
+                        console.log(self.serviceId + ": Service proxy opened connection to " + url);
                         try {
                             socket.send(JSON.stringify({"type": "startup", args: self.startParams}));
                         }
@@ -178,22 +191,29 @@ Inherit(ServiceProxy, EventEmitter, {
                     socket.onmessage = function (message) {
                         //console.dir(proxyObj);//debug
                         var proxyObj = JSON.parse(message.data);
-                        self.serviceId = proxyObj.serviceId;
-                        //if (self.serviceId != "ServicesManager")
-                        console.log("Service proxy connected to " + url);
-                        for (var item in proxyObj){
-                            if (proxyObj[item] == "method") {
-                                self._createFakeMethod(item, proxyObj[item]);
+                        if (proxyObj.type !== "error"){
+                            self.serviceId = proxyObj.serviceId;
+                            //if (self.serviceId != "ServicesManager")
+                            console.log(self.serviceId + ": Service proxy connected to " + url);
+                            for (var item in proxyObj){
+                                if (proxyObj[item] == "method") {
+                                    self._createFakeMethod(item, proxyObj[item]);
+                                }
                             }
+                            if (typeof callback == "function") {
+                                callback.call(self, proxyObj);
+                            }
+                            self.attached = true;
+                            console.log(proxyObj);
+                            self.emit("connected", proxyObj);
+                            socket.close();
+                            resolve(self);
+                        } else {
+                            console.log(proxyObj.result);
+                            self.emit('error', proxyObj.result);
+                            socket.close();
+                            reject(proxyObj.result);
                         }
-                        if (typeof callback == "function") {
-                            callback.call(self, proxyObj);
-                        }
-                        self.attached = true;
-                        console.log(proxyObj);
-                        self.emit("connected", proxyObj);
-                        socket.close();
-                        resolve(self);
                     };
                     socket.onclose = function (event, isError) {
                         if (event.wasClean) {
@@ -226,6 +246,7 @@ Inherit(ServiceProxy, EventEmitter, {
                 var eventSocket = this.eventSocket = new WebSocket(self.url);
                 eventSocket.onopen = function () {
                     try {
+                        console.log(self.serviceId + ": EventListener attached to " + self.url + " : " + eventName);
                         eventSocket.send(JSON.stringify({"type": "subscribe", name: eventName}));
                     }
                     catch (err){
@@ -248,7 +269,7 @@ Inherit(ServiceProxy, EventEmitter, {
                     self.connectionsCount--;
                     if (event.wasClean) {
                         console.log('Event cоединение закрыто чисто');
-                        setImmediate(()=>{
+                        setTimeout(()=>{
                             self._attachEventListener(eventName);
                         }, 3000);
                     } else {
@@ -271,9 +292,90 @@ Inherit(ServiceProxy, EventEmitter, {
         if (this.eventSocket){
             this.eventSocket.close();
         }
-    }
+    },
+
+    bind : function(){
+        var event = arguments[0];
+        for (var i = 0; i < arguments.length; i++){
+            arguments[i] = arguments[i+1];
+        }
+        arguments.length--;
+        var handler = CreateClosure.apply(this, arguments);
+        this.on(event, handler);
+    },
+
+    once : function(event, handler){
+        handler._eventFlagOnce = true;
+        this.on(event, handler);
+    },
+
+
+    clear : function(event){
+        if (!this.handlers[event]) return false;
+        this.handlers[event] = null;
+        return true;
+    },
+
+    on : function(event, handler){
+        if (typeof(event) == "function"){
+            this.handler = event;
+            event = "*";
+        }
+        if (event && typeof(handler) == "function") {
+            event = event + "";
+            if (!this.handlers[event]){
+                this.handlers[event] = [];
+            }
+            this.handlers[event].push(handler);
+        }
+    },
+
+    un : function(handler){
+        for (var event in this.handlers) {
+            this._unsubscribeHandler(event, handler);
+        }
+    },
+
+    _unsubscribeHandler : function(event, handler){
+        for (var i = 0; i < this.handlers[event].length; i++){
+            if (this.handlers[event][i] == handler){
+                this.handlers[event][i].splice(i, 1);
+                i--; continue;
+            }
+        }
+    },
+
+    emit : function(){
+        var event = "*";
+        if (this.handlers[event] && this.handlers[event].length ){
+            for (var i = 0; i < this.handlers[event].length; i++){
+                var handler = this.handlers[event][i];
+                if (handler._eventFlagOnce){
+                    this.handlers[event].splice(i, 1);
+                    i--;
+                }
+                handler.apply(this, arguments);
+            }
+        }
+        event = arguments[0];
+        if (this.handlers[event] && this.handlers[event].length ){
+            for (var i = 0; i < arguments.length; i++){
+                arguments[i] = arguments[i+1];
+            }
+            arguments.length--;
+            for (var i = 0; i < this.handlers[event].length; i++){
+                var handler = this.handlers[event][i];
+                if (handler._eventFlagOnce){
+                    this.handlers[event].splice(i, 1);
+                    i--;
+                }
+                handler.apply(this, arguments);
+            }
+        }
+
+    },
     /*on : function (message, func) {
 
      return this.base.on.apply(this, args);
      }*/
-});
+};

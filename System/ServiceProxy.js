@@ -72,7 +72,9 @@ ServiceProxy.GetService = function (serviceName) {
             return proxy.attach(services[serviceName], ServiceProxy.instance.host);
         }
         else{
-            this.reject("service " + serviceName + " not found");
+            return new Promise((resolve, reject) => {
+                reject("service " + serviceName + " not found");
+            });
         }
     };
     if (!ServiceProxy.instance) {
@@ -151,11 +153,24 @@ Inherit(ServiceProxy, EventEmitter, {
                     }
                     if (message.type == "stream" && message.id) {
                         message.stream = socket.netSocket;
-                        socket.netSocket.setEncoding('binary');
+                        message.stream.length = message.length;
+                        if (message.encoding){
+                            socket.netSocket.setEncoding(message.encoding);
+                        }
+                        else {
+                            socket.netSocket.setEncoding('binary');
+                        }
                         resolve(message.stream);
                     }
                     if (message.type == "error") {
-                        raiseError(message.result)
+                        var err = new Error(message.result);
+                        console.log("Error while calling " + self.serviceId + ":" + self.port + ":" + methodName);
+                        if (message.stack){
+                            err.stack = message.stack;
+                        }
+                        console.error(err);
+                        self.emit('error', err);
+                        reject(err);
                     }
                 });
             }
@@ -208,7 +223,7 @@ Inherit(ServiceProxy, EventEmitter, {
             function (resolve, reject) {
                 try {
                     var socket = new JsonSocket(port, host, function (err) {
-                        console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
+                        //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
                         try {
                             socket.write({"type": "startup", args: self.startParams});
                         }
@@ -225,6 +240,10 @@ Inherit(ServiceProxy, EventEmitter, {
                     }
                     socket.on('error', raiseError);
                     socket.once("json", function (proxyObj) {
+                        if (proxyObj.type == 'error'){
+                            raiseError(proxyObj.result);
+                            return;
+                        }
                         self.serviceId = proxyObj.serviceId;
                         if (self.serviceId != "ServicesManager") {
                             console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
@@ -237,12 +256,12 @@ Inherit(ServiceProxy, EventEmitter, {
                         if (typeof callback == "function") {
                             callback.call(self, proxyObj);
                         }
+                        self._attachEventListener("*");
                         self.attached = true;
                         self.emit("connected", proxyObj);
                         socket.close();
                         resolve(self);
                     });
-                    self._attachEventListener("*");
                 }
                 catch (err) {
                     self.emit('error', err);
@@ -279,12 +298,15 @@ Inherit(ServiceProxy, EventEmitter, {
                 });
                 eventSocket.once("close", function (err) {
                     self.connectionsCount--;
-                    console.log("Socket Closed at " + self.serviceId + ":" + port + ":" + self.connectionsCount);
-                    console.log("Waiting queue " + self.waiting.length);
-                    console.log(err);
-                    setImmediate(()=>{
-                        self._attachEventListener(eventName);
-                    });
+                    if (err) {
+                        //console.log("EventSocket error " + err + " at " + self.serviceId + ":" + self.port + ":" + self.connectionsCount);
+                        setImmediate(() => {
+                            self._attachEventListener(eventName);
+                        });
+                    }
+                    else{
+                        //console.log("EventSocket closed success at " + self.serviceId + ":" + self.port + ":" + self.connectionsCount);
+                    }
                 });
                 var messageHandlerFunction = function (message) {
                     if (message.type == "event") {
@@ -294,6 +316,12 @@ Inherit(ServiceProxy, EventEmitter, {
                         raiseError(message);
                     }
                 };
+                process.once("exiting", ()=> {
+                    eventSocket.end();
+                });
+                process.once("exit", ()=> {
+                    eventSocket.end();
+                });
                 eventSocket.on("json", messageHandlerFunction);
             });
         }

@@ -11,23 +11,45 @@ Service = function(params){
     var self = this;
     this.serviceId = Frame.serviceId;
     this.port = Frame.servicePort;
-    this.server = net.createServer({
+    this._netServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,
         pauseOnConnect: false
     }, this._onConnection.bind(this));
-    this.server.on("error", function (err) {
-        this.emit('error');
+    self.setMaxListeners(100);
+    this._netServerForBaseInteraction.on("error", function (err) {
+        try {
+            self.emit('error', err);
+        }
+        catch (e){
+            console.log(err);
+            console.error(e);
+        }
     });
     try {
-        this.server.listen(this.port, function () {
-            console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
+        this._netServerForBaseInteraction.listen(this.port, function () {
+            //console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
         });
     }
     catch (error){
         throw ("Cannot start " + this.serviceId + " on " + this.port + "\n" + error.message);
     }
+    process.once("exiting", () =>{
+        self._closeServer();
+    });
+    process.once("exit", () =>{
+        self._closeServer();
+    });
     return EventEmitter.call(this);
 };
+
+Service.States = ["loading", "killed", "exited", "paused", "error", "reserved", "stopping", "working"];
+Service.STATUS_LOADING = 0;
+Service.STATUS_KILLED = 1;
+Service.STATUS_EXITED = 2;
+Service.STATUS_PAUSED = 3;
+Service.STATUS_ERROR = 4;
+Service.STATUS_STOPPING = 6;
+Service.STATUS_WORKING = 7;
 
 Service.CreateProxyObject = function (service) {
     if (!service) return {};
@@ -79,7 +101,7 @@ Inherit(Service, EventEmitter, {
                 }
                 catch (err){
                     if (message.id) {
-                        socket.write({"type": "error", id: message.id, result: err});
+                        socket.write({"type": "error", id: message.id, result: err, message: err.message, stack: err.stack});
                     }
                     return;
                 }
@@ -88,7 +110,12 @@ Inherit(Service, EventEmitter, {
                         try {
                             if (result instanceof stream.Readable || result instanceof stream.Writable) {
                                 socket.write({"type": "stream",  id: message.id, length: result.length});
-                                socket.netSocket.setEncoding('binary');
+                                if (result.encoding){
+                                    socket.netSocket.setEncoding(result.encoding);
+                                }
+                                else {
+                                    socket.netSocket.setEncoding('binary');
+                                }
                                 result.pipe(socket.netSocket);
                             }
                             else {
@@ -100,20 +127,24 @@ Inherit(Service, EventEmitter, {
                         }
                     }).catch(function (error) {
                         if (typeof error == "string") {
-                            socket.write({"type": "error", id: message.id, result: error});
+                            socket.write({"type": "error", id: message.id, result: error, message: error});
                         }
                         else {
-                            socket.write({"type": "error", id: message.id, result: error.message, stack: error.stack});
+                            socket.write({"type": "error", id: message.id, result: error.message, message: error.message, stack: error.stack});
                         }
                     });
                 }
                 else {
                     if (result instanceof stream.Readable || result instanceof stream.Writable) {
                         socket.write({"type": "stream",  id: message.id, length: result.length});
-                        socket.netSocket.setEncoding('binary');
+                        if (result.encoding){
+                            socket.netSocket.setEncoding(result.encoding);
+                        }
+                        else {
+                            socket.netSocket.setEncoding('binary');
+                        }
                         result.pipe(socket.netSocket);
-                    }
-                    if (message.id) {
+                    } else {
                         socket.write({"type": "result", id: message.id, result: result})
                     }
                 }
@@ -127,7 +158,14 @@ Inherit(Service, EventEmitter, {
             }
         };
         var internalEventHandler = function (eventName, args) {
-            socket.write({ type: "event", name : eventName, args : args});
+            //args.shift();
+            try {
+                if (!socket.closed) {
+                    socket.write({type: "event", name: eventName, args: args});
+                }
+            } catch(err){
+               //errorHandler(err);
+            }
         };
         var serverClosingHandler = function (eventName, args) {
             socket.end();
@@ -140,19 +178,27 @@ Inherit(Service, EventEmitter, {
             self.removeListener("closing-server", serverClosingHandler);
             socket.removeAllListeners();
         });
+        socket.once("end", function (isError) {
+            self.removeListener("internal-event", internalEventHandler);
+            self.removeListener("closing-server", serverClosingHandler);
+            socket.removeAllListeners();
+        });
         process.once("exit", function(){
+            socket.end();
             socket.close(true);
         });
     },
 
     _closeServer : function(){
-        this.server.close();
+        this._netServerForBaseInteraction.close();
         this.emit("closing-server");
     },
 
     emit: function (eventName) {
         if (eventName != "error" && eventName != "internal-event") {
-            Service.base.emit.call(this, "internal-event", eventName, Array.from(arguments));
+            var args = Array.from(arguments);
+            //args.shift();
+            Service.base.emit.call(this, "internal-event", eventName, args);
         }
         Service.base.emit.apply(this, arguments);
     }

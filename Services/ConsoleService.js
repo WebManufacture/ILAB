@@ -110,7 +110,7 @@ Inherit(ConsoleService, Service, {
 
         cp.once("exit", function(){
             self.removeListener("virtual-cmd", onCmd);
-            self.emit("virtual-exited")
+            self.emit("virtual-exited");
             self.cmdState = false;
         });
     },

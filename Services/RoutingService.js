@@ -18,7 +18,7 @@ function RoutingService(parentNode, config){
 
 RoutingService.Type = "RoutingService";
 
-Inherit(RoutingService, ServiceNode, {
+Inherit(RoutingService, Service, {
 	configure : function(config){
 		if (RoutingService.base.configure){
 			return RoutingService.base.configure.apply(this, arguments);

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
+    <link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
+    <script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.5?join=true"></script>
+    <script type="text/javascript" src="http://Services.web-manufacture.net/ilab-socket.js"></script>
+
+    <title>Конфигурация сервера</title>
+    <link type='text/css' rel='stylesheet' href="main.css"/>
+    <script type="text/javascript" src="main.js"></script>
+
+</head>
+<body>
+<include url='http://services.web-manufacture.net/UI/UiUtils.htm'></include>
+<include url='http://services.web-manufacture.net/UI/HtmlElements.htm'></include>
+<include url="http://services.web-manufacture.net/ui/Toolbars.htm"></include>
+<include url='http://services.web-manufacture.net/UI/JsonEditor.htm'></include>
+<include url='http://services.web-manufacture.net/UI/Notification.htm'></include>
+<div id='serverVer'></div>
+<div class='object-item prototype' id='NodeTemplate'>
+    <div class="inner-wrapper">
+        <div class='node-controls'>
+            <div class='mini-btn start'
+                 onclick='event.stopPropagation(); ConfManager.Start(this.get("^.object-item")); event.stopPropagation();'></div>
+            <div class='mini-btn stop'
+                 onclick='event.stopPropagation(); ConfManager.Stop(this.get("^.object-item")); event.stopPropagation();'></div>
+            <div class='mini-btn reload' icon="http://cdn1.iconfinder.com/data/icons/humility-icons-MERGE/24x24/stock/gtk-refresh.png"
+                 onclick='event.stopPropagation(); ConfManager.Reset(this.get("^.object-item")); event.stopPropagation();'></div>
+            <div class='mini-btn remove'
+                 onclick='event.stopPropagation(); ConfManager.Remove(this.get("^.object-item")); event.stopPropagation();'></div>
+            <div class='mini-btn log'
+                 onclick=' event.stopPropagation(); ConfManager.ShowLogs(this.get("^.object-item")); event.stopPropagation();'></div>
+        </div>
+        <div class='node-info'>
+            <div class='node-id' item-field='id'>
+            </div>
+            <div class='node-path' item-field='path'>
+            </div>
+            <div class='node-type' item-field='type'>
+            </div>
+            <div class='node-host' item-field='host'>
+            </div>
+            <div class='node-file' config-field='File'>
+            </div>
+            <div class='node-service' config-field='name'>
+            </div>
+        </div>
+        <div class='node-icon'></div>
+        <div class='child-nodes'></div>
+    </div>
+</div>
+
+<div class="nodes-block" id="NodesBlock">
+
+</div>
+
+
+<div class="header toolbar" id="Toolbar">
+    <div onclick="ConfManager.ShowLogs();" icon="http://cdn1.iconfinder.com/data/icons/fatcow/32/file_extension_log.png"
+         tooltip="Логи" class="menuitem save">
+    </div>
+    <div onclick="ConfManager.ShowConfigs();"
+         icon="http://cdn2.iconfinder.com/data/icons/stilllife/48x48/apps/gnome-server-config.png" tooltip="Конфиги"
+         class="menuitem save">
+    </div>
+</div>
+
+</body>
+</html>
