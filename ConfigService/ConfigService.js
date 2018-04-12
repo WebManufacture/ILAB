@@ -91,8 +91,8 @@ Inherit(ConfigService, Service, {
         return self.filesService.Watch(path, false).then((fpath) => {
             var changing = false;
             self.filesService.on("watch:" + fpath, (change, path) => {
-                console.log("Service " + serviceId + " " + change + " in path " + path);
                 if (change == "change" && !changing) {
+                    console.log("Service " + serviceId + " " + change + " in path " + path);
                     changing = true;
                     return ServicesManager.ResetService(serviceId, options).then(()=>{changing = false;}).catch(err => {changing = false;});
                 }
