@@ -11,7 +11,7 @@ Frame.servicePort = Frame.portsStart;
 var ServicesManager = useRoot("System/ServicesManager");
 
 Frame._initFrame = function () {
-    console.log("Starting ILAB v 3.4.11");
+    console.log("Starting ILAB v3.5.3");
 	try {
 		process.setMaxListeners(100);
 
@@ -61,6 +61,7 @@ Frame._initFrame = function () {
             console.error(err);
             err.handled = true;
         });
+        console.log("ServicesManager started on " + Frame.servicePort);
         delete servicesToStart['ServicesManager'];
         const services = Object.keys(servicesToStart);
         const params = [];
