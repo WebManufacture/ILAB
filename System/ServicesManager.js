@@ -274,18 +274,18 @@ Inherit(ServicesManager, Service, {
             };
             var servicePath = serviceId;
             if (params && params.path) {
-                if (params.path.indexOf("http://") == 0 || params.path.indexOf("https://") == 0){
-                    servicePath = params.path;
-                }
-                else {
-                    servicePath = Path.resolve(params.path);
-                }
+                servicePath = params.path;
             }
-            else {
+            if (servicePath.indexOf("http://") != 0 && servicePath.indexOf("https://") != 0){
                 if (servicePath.indexOf(".js") != servicePath.length - 3) {
                     servicePath += ".js";
                 }
-                servicePath = Path.resolve(Frame.ServicesPath + servicePath);
+                if (servicePath.indexOf("/") < 0 && servicePath.indexOf("\\") < 0) {
+                    servicePath = Path.resolve(Frame.ServicesPath + servicePath);
+                }
+                else {
+                    servicePath = Path.resolve(servicePath);
+                }
             }
             env.nodePath = servicePath;
             var service = this.CreateFork(serviceId, self.getPort(), env);

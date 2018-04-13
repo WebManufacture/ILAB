@@ -12,7 +12,11 @@ NodeItem.NodeClick = function () {
 ConfManager.sections = {};
 
 ConfManager.Init = function () {
-    ConfManager.CreateSection("Localhost", "ws://localhost:5700");
+    var url = "ws://localhost:5700";
+    if (Request.Params.url){
+        url = "ws://" + Request.Params.url
+    }
+    ConfManager.CreateSection("Localhost", url);
 
     //ConfManager.Channel = new Net.HMCH("./");
 /*    Channels.on("/log", function (message, arg) {
@@ -53,7 +57,7 @@ ConfManager.CreateSection = function(name, baseUrl){
         name: name,
         services: {},
         configs: {},
-        baseUrl: baseUrl,
+        url: baseUrl,
         servicesManager: null,
         configService: null
     };
@@ -135,12 +139,16 @@ ConfManager.ShowSection = function(section){
         section = ConfManager.sections[section];
     }
     if (!section) return;
+
     var sectionDiv = DOM.get("[sectionName='" + section.name + "']");
     if (!sectionDiv) {
         sectionDiv = NodesBlock.div(".section");
         sectionDiv.set("@sectionName", section.name);
     }
     sectionDiv.innerHTML = "";
+    var header = sectionDiv.div(".section-header");
+    header.div(".section-name", section.name);
+    header.div(".section-url", section.url);
     for (var id in section.services) {
         var elem = ConfManager.CreateNodeItem(section, section.services[id]);
         sectionDiv.add(elem);
@@ -203,6 +211,12 @@ ConfManager.CreateNodeItem = function (section, node) {
     //item.writeChannel = new HttpChannel("/channels/" + item.key + "/control", false);
     //Server.Nodes[item.key] = item.channel;
     return item;
+};
+
+ConfManager.StartService = function (servicename) {
+    ConfManager.sections["Localhost"].servicesManager.StartService(servicename).then(()=>{
+
+    });
 };
 
 ConfManager.Start = function (elem) {

@@ -57,6 +57,13 @@
 
 
 <div class="header toolbar" id="Toolbar">
+    <div id='FilterBlock'>
+        <div class='title'>Фильтр и поиск:</div>
+        <input id="FilterInput" type='text'/>
+    </div>
+    <div class='menuitem file-manager-button' id='create-file-button' icon="http://system.web-manufacture.net/images/document-small.png" onclick="ConfManager.StartService(FilterInput.value)">
+        Start Service
+    </div>
     <div onclick="ConfManager.ShowLogs();" icon="http://cdn1.iconfinder.com/data/icons/fatcow/32/file_extension_log.png"
          tooltip="Логи" class="menuitem save">
     </div>

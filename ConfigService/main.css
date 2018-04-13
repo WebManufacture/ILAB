@@ -62,6 +62,24 @@ body{
 .logger .line .event-name{
     color: orange;
 }
+.section .section-header{
+    padding: 15px 0px;
+    font-size: 160%;
+    font-weight: bold;
+}
+
+.section .section-name{
+    padding-left: 16px;
+    font-size: 150%;
+    display: inline-block;
+}
+
+.section .section-url{
+    padding-left: 16px;
+    font-size: 130%;
+    color: #666;
+    display: inline-block;
+}
 
 #NodesBlock .object-item{
     display: inline-block;
