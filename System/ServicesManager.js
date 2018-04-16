@@ -24,6 +24,8 @@ function ServicesManager(config, portCountingFunc){
     this._getPort = portCountingFunc;
     if (config.id) {
         this.id = config.id;
+    } else {
+        this.id = useSystem('uuid/v4')();
     }
     this.StartService = function (serviceId, params) {
         this.params[serviceId] = params;

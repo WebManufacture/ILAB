@@ -19,6 +19,7 @@
   "dependencies": {
     "child-process-debug": "latest",
     "serialport": "latest",
-    "ws": "^2.1.0"
+    "ws": "^2.1.0",
+    "uuid": "^latest"
   }
 }
