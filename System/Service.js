@@ -54,6 +54,9 @@ Service.STATUS_WORKING = 7;
 Service.CreateProxyObject = function (service) {
     if (!service) return {};
     var obj = { serviceId : service.serviceId };
+    if (service.id){
+        obj.id = service.id;
+    }
     for (var item in service){
         if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
             if (service[item].isStreamMethod){

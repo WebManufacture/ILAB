@@ -21,7 +21,10 @@ function ServicesManager(config, portCountingFunc){
             return self._availablePort++;
         }
     }
-    this.getPort = portCountingFunc;
+    this._getPort = portCountingFunc;
+    if (config.id) {
+        this.id = config.id;
+    }
     this.StartService = function (serviceId, params) {
         this.params[serviceId] = params;
         return self.startServiceAsync(serviceId, params).then(function () {
@@ -288,7 +291,7 @@ Inherit(ServicesManager, Service, {
                 }
             }
             env.nodePath = servicePath;
-            var service = this.CreateFork(serviceId, self.getPort(), env);
+            var service = this.CreateFork(serviceId, self._getPort(), env);
             service.once("service-started", function (newServiceId, serviceType) {
                 serviceId = newServiceId;
                 service.resultId = newServiceId;
