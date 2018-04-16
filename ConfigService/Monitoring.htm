@@ -72,13 +72,13 @@
                                         //JSON.stringify(result);
                                         Monitor.LogCall(methodName, result);
                                     }).catch(function (err) {
-                                        Monitor.LogMessage("error", methodName + "() >> <br/>");
+                                        Monitor.LogError(err, methodName);
                                     });
                                 }
                             }
 						}
                         service.on("*",function(name, msg){
-                            Monitor.LogMessage("log", name + ": >> " + msg);
+                            Monitor.LogMessage("log", msg, name);
                         });
                         service.on("closing-server", () => {
                            service.close(); 
@@ -138,11 +138,14 @@
 				proto = proto.clone();
 				var datetime = new Date();
 				proto.get(".datetime").set(datetime.formatTime(true));
+				if (arg1){
+                    proto.get(".text").div(arg1 + ": ");
+				}
 				if (type == "error"){
 					if (typeof(msg) == "object"){
-					    proto.add(Monitor.ParseStack(msg));	
+					    proto.add(DOM.formatJSON(msg, true));
 					} else {
-					    proto.get(".text").set(msg);
+                        proto.get(".text").div(msg);
 					}
 				}
 				else{

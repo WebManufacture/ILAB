@@ -67,7 +67,9 @@ function ConfigService(params) {
 
             if (params.watchServicesPaths) {
                 for (var serviceId in self.store) {
-                    self.watchServiceFileChange(serviceId, self.store[serviceId]);
+                    if (serviceId != "ServicesManager" && serviceId != "RootService") {
+                        self.watchServiceFileChange(serviceId, self.store[serviceId]);
+                    }
                 }
             }
 
@@ -115,7 +117,6 @@ Inherit(ConfigService, Service, {
 
     reloadStore(doCheck, doReload) {
         var newStore = JSON.parse(fs.readFileSync(Path.resolve("./config.json"), 'utf8'));
-        ;
         var self = this;
         if (doCheck) {
             let servicesToStart = [];

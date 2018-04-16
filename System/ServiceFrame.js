@@ -49,7 +49,13 @@ Frame._initFrame = function () {
                 res.on('data', (chunk) => rawData += chunk);
                 res.on('end', () => {
                     try {
-                        Frame.nodePath =  Path.resolve("./Temp/" + (Frame.serviceId ? Frame.serviceId + ".js" : "UnknownTempService.js"));
+                        Frame.nodePath = Frame.serviceId ? Frame.serviceId : "UnknownTempService" + Math.random() + ".js";
+                        Frame.nodePath = Frame.nodePath.replace(/\//ig, '-');
+                        Frame.nodePath = Frame.nodePath.replace(/\\/ig, '-');
+                        if (Frame.nodePath.indexOf(".js") != Frame.nodePath.length - 3) {
+                            Frame.nodePath += ".js";
+                        }
+                        Frame.nodePath =  Path.resolve("./Temp/" + Frame.nodePath);
                         fs.writeFile(Frame.nodePath, rawData, function (err, result) {
                            if (err){
                                Frame.fatal(err);
