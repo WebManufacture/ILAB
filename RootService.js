@@ -62,7 +62,7 @@ Frame._initFrame = function () {
             err.handled = true;
         });
         console.log("ServicesManager started on " + Frame.servicePort);
-        console.log(smConfig);
+        console.log(servicesManager.id);
         delete servicesToStart['ServicesManager'];
         const services = Object.keys(servicesToStart);
         const params = [];
