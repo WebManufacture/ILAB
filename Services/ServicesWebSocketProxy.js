@@ -78,7 +78,7 @@ WebSocketProxyService.serviceId = "WebSocketProxyService";
 Inherit(WebSocketProxyService, Service, {
     _onSocketConnection: function connection(ws, req) {
         var self = this;
-        var url = req.url;
+        var url = ws.upgradeReq.url;
         //console.log('WSproxy: WSconnection', url);
         var services = null;
         var header = null;

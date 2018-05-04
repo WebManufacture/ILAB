@@ -179,10 +179,12 @@ function FilesService(config){
 Inherit(FilesService, Service, {
 	preparePath : function(fpath){
 	    if (!fpath) fpath = '';
-		fpath = fpath.replace(/\\\\/g, "/");
-        fpath = fpath.replace(/\\/g, "/");
-		if (!fpath.start("/")) fpath = "/" + fpath;
-		fpath = this.basePath + fpath;
+        if (fpath.indexOf(":\\") < 0) {
+	    	fpath = fpath.replace(/\\\\/g, "/");
+            fpath = fpath.replace(/\\/g, "/");
+    		if (!fpath.start("/")) fpath = "/" + fpath;
+            fpath = this.basePath + fpath;
+        }
 		if (fpath.end("/")) fpath = fpath.substr(0, fpath.length - 1);
 		return fpath;
 	},

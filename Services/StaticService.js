@@ -105,7 +105,7 @@ StaticContentService.MimeTypes = {
 Inherit(StaticContentService, Service, {
     formatPath: function (path) {
         if (this.config.rootFile && path == "/") {
-            path += this.config.rootFile;
+            path = this.config.rootFile;
         }
         return path;
     },

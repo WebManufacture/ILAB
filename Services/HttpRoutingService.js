@@ -8,6 +8,7 @@ var stream = useSystem('stream');
 var EventEmitter = useSystem('events');
 var Service = useRoot("/System/Service.js");
 var ServiceProxy = useRoot("/System/Service.js");
+var HttpRouter = useModule('Router');
 
 
 HttpRoutingService = function(params){
