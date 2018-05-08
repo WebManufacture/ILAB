@@ -173,6 +173,26 @@ function FilesService(config){
         return fpath;
     };
 
+    this.CreateDir = function (path) {
+        var self = this;
+        const fpath = Path.resolve(self.preparePath(path));
+        return new Promise(function (resolve, reject) {
+            try {
+                self.emit("creating-dir", path);
+                fs.mkdir(fpath, function (err, result) {
+                    if (err) {
+                        reject("Dir " + path + " create error " + err);
+                        return;
+                    }
+                    resolve(path);
+                });
+            }
+            catch (err){
+                reject(err);
+            }
+        });
+    };
+
     return Service.call(this, config);
 };
 
