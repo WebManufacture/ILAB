@@ -86,6 +86,7 @@ function FilesService(config){
                         reject("File " + path + " write error " + err);
                         return;
                     }
+                    self.emit("wrote", path);
                     resolve(path);
                 });
             }
@@ -184,6 +185,7 @@ function FilesService(config){
                         reject("Dir " + path + " create error " + err);
                         return;
                     }
+                    self.emit("created-dir", path);
                     resolve(path);
                 });
             }
