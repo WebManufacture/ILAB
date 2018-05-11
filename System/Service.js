@@ -119,7 +119,12 @@ Inherit(Service, EventEmitter, {
                                 else {
                                     socket.netSocket.setEncoding('binary');
                                 }
-                                result.pipe(socket.netSocket);
+                                if (result instanceof stream.Readable) {
+                                    result.pipe(socket.netSocket);
+                                }
+                                if (result instanceof stream.Writable) {
+                                    socket.netSocket.pipe(result);
+                                }
                             }
                             else {
                                 socket.write({"type": "result", id: message.id, result: result});
@@ -146,7 +151,12 @@ Inherit(Service, EventEmitter, {
                         else {
                             socket.netSocket.setEncoding('binary');
                         }
-                        result.pipe(socket.netSocket);
+                        if (result instanceof stream.Readable) {
+                            result.pipe(socket.netSocket);
+                        }
+                        if (result instanceof stream.Writable) {
+                            socket.netSocket.pipe(result);
+                        }
                     } else {
                         socket.write({"type": "result", id: message.id, result: result})
                     }

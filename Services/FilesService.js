@@ -59,7 +59,7 @@ function FilesService(config){
 		const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
             try{
-                self.emit("deleting", path);
+                self.emit("deleting", self.formatPath(path));
                 fs.stat(fpath, function (err, stat) {
                     if (err) {
                         reject(err);
@@ -98,7 +98,7 @@ function FilesService(config){
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
             try {
-                self.emit("writing", path);
+                self.emit("writing", self.formatPath(path));
                 fs.writeFile(fpath, content, function (err, result) {
                     if (err) {
                         reject("File " + path + " write error " + err);
@@ -160,9 +160,15 @@ function FilesService(config){
 
     this.WriteStream = function(path, encoding){
         if (!encoding) encoding = 'binary';
+        self.emit("writing", this.formatPath(path));
         const fpath = Path.resolve(self.preparePath(path));
         var socket = this;
-        return fs.createWriteStream(fpath, socket, encoding);
+        var stream = fs.createWriteStream(fpath, socket, encoding);
+        stream.once("finish", ()=> {
+            self.emit("writed", this.formatPath(path));
+            console.log("WRITED FILE " + path);
+        });
+        return stream;
     };
 
     this.Watch = function(path, recursive){
@@ -197,7 +203,7 @@ function FilesService(config){
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
             try {
-                self.emit("creating-dir", path);
+                self.emit("creating-dir", self.formatPath(path));
                 fs.mkdir(fpath, function (err, result) {
                     if (err) {
                         reject("Dir " + path + " create error " + err);
@@ -217,13 +223,26 @@ function FilesService(config){
 };
 
 Inherit(FilesService, Service, {
+    formatPath : function(fpath){
+        if (!fpath) fpath = '';
+        if (fpath.indexOf(":\\") < 0) {
+            fpath = fpath.replace(/\\\\/g, "/");
+            fpath = fpath.replace(/\\/g, "/");
+            if (fpath.indexOf("/") != 0) fpath = "/" + fpath;
+            fpath = fpath.replace(/\/\//g, "/");
+        }
+        if (fpath.end("/")) fpath = fpath.substr(0, fpath.length - 1);
+        return fpath;
+    },
+
 	preparePath : function(fpath){
 	    if (!fpath) fpath = '';
         if (fpath.indexOf(":\\") < 0) {
 	    	fpath = fpath.replace(/\\\\/g, "/");
             fpath = fpath.replace(/\\/g, "/");
-    		if (!fpath.start("/")) fpath = "/" + fpath;
+    		if (fpath.indexOf("/") != 0) fpath = "/" + fpath;
             fpath = this.basePath + fpath;
+            fpath = fpath.replace(/\/\//g, "/");
         }
 		if (fpath.end("/")) fpath = fpath.substr(0, fpath.length - 1);
 		return fpath;

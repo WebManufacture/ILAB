@@ -7,7 +7,7 @@ var https = useSystem('https');
 var stream = useSystem('stream');
 var EventEmitter = useSystem('events');
 var Service = useRoot("/System/Service.js");
-var ServiceProxy = useRoot("/System/Service.js");
+var ServiceProxy = useRoot("/System/ServiceProxy.js");
 
 
 StaticContentService = function (params) {
@@ -204,6 +204,34 @@ Inherit(StaticContentService, Service, {
                             res.end(err);
                         }
                     });
+                }
+                if (req.method == "POST" && self.config.allowSave) {
+                    var ext = Path.extname(fpath);
+                    ext = ext.replace(".", "");
+                    ext = serv.mime[ext];
+                    if (ext) {
+                        res.setHeader("Content-Type", ext);
+                    }
+                    else {
+                        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+                    }
+                    var encoding = 'binary';
+                    if (ext.indexOf("text/") >= 0) {
+                        encoding = 'utf8';
+                    }
+                    return serv.fs.WriteStream(fpath, encoding).then(function (stream) {
+                                    req.on("data", (chunk)=>{
+                                        stream.write(chunk, encoding);
+                                    });
+                                    req.on("end", (chunk)=>{
+                                        stream.end(chunk);
+                                        res.statusCode = 200;
+                                        res.end("OK");
+                                    });
+                                }).catch(function (err) {
+                                    res.statusCode = 500;
+                                    res.end(err.message);
+                                });
                 }
             }
             else {
