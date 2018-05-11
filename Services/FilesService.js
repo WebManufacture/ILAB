@@ -60,13 +60,31 @@ function FilesService(config){
         return new Promise(function (resolve, reject) {
             try{
                 self.emit("deleting", path);
-                fs.unlink(fpath, function (err, result) {
+                fs.stat(fpath, function (err, stat) {
                     if (err) {
-                        reject("Delete error " + path + " " + err);
+                        reject(err);
                         return;
                     }
-                    self.emit("deleted", path);
-                    resolve(path, stats);
+                    if (stat.isDirectory()) {
+                        fs.rmdir(fpath, function (err, result) {
+                            if (err) {
+                                reject("Delete error " + path + " " + err);
+                                return;
+                            }
+                            self.emit("deleted", path);
+                            resolve(path, result);
+                        });
+                    }
+                    else {
+                        fs.unlink(fpath, function (err, result) {
+                            if (err) {
+                                reject("Delete error " + path + " " + err);
+                                return;
+                            }
+                            self.emit("deleted", path);
+                            resolve(path, result);
+                        });
+                    }
                 });
             }
             catch (err){
