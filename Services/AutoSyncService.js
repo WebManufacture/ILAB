@@ -5,26 +5,55 @@ var ServiceProxy = useRoot("/System/ServiceProxy.js");
 
 function AutoSyncService(params){
     var self = this;
+    var selfBlockSyncWrite = {};
+    var selfBlockSyncDel = {};
+    var selfBlockSyncCreate = {};
     if (params.source && params.destination) {
         Frame.log("AUTOSYNC FROM " + params.source + " TO " + params.destination);
         ServiceProxy.connect(params.source).then((fs) => {
-            Frame.log("Listening " + params.source);
             self.sourceFs = fs;
-            fs.on("creating-dir", (params)=>{
+            Frame.log("Listening " + params.source);
+            fs.on("creating-dir", (params) => {
+                selfBlockSyncCreate[params] = new Date();
                 self.createDir(self.destinationFs, params);
             });
-            fs.on("writed", (params)=>{
+            fs.on("writed", (params) => {
+                selfBlockSyncWrite[params] = new Date();
                 self.syncFile(self.destinationFs, self.sourceFs, params);
             });
-            fs.on("deleting", (params)=>{
+            fs.on("deleting", (params) => {
+                selfBlockSyncDel[params] = new Date();
                 self.deleteLink(self.destinationFs, params);
             });
         }).catch((err) => {
 
         });
         ServiceProxy.connect(params.destination).then((fs) => {
-            Frame.log("Syncing to " + params.destination);
             self.destinationFs = fs;
+            if (params.mode == "bidirectional") {
+                Frame.log("Bidirectional syncing to " + params.destination);
+                fs.on("creating-dir", (params)=>{
+                    if (!selfBlockSyncCreate[params]) {
+                        self.createDir(self.sourceFs, params);
+                    } else {
+                        delete selfBlockSyncCreate[params];
+                    }
+                });
+                fs.on("writed", (params)=>{
+                    if (!selfBlockSyncWrite[params]) {
+                        self.syncFile(self.sourceFs, self.destinationFs, params);
+                    } else {
+                        delete selfBlockSyncWrite[params]
+                    }
+                });
+                fs.on("deleting", (params)=>{
+                    if (!selfBlockSyncDel[params]) {
+                        self.deleteLink(self.sourceFs, params);
+                    } else {
+                        delete selfBlockSyncDel[params]
+                    }
+                });
+            }
         }).catch((err) => {
 
         });
