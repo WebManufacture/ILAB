@@ -640,12 +640,12 @@
         };
 
         FS.FileActivate = function() {
-            Editor.OpenFile(this.fileName);
+            Editor.OpenFile(FS.CurrentDir + '/' + this.fileName);
             this.del('.selected');
         };
 
         FS.LoadFile = function(file) {
-            Editor.OpenFile(file.fileName);
+            Editor.OpenFile(FS.CurrentDir + '/' + this.fileName);
         };
 
         FS.DeleteDocs = function() {
@@ -747,55 +747,8 @@
             }
         }
 
-        function CopyFile() {
-            var file = GetActiveFile();
-            var url = file.attr("name");
-            url = GetProxiedUrl(escape(url), "filecopy");
-            $.get(url, null, NewFileReturned);
-        }
-
-        function OnUploadFile() {
-            $("#LoadDocDialog")[0].OnApply = OnUploadApply;
-            $("#LoadDocDialog").show();
-
-            var fileInput = document.getElementById("fileUploader");
-            //fileInput.
-        }
-
-        function OnUploadApply() {
-            $("#LoadDocDialog").hide();
-            var files = document.getElementById("fileUploader").files;
-            // object for allowed media types
-            var accept = {
-                binary: ["image/png", "image/jpeg"],
-                text: ["text/plain", "text/javascript", "text/css", "application/xml", "text/html"]
-            };
-            var file;
-            for (var i = 0; i < files.length; i++) {
-
-                file = files[i];
-                if (file !== null) {
-
-                    var xhr = new XMLHttpRequest();
-                    xhr.open("POST", GetProxiedUrl(file.fileName, "save"));
-                    xhr.overrideMimeType(file.mediaType);
-                    xhr.onload = NewFileReturned;
-                    if (accept.binary.indexOf(file.type) > -1) {
-
-                        xhr.sendAsBinary(file.getAsBinary());
-                        continue;
-                    }
-                    if (accept.binary.indexOf(file.type) > -1) {
-                        xhr.sendAsText(file.getAsText());
-                        continue;
-                    }
-                }
-            }
-            $("#fileUploader").val("");
-        }
-
-
         WS.DOMload(FS.Init);
+
         WS.DOMload(function(){
             WS.Body.ondragover = function(event) {
                 var types = event.dataTransfer.types;

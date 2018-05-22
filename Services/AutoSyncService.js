@@ -14,16 +14,28 @@ function AutoSyncService(params){
             self.sourceFs = fs;
             Frame.log("Listening " + params.source);
             fs.on("creating-dir", (params) => {
-                selfBlockSyncCreate[params] = new Date();
-                self.createDir(self.destinationFs, params);
+                if (!selfBlockSyncCreate[params]) {
+                    selfBlockSyncCreate[params] = new Date();
+                    self.createDir(self.destinationFs, params);
+                } else {
+                    delete selfBlockSyncCreate[params];
+                }
             });
             fs.on("writed", (params) => {
-                selfBlockSyncWrite[params] = new Date();
-                self.syncFile(self.destinationFs, self.sourceFs, params);
+                if (!selfBlockSyncWrite[params]) {
+                    selfBlockSyncWrite[params] = new Date();
+                    self.syncFile(self.destinationFs, self.sourceFs, params);
+                } else {
+                    delete selfBlockSyncWrite[params];
+                }
             });
             fs.on("deleting", (params) => {
-                selfBlockSyncDel[params] = new Date();
-                self.deleteLink(self.destinationFs, params);
+                if (!selfBlockSyncDel[params]) {
+                    selfBlockSyncDel[params] = new Date();
+                    self.deleteLink(self.destinationFs, params);
+                } else {
+                    delete selfBlockSyncDel[params];
+                }
             });
         }).catch((err) => {
 
@@ -34,6 +46,7 @@ function AutoSyncService(params){
                 Frame.log("Bidirectional syncing to " + params.destination);
                 fs.on("creating-dir", (params)=>{
                     if (!selfBlockSyncCreate[params]) {
+                        selfBlockSyncCreate[params] = new Date();
                         self.createDir(self.sourceFs, params);
                     } else {
                         delete selfBlockSyncCreate[params];
@@ -41,6 +54,7 @@ function AutoSyncService(params){
                 });
                 fs.on("writed", (params)=>{
                     if (!selfBlockSyncWrite[params]) {
+                        selfBlockSyncWrite[params] = new Date();
                         self.syncFile(self.sourceFs, self.destinationFs, params);
                     } else {
                         delete selfBlockSyncWrite[params]
@@ -48,6 +62,7 @@ function AutoSyncService(params){
                 });
                 fs.on("deleting", (params)=>{
                     if (!selfBlockSyncDel[params]) {
+                        selfBlockSyncDel[params] = new Date();
                         self.deleteLink(self.sourceFs, params);
                     } else {
                         delete selfBlockSyncDel[params]

@@ -179,7 +179,11 @@ ServiceProxy.CallMethod = function (host, port, methodName, args) {
 Inherit(ServiceProxy, EventEmitter, {
     _callMethod : function (methodName, args) {
         var self = this;
-        return new Promise(function (resolve, reject) {
+        // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
+        var obj = { "type" : "method", name : methodName, args : args};
+        //Сделаем ID немного иначе и тогда будет можно на него положиться
+        obj.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
+        var promise = new Promise(function (resolve, reject) {
             try {
                 function raiseError(err) {
                     console.log("Socket error while calling " + self.serviceId + ":" + self.port + ":" + methodName);
@@ -190,10 +194,6 @@ Inherit(ServiceProxy, EventEmitter, {
                     reject(err);
                 }
 
-                // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
-                var obj = { "type" : "method", name : methodName, args : args};
-                //Сделаем ID немного иначе и тогда будет можно на него положиться
-                obj.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
                 var socket = new JsonSocket(self.port, self.host, function () {
                     try {
                         socket.send(obj);
@@ -243,6 +243,14 @@ Inherit(ServiceProxy, EventEmitter, {
                 reject(err);
             }
         });
+        promise.before = function (f) {
+            if (typeof f == "function"){
+                f.call(self, promise, obj);
+            }
+            return promise;
+        };
+        promise._callId = obj.id;
+        return promise;
     },
 
     _createFakeMethod : function(methodName, methodType) {
@@ -374,7 +382,11 @@ Inherit(ServiceProxy, EventEmitter, {
                 });
                 var messageHandlerFunction = function (message) {
                     if (message.type == "event") {
+                        self._calleeFunctionId = message.calleeId;
+                        self._calleeFunctionName = message.calleeName;
                         self.emit.apply(self, message.args);
+                        delete self._calleeFunctionId;
+                        delete self._calleeFunctionName;
                     }
                     if (message.type == "error") {
                         raiseError(message);

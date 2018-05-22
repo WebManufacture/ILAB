@@ -166,7 +166,6 @@ function FilesService(config){
         var stream = fs.createWriteStream(fpath, socket, encoding);
         stream.once("finish", ()=> {
             self.emit("writed", this.formatPath(path));
-            console.log("WRITED FILE " + path);
         });
         return stream;
     };

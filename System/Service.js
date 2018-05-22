@@ -100,7 +100,9 @@ Inherit(Service, EventEmitter, {
         var messageHandlerFunction = function (message) {
             if (message.type == "method" || message.type == "stream"){
                 try {
+                    this._calleeFunctionMessage = message;
                     var result = self._callMethod(message.name, message.args);
+                    this._calleeFunctionMessage = null;
                 }
                 catch (err){
                     if (message.id) {
@@ -174,7 +176,12 @@ Inherit(Service, EventEmitter, {
             //args.shift();
             try {
                 if (!socket.closed) {
-                    socket.write({type: "event", name: eventName, args: args});
+                    socket.write({
+                        type: "event",
+                        name: eventName,
+                        calleeId: this._calleeFunctionMessage ? this._calleeFunctionMessage.id : null,
+                        calleeName: this._calleeFunctionMessage ? this._calleeFunctionMessage.name : null,
+                        args: args});
                 }
             } catch(err){
                //errorHandler(err);
