@@ -58,15 +58,17 @@ Inherit(AutoSyncService, Service, {
 
     syncFile : function(dstFs, srcFs, params){
         Frame.log("FileChanged " + params);
-        srcFs.ReadStream(params, 'binary').then((stream)=>{
-            return dstFs.WriteStream(params, 'binary').then((stream2)=>{
-                stream.pipe(stream2);
-            }).catch((err)=>{
+        setTimeout(()=> {
+            return dstFs.WriteStream(params, 'binary').then((stream2) => {
+                srcFs.ReadStream(params, 'binary').then((stream) => {
+                    stream.pipe(stream2);
+                }).catch((err) => {
+                    Frame.error(err);
+                });
+            }).catch((err) => {
                 Frame.error(err);
             });
-        }).catch((err)=>{
-            Frame.error(err);
-        });
+        }, 100);
     },
 
     deleteLink : function(localFs, params){
