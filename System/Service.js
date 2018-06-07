@@ -190,7 +190,7 @@ Inherit(Service, EventEmitter, {
         var serverClosingHandler = function (eventName, args) {
             socket.end();
         };
-        socket.once("json", messageHandlerFunction);
+        socket.on("json", messageHandlerFunction);
         self.once("closing-server", serverClosingHandler);
 
         socket.once("close", function (isError) {

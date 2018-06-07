@@ -6,27 +6,11 @@ var os = require("os");
 var JsonSocket = useModule('jsonsocket');
 
 
-function DiscoveryService(params){
+function DiscoveryService(config){
     var self = this;
     // это публичная функция:
 
-    this.knownNodes = [
-        {
-            host: 'web-manufacture.net',
-            port: 5600,
-            proxy: null
-        },
-        {
-            host: 'home.web-manufacture.net',
-            port: 5600,
-            proxy: null
-        }
-    ];
-
-    if (params.hosts){
-        params.hosts.forEach(h => this.knownNodes.push(h));
-    }
-
+    this.knownNodes = [];
     this.helloInfo = {};
 
     this.GetKnownNodes = function() {
@@ -65,18 +49,21 @@ function DiscoveryService(params){
     this.CheckNode = function (ipv6, port) {
         return this.tryConnectExternalSM(ipv6, port);
     };
-    this.ReCheckHosts = function (ipv6, port) {
+    this.ReCheckHosts = function () {
         return this.recheckNodes();
     };
-    this.recheckNodes();
+    if (config.hosts && Array.isArray(config.hosts)) {
+        this.recheckNodes(config.hosts);
+    }
     return Service.call(this, "DiscoveryService");
 }
 
 DiscoveryService.serviceId = "DiscoveryService";
 
 Inherit(DiscoveryService, Service, {
-    recheckNodes: function () {
-        this.knownNodes.forEach((node)=>{
+    recheckNodes: function (hosts) {
+        var self = this;
+        hosts.forEach((node)=>{
             this.tryConnectExternalSM(node.host, node.port).then((socket)=>{
                 socket = new JsonSocket(socket);
                 socket.write({"type": "startup", args: this.helloInfo});
@@ -89,9 +76,21 @@ Inherit(DiscoveryService, Service, {
                 socket.on('error', raiseError);
                 socket.once("json", function (proxyObj) {
                     node.proxy = proxyObj;
-                    this.emit("connected", proxyObj);
+                    self.emit("connected", proxyObj);
+                    var nodeInfo =  {
+                        host: node.host,
+                        port: node.port,
+                        id : proxyObj.id,
+                        type: proxyObj.type
+                    };
+                    self.knownNodes.push(nodeInfo);
                     console.log("Found node: " + proxyObj.id);
-                    socket.close();
+                    socket.once("json", function (info) {
+                        nodeInfo.info = info;
+                        console.log(info);
+                        socket.close();
+                    });
+                    socket.write({type: "method", name : "GetServicesInfo"});
                 });
             }).catch(err => {
                 this.emit('socket-error', 'error connection to ' + node.host + ":" + node.port);

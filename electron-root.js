@@ -2,7 +2,8 @@ var Path = require('path');
 var fs = require('fs');
 var os = require("os");
 const {app, BrowserWindow} = require('electron');
-require(Path.resolve("./Frame.js"));
+process.chdir(Path.resolve('..'));
+require(Path.resolve("Frame.js"));
 
 Frame.portsStart = 5600;
 Frame._availablePort = Frame.portsStart;
@@ -76,9 +77,14 @@ function createWindow () {
     win = new BrowserWindow({width: 800, height: 600})
 
     // and load the index.html of the app.
-    win.loadFile('klab/fs.html')
+    win.loadFile('../../../klab/fs.html');
 }
 
 app.on('ready', createWindow);
+
+app.on('window-all-closed', function() {
+    app.quit();
+    process.exit();
+});
 
 Frame._initFrame();
