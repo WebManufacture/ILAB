@@ -103,17 +103,6 @@ Frame._startFrame = function (node) {
             var params = {};
             if (process.env.params && typeof process.env.params == "string") params = JSON.parse(process.env.params);
             if (node.hasPrototype("Service")) {
-                if (params && params.id) {
-                    Frame.serviceId = params.id;
-                    if (node.serviceId) {
-                        Frame.serviceId = node.serviceId;
-                    }
-                    else {
-                        if (!Frame.serviceId) {
-                            Frame.serviceId = node.name;
-                        }
-                    }
-                }
                 service = new node(params);
                 if (service.serviceId) {
                     Frame.serviceId = service.serviceId;

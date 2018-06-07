@@ -1,11 +1,14 @@
 {
   "name": "ilab",
-  "version": "3.1.2",
+  "version": "3.6.2",
+  "electronVersion": "0.33.1",
   "description": "ILab server",
+  "publishName": "ILab",
   "main": "electron-root.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-packager . ILAB --platform=win32 --arch=x64 --app-version=3.6.2 --overwrite --out=temp --ignore=temp --prune"
   },
   "author": "Semchenkov Alexander",
   "license": "CREATIVE COMMON",

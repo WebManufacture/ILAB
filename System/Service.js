@@ -9,7 +9,15 @@ var ServiceProxy = useRoot('System/ServiceProxy');
 
 Service = function(params){
     var self = this;
-    this.serviceId = Frame.serviceId;
+    if (params && params.id) {
+        this.serviceId = params.id;
+    }
+    if (!this.serviceId){
+        this.serviceId = Frame.serviceId;
+    }
+    if (!this.serviceId){
+        this.serviceId = useSystem('uuid/v4')();
+    }
     this.port = Frame.servicePort;
     this._netServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,

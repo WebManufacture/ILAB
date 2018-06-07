@@ -76,7 +76,6 @@ Inherit(DiscoveryService, Service, {
                 socket.on('error', raiseError);
                 socket.once("json", function (proxyObj) {
                     node.proxy = proxyObj;
-                    self.emit("connected", proxyObj);
                     var nodeInfo =  {
                         host: node.host,
                         port: node.port,
@@ -84,10 +83,17 @@ Inherit(DiscoveryService, Service, {
                         type: proxyObj.type
                     };
                     self.knownNodes.push(nodeInfo);
+                    self.emit("connected", proxyObj);
                     console.log("Found node: " + proxyObj.id);
                     socket.once("json", function (info) {
-                        nodeInfo.info = info;
-                        console.log(info);
+                        if (info && info.result) {
+                            nodeInfo.info = info.result;
+                            //console.log(info.result);
+                            if (info.result && info.result["DiscoveryService"]){
+                                console.log("Found discovery ");
+                                console.log(info.result["DiscoveryService"]);
+                            }
+                        }
                         socket.close();
                     });
                     socket.write({type: "method", name : "GetServicesInfo"});
