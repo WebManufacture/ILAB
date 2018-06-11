@@ -5,7 +5,7 @@
 var net = require('net');
 var util = require('util');
 var EventEmitter = require('events');
-const dgram = require('dgram');
+var dgram = require('dgram');
 
 function UdpJsonServer(config) {
     var self = this;
@@ -14,7 +14,6 @@ function UdpJsonServer(config) {
     this.config = config;
 
     const server = this.server = dgram.createSocket('udp4');
-
 
     if (config.address){
         server.bind(config.port, config.address);
@@ -28,17 +27,8 @@ function UdpJsonServer(config) {
         }
         self.emit('connect', server);
     });
-    server.on('error', (err) => {
-        self.emit('error', err);
-    });
 
-    server.on('close', function (is_end, err) {
-        self.closed = true;
-        self.emit('close', is_end, err);
-    });
-
-    server.on('message', function (data, rinfo) {
-        console.log(data);
+    server.on('message', (data, rinfo) => {
         if (rinfo.size > 0) {
             var str = data.toString();
             try {
@@ -50,6 +40,15 @@ function UdpJsonServer(config) {
             }
             self.emit('json', str);
         }
+    });
+
+    server.on('error', (err) => {
+        self.emit('error', err);
+    });
+
+    server.on('close', function (is_end, err) {
+        self.closed = true;
+        self.emit('close', is_end, err);
     });
 
 

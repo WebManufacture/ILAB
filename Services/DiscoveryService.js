@@ -21,6 +21,15 @@ function DiscoveryService(config){
         parentPort: Frame.servicesManagerPort
     };
 
+    this.seeYouInfo = {
+        type: "see-you",
+        id: this.serviceId,
+        tcpPort: this.port,
+        serviceType: "DiscoveryService",
+        parentId: ServicesManager.serviceId,
+        parentPort: Frame.servicesManagerPort
+    };
+
     this.GetKnownNodes = function() {
         return this.knownNodes;
     };
@@ -65,17 +74,14 @@ function DiscoveryService(config){
 
     var result = Service.apply(this, arguments);
 
-    this.udpPort = config.udpPort || 37331;
+    this.udpPort = config.udpPort || 31337;
 
-    this.udpServer = new UdpJsonServer({port: this.udpPort, broadcast: false, address: "127.0.0.1"});
-    this.udpServer.on("json", function (obj, rinfo) {
+    this.udpServer = new UdpJsonServer({port: this.udpPort, broadcast: true});
+    this.udpServer.on("json", (obj, rinfo) => {
         console.log(obj);
         console.log(rinfo);
         if (obj && obj.type == "hello"){
-            this.udpServer.send({
-                ...this.helloInfo,
-                type: "see-you"
-            }, rinfo.port, rinfo.address);
+            this.udpServer.send(this.seeYouInfo, rinfo.port, rinfo.address);
         }
     });
 
@@ -104,11 +110,17 @@ function DiscoveryService(config){
         });
     };
 
-    this.interfacePoints.forEach((point)=>{
+
+    this.lookupPort = 31337;
+
+    this.udpServer.send(this.helloInfo, this.lookupPort, "192.168.0.101");
+
+
+    this.interfacePoints.forEach((point) =>{
         const addressParts = point.address.split(".");
         addressParts[3] = '255';
-        console.log("Send hello to " + addressParts.join(".") + ":" + 31337);
-        this.udpServer.send(this.helloInfo, 31337, addressParts.join("."));
+        console.log("Send hello to " + addressParts.join(".") + ":" + this.lookupPort);
+        this.udpServer.send(this.helloInfo, this.lookupPort, addressParts.join("."));
     });
 
     return result;
