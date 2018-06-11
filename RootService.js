@@ -51,6 +51,10 @@ Frame._initFrame = function () {
                 }
                 continue;
             }
+            if (arg.indexOf("--port") >= 0){
+                Frame.servicePort = Frame._availablePort = Frame.portsStart = parseInt(arg.split("=")[1]);
+                continue;
+            }
             if (arg.indexOf("{") == 0){
                 try{
                     var service = eval("(function(){ return " + arg + "; })()");

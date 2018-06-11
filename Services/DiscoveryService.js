@@ -4,6 +4,7 @@ var child = require("child_process");
 var net = require("net");
 var os = require("os");
 var JsonSocket = useModule('jsonsocket');
+var UdpJsonServer = useModule('UdpJsonServer');
 
 
 function DiscoveryService(config){
@@ -12,7 +13,12 @@ function DiscoveryService(config){
 
     this.knownNodes = [];
     this.helloInfo = {
-        
+        type: "hello",
+        id: this.serviceId,
+        tcpPort: this.port,
+        serviceType: "DiscoveryService",
+        parentId: ServicesManager.serviceId,
+        parentPort: Frame.servicesManagerPort
     };
 
     this.GetKnownNodes = function() {
@@ -53,38 +59,57 @@ function DiscoveryService(config){
     this.GetInterfaces = function() {
         return os.networkInterfaces();
     };
-    this.CheckNode = function (ipv6, port) {
-        return this.tryConnectExternalSM(ipv6, port);
-    };
     this.ReCheckHosts = function () {
         return this.recheckNodes();
     };
 
     var result = Service.apply(this, arguments);
 
-    const dgram = require('dgram');
-    const server = this.udpServer = dgram.createSocket('udp4');
+    this.udpPort = config.udpPort || 37331;
 
-    server.on('error', (err) => {
-        console.log(`discovery says: server error:\n${err.stack}`);
-        server.close();
+    this.udpServer = new UdpJsonServer({port: this.udpPort, broadcast: false, address: "127.0.0.1"});
+    this.udpServer.on("json", function (obj, rinfo) {
+        console.log(obj);
+        console.log(rinfo);
+        if (obj && obj.type == "hello"){
+            this.udpServer.send({
+                ...this.helloInfo,
+                type: "see-you"
+            }, rinfo.port, rinfo.address);
+        }
     });
 
-    server.on('message', (msg, rinfo) => {
-        console.log(`discovery server got: ${msg} from ${rinfo.address}:${rinfo.port}`);
+    console.log("Discovery service at " + this.udpPort);
+
+    this.interfacePoints = [];
+    /*
+        {
+            name: "Wi-Fi",
+            address:"fe80::d969:68fc:938:ca1b",
+            netmask:"ffff:ffff:ffff:ffff::",
+            family:"IPv6",
+            mac:"7c:5c:f8:3f:ed:55",
+            scopeid:16,
+            internal:false,
+            cidr:"fe80::d969:68fc:938:ca1b/64",
+        }
+    */
+    var interfaces = os.networkInterfaces();
+    for (var item in interfaces){
+        interfaces[item].forEach((config)=>{
+            if (config.address == "127.0.0.1" || !config.internal && config.mac != "00:00:00:00:00:00" && config.family != "IPv6"){
+                config.name = item;
+                this.interfacePoints.push(config);
+            }
+        });
+    };
+
+    this.interfacePoints.forEach((point)=>{
+        const addressParts = point.address.split(".");
+        addressParts[3] = '255';
+        console.log("Send hello to " + addressParts.join(".") + ":" + 31337);
+        this.udpServer.send(this.helloInfo, 31337, addressParts.join("."));
     });
-
-    server.on('listening', () => {
-        const address = server.address();
-        console.log(`discovery server listening ${address.address}:${address.port}`);
-    });
-
-    server.bind(41234);
-
-
-    if (config.hosts && Array.isArray(config.hosts)) {
-        this.recheckNodes(config.hosts);
-    }
 
     return result;
 }
@@ -92,83 +117,7 @@ function DiscoveryService(config){
 DiscoveryService.serviceId = "DiscoveryService";
 
 Inherit(DiscoveryService, Service, {
-    recheckNodes: function (hosts) {
-        var self = this;
-        hosts.forEach((node)=>{
-            self.udpServer.send("HI!", 41234, node.host);
-            self.tryConnectExternalSM(node.host, node.port).then((socket)=>{
-                socket = new JsonSocket(socket);
-                socket.write({"type": "startup", args: this.helloInfo});
-                function raiseError(err) {
-                    console.log("Socket error while attach to " + node.host + ":" + node.port);
-                    console.error(err);
-                    socket.removeAllListeners();
-                    socket.close();
-                }
-                socket.on('error', raiseError);
-                socket.once("json", function (proxyObj) {
-                    node.proxy = proxyObj;
-                    var nodeInfo =  {
-                        host: node.host,
-                        port: node.port,
-                        id : proxyObj.serviceId,
-                        type: proxyObj.type
-                    };
-                    self.knownNodes.push(nodeInfo);
-                    self.emit("connected", proxyObj);
-                    console.log("Found node: " + proxyObj.serviceId);
-                    socket.once("json", function (info) {
-                        if (info && info.result) {
-                            nodeInfo.info = info.result;
-                            //console.log(info.result);
-                            var discoveries = info.result.filter(s => s.serviceType == "DiscoveryService");
-                            if (discoveries.length){
-                                console.log("Found discovery");
-                                console.log(discoveries);
-                                discoveries.forEach((info)=>{
-                                    self.connectDiscovery(node.host, info.port, info.resultId, nodeInfo);
-                                });
-                            }
-                        }
-                        socket.close();
-                    });
-                    socket.write({type: "method", name : "GetServicesInfo"});
-                });
-            }).catch(err => {
-                this.emit('socket-error', 'error connection to ' + node.host + ":" + node.port);
-                this.emit('socket-error', err);
-            });
-        });
-        return null;
-    },
 
-    connectDiscovery : function(host, port, id, node){
-        ServiceProxy.connect(host + ":" + port, id).then((discovery)=>{
-           node.service = discovery;
-           discovery.RegisterNode(this.helloInfo).then(()=>{
-               
-           });
-        }).catch((err)=>{
-            
-        });
-    },
-
-    tryConnectExternalSM: function(host, port){
-        return new Promise((resolve, reject)=> {
-            try {
-                var socket = net.createConnection(port, host, function () {
-                    socket.removeAllListeners();
-                    resolve(socket);
-                });
-                socket.on('error', (err)=>{
-                    reject(err);
-                });
-            }
-            catch (err) {
-                reject(err);
-            }
-        });
-    }
 });
 
 module.exports = DiscoveryService;
