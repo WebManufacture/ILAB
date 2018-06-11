@@ -4,11 +4,9 @@
   "electronVersion": "0.33.1",
   "description": "ILab server",
   "publishName": "ILab",
-  "main": "electron-root.js",
+  "main": "rootservice.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "electron .",
-    "build": "electron-packager . ILAB --platform=win32 --arch=x64 --app-version=3.6.2 --overwrite --out=temp --ignore=temp --prune"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Semchenkov Alexander",
   "license": "CREATIVE COMMON",
@@ -22,9 +20,7 @@
   "homepage": "https://github.com/WebManufacture/ILAB-3.0#readme",
   "dependencies": {
     "child-process-debug": "latest",
-    "electron": "latest",
     "serialport": "latest",
-    "uuid": "^3.2.1",
-    "ws": "^2.1.0"
+    "uuid": "^3.2.1"
   }
 }

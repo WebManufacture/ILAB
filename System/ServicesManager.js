@@ -396,20 +396,20 @@ Inherit(ServicesManager, Service, {
 	},
 
     getServicesAdvancedInfo : function(){
-        var services = { "ServicesManager" : {
-            id: "ServicesManager",
+        var services = [{
+            id: "RootServicesManager",
             path: Frame.nodePath,
-            serviceType: "RootServicesManager",
-            resultId : "RootServicesManager",
+            serviceType: "ServicesManager",
+            resultId : this.serviceId,
             port: this.port,
             type: "internal",
             state: Service.STATUS_WORKING,
             status: Service.States[Service.STATUS_WORKING]
-        }};
+        }];
         for (var name in this.services){
             var service = this.services[name];
             if (service){
-                services[name] = {
+                services.push({
                     id: name,
                     path: service.path,
                     serviceType: service.resultType,
@@ -418,7 +418,7 @@ Inherit(ServicesManager, Service, {
                     port: service.port,
                     type: "service",
                     state: service.code
-                }
+                });
             }
         }
         return services;

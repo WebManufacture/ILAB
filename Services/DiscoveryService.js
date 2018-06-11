@@ -11,7 +11,9 @@ function DiscoveryService(config){
     // это публичная функция:
 
     this.knownNodes = [];
-    this.helloInfo = {};
+    this.helloInfo = {
+        
+    };
 
     this.GetKnownNodes = function() {
         return this.knownNodes;
@@ -43,6 +45,11 @@ function DiscoveryService(config){
            }
         });
     };
+    this.RegisterNode = function(info){
+        if (this.knownNodes.indexOf(s => s.id == info.id) < 0){
+            this.knownNodes.push(info);
+        }
+    };
     this.GetInterfaces = function() {
         return os.networkInterfaces();
     };
@@ -52,10 +59,34 @@ function DiscoveryService(config){
     this.ReCheckHosts = function () {
         return this.recheckNodes();
     };
+
+    var result = Service.apply(this, arguments);
+
+    const dgram = require('dgram');
+    const server = this.udpServer = dgram.createSocket('udp4');
+
+    server.on('error', (err) => {
+        console.log(`discovery says: server error:\n${err.stack}`);
+        server.close();
+    });
+
+    server.on('message', (msg, rinfo) => {
+        console.log(`discovery server got: ${msg} from ${rinfo.address}:${rinfo.port}`);
+    });
+
+    server.on('listening', () => {
+        const address = server.address();
+        console.log(`discovery server listening ${address.address}:${address.port}`);
+    });
+
+    server.bind(41234);
+
+
     if (config.hosts && Array.isArray(config.hosts)) {
         this.recheckNodes(config.hosts);
     }
-    return Service.call(this, "DiscoveryService");
+
+    return result;
 }
 
 DiscoveryService.serviceId = "DiscoveryService";
@@ -64,7 +95,8 @@ Inherit(DiscoveryService, Service, {
     recheckNodes: function (hosts) {
         var self = this;
         hosts.forEach((node)=>{
-            this.tryConnectExternalSM(node.host, node.port).then((socket)=>{
+            self.udpServer.send("HI!", 41234, node.host);
+            self.tryConnectExternalSM(node.host, node.port).then((socket)=>{
                 socket = new JsonSocket(socket);
                 socket.write({"type": "startup", args: this.helloInfo});
                 function raiseError(err) {
@@ -79,19 +111,23 @@ Inherit(DiscoveryService, Service, {
                     var nodeInfo =  {
                         host: node.host,
                         port: node.port,
-                        id : proxyObj.id,
+                        id : proxyObj.serviceId,
                         type: proxyObj.type
                     };
                     self.knownNodes.push(nodeInfo);
                     self.emit("connected", proxyObj);
-                    console.log("Found node: " + proxyObj.id);
+                    console.log("Found node: " + proxyObj.serviceId);
                     socket.once("json", function (info) {
                         if (info && info.result) {
                             nodeInfo.info = info.result;
                             //console.log(info.result);
-                            if (info.result && info.result["DiscoveryService"]){
-                                console.log("Found discovery ");
-                                console.log(info.result["DiscoveryService"]);
+                            var discoveries = info.result.filter(s => s.serviceType == "DiscoveryService");
+                            if (discoveries.length){
+                                console.log("Found discovery");
+                                console.log(discoveries);
+                                discoveries.forEach((info)=>{
+                                    self.connectDiscovery(node.host, info.port, info.resultId, nodeInfo);
+                                });
                             }
                         }
                         socket.close();
@@ -104,6 +140,17 @@ Inherit(DiscoveryService, Service, {
             });
         });
         return null;
+    },
+
+    connectDiscovery : function(host, port, id, node){
+        ServiceProxy.connect(host + ":" + port, id).then((discovery)=>{
+           node.service = discovery;
+           discovery.RegisterNode(this.helloInfo).then(()=>{
+               
+           });
+        }).catch((err)=>{
+            
+        });
     },
 
     tryConnectExternalSM: function(host, port){

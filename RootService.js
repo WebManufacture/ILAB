@@ -17,10 +17,20 @@ Frame._initFrame = function () {
 
 		var wd = process.argv[2];
 
+        let debugMode = false;
         var servicesToStart = {};
+        if (process.execArgv[0] && process.execArgv[0].indexOf("--inspect") >= 0){
+            debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
+            console.log("Debug mode: " + debugMode);
+        }
         for (var i = 2; i <= process.argv.length; i++){
             var arg = process.argv[i];
             if (!arg) continue;
+            if (arg.indexOf("--inspect") >= 0){
+                debugMode = arg.indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
+                console.log("Debug mode: " + debugMode);
+                continue;
+            }
             if (arg === "--config") {
                 // используется config.json если третьим аргументом идёт флаг --config
                 if (fs.existsSync(Path.resolve("config.json"))) {
@@ -29,25 +39,39 @@ Frame._initFrame = function () {
                         servicesToStart[key] = configFile[key];
                     }
                 }
+                continue;
             }
-            else{
-                if (arg === "--demo") {
-                    // используется config.json если третьим аргументом идёт флаг --config
-                    if (fs.existsSync(Path.resolve("config-sample.json"))) {
-                        var configFile = require(Path.resolve("config-sample.json"));
-                        for (var key in configFile) {
-                            servicesToStart[key] = configFile[key];
-                        }
+            if (arg === "--demo") {
+                // используется config.json если третьим аргументом идёт флаг --config
+                if (fs.existsSync(Path.resolve("config-sample.json"))) {
+                    var configFile = require(Path.resolve("config-sample.json"));
+                    for (var key in configFile) {
+                        servicesToStart[key] = configFile[key];
                     }
-                } else {
-                    servicesToStart[arg] = null;
                 }
+                continue;
+            }
+            if (arg.indexOf("{") == 0){
+                try{
+                    var service = eval("(function(){ return " + arg + "; })()");
+                    if (service.type || service.path || service.id){
+                        servicesToStart[service.type || service.path || service.id] = service;
+                    }
+                }
+                catch (err){
+                    console.error(err);
+                }
+                continue;
+            }
+            if (arg.indexOf(".js") < 0){
+                servicesToStart[arg] = {
+                    path: arg = "Services/" + arg + ".js"
+                }
+            } else {
+                servicesToStart[arg] = null;
             }
         }
-        let debugMode = false;
-        if (process.execArgv[0] && process.execArgv[0].indexOf("--inspect") >= 0){
-            debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
-        };
+
         let smConfig = servicesToStart['ServicesManager'];
         if (!smConfig) smConfig = servicesToStart['ServicesManager'] = {};
         if (debugMode) smConfig.debugMode = debugMode;

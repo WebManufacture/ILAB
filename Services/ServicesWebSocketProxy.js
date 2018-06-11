@@ -1,7 +1,7 @@
 var fs = useSystem('fs');
 var http = useSystem('http');
 var util = useModule('utils');
-var WebSocket = useSystem('ws');
+var WebSocketServer = useModule('WebSocket/WebSocketServer');
 var Service = useRoot("/System/Service.js");
 var JsonSocket = useModule('jsonsocket');
 
@@ -37,10 +37,17 @@ function WebSocketProxyService(param1){
         if (this.proxies[port+""]){
             throw this.serviceId + ": OpenPort - port " + port + " already open";
         }
-        var wss = new WebSocket.Server({ port: port });
-        this.proxies[port + ""] = wss;
-        wss.on('connection', this._onSocketConnection.bind(this));
-        console.log("WebSocket PROXY ON " + port);
+
+        var server = http.createServer();
+        server.listen(port, function() {
+            console.log("WebSocket PROXY ON " + port);
+        });
+
+        var wss = new WebSocketServer({
+            httpServer: server,
+            autoAcceptConnections: true
+        });
+        wss.on('connect', this._onSocketConnection.bind(this));
         process.on('exiting', () => {
             wss.close();
         });
@@ -76,9 +83,9 @@ function WebSocketProxyService(param1){
 WebSocketProxyService.serviceId = "WebSocketProxyService";
 
 Inherit(WebSocketProxyService, Service, {
-    _onSocketConnection: function connection(ws, req) {
+    _onSocketConnection: function connection(ws, wsRequest) {
         var self = this;
-        var url = ws.upgradeReq.url;
+        var url = wsRequest.resource;
         //console.log('WSproxy: WSconnection', url);
         var services = null;
         var header = null;
@@ -108,7 +115,7 @@ Inherit(WebSocketProxyService, Service, {
                 });
                 var wsHandler = function (message) {
                     //console.log("WSproxy: calling method: " + message);
-                    socket.write(JSON.parse(message));
+                    socket.write(JSON.parse(message.utf8Data));
                 };
                 if (header){
                     wsHandler(header);
