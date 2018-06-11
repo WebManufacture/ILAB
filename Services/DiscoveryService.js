@@ -12,23 +12,6 @@ function DiscoveryService(config){
     // это публичная функция:
 
     this.knownNodes = [];
-    this.helloInfo = {
-        type: "hello",
-        id: this.serviceId,
-        tcpPort: this.port,
-        serviceType: "DiscoveryService",
-        parentId: ServicesManager.serviceId,
-        parentPort: Frame.servicesManagerPort
-    };
-
-    this.seeYouInfo = {
-        type: "see-you",
-        id: this.serviceId,
-        tcpPort: this.port,
-        serviceType: "DiscoveryService",
-        parentId: ServicesManager.serviceId,
-        parentPort: Frame.servicesManagerPort
-    };
 
     this.GetKnownNodes = function() {
         return this.knownNodes;
@@ -74,18 +57,42 @@ function DiscoveryService(config){
 
     var result = Service.apply(this, arguments);
 
+    this.helloInfo = {
+        type: "hello",
+        id: this.serviceId,
+        tcpPort: this.port,
+        serviceType: "DiscoveryService",
+        parentId: ServicesManager.serviceId,
+        parentPort: Frame.servicesManagerPort
+    };
+
+    this.seeYouInfo = {
+        type: "see-you",
+        id: this.serviceId,
+        tcpPort: this.port,
+        serviceType: "DiscoveryService",
+        parentId: ServicesManager.serviceId,
+        parentPort: Frame.servicesManagerPort
+    };
+
+
     this.udpPort = config.udpPort || 31337;
 
     this.udpServer = new UdpJsonServer({port: this.udpPort, broadcast: true});
     this.udpServer.on("json", (obj, rinfo) => {
-        console.log(obj);
-        console.log(rinfo);
         if (obj && obj.type == "hello"){
+            Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
+            Frame.log(obj);
             this.udpServer.send(this.seeYouInfo, rinfo.port, rinfo.address);
+        }
+        if (obj && obj.type == "see-you"){
+            Frame.log("Getting see-you from " + rinfo.address + ":" + rinfo.port);
+            Frame.log(obj);
+            this.knownNodes.push(obj);
         }
     });
 
-    console.log("Discovery service at " + this.udpPort);
+    Frame.log("Discovery service at " + this.udpPort);
 
     this.interfacePoints = [];
     /*
@@ -102,8 +109,8 @@ function DiscoveryService(config){
     */
     var interfaces = os.networkInterfaces();
     for (var item in interfaces){
-        interfaces[item].forEach((config)=>{
-            if (config.address == "127.0.0.1" || !config.internal && config.mac != "00:00:00:00:00:00" && config.family != "IPv6"){
+        interfaces[item].forEach((config) => {
+            if (!config.internal && config.mac != "00:00:00:00:00:00" && config.family != "IPv6"){
                 config.name = item;
                 this.interfacePoints.push(config);
             }

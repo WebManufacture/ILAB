@@ -38,7 +38,7 @@ function UdpJsonServer(config) {
                 self.emit("error", new Error("UDP JSON Error parsing"));
                 return;
             }
-            self.emit('json', str);
+            self.emit('json', str, rinfo);
         }
     });
 
