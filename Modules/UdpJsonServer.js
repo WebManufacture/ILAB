@@ -25,6 +25,7 @@ function UdpJsonServer(config) {
         if (typeof config.broadcast == "boolean"){
             server.setBroadcast(config.broadcast);
         }
+        //server.addMembership('255.255.255.255');
         self.emit('connect', server);
     });
 
@@ -51,6 +52,9 @@ function UdpJsonServer(config) {
         self.emit('close', is_end, err);
     });
 
+    self.address = function(){
+        return server.address();
+    };
 
     self.write = self.send = function (data, port, addr) {
         if (!self.closed) {

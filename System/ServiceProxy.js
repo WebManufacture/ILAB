@@ -318,7 +318,7 @@ Inherit(ServiceProxy, EventEmitter, {
                         }
                         self.serviceId = proxyObj.serviceId;
                         if (self.serviceId != "ServicesManager") {
-                            console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
+                            //console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
                         }
                         for (var item in proxyObj) {
                             if (proxyObj[item] == "method" || proxyObj[item] == "stream") {

@@ -3,9 +3,83 @@ useModule("utils.js");
 var child = require("child_process");
 var net = require("net");
 var os = require("os");
+var EventEmitter = useSystem('events');
 var JsonSocket = useModule('jsonsocket');
 var UdpJsonServer = useModule('UdpJsonServer');
 
+function UdpServer(netInterface, config) {
+    this._super.apply(this);
+    
+    this.serviceId = config.serviceId || "DiscoveryService";
+    this.localPort = config.port || 31337;
+    this.remotePort = this.localPort;
+    this.localAddress = netInterface.address;
+    this.remoteAddress = netInterface.address;
+    this.udpServer = new UdpJsonServer({port: this.localPort, address: this.localAddress, broadcast: true});
+    this.udpServer.once("connect", ()=>{
+        this.myLocalAddress = this.udpServer.address().address;
+        Frame.log("My local address " + this.myLocalAddress);
+    });
+    this.udpServer.on("json", (obj, rinfo) => {
+        if (obj && obj.type == "hello"){
+            Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
+            Frame.log(obj);
+            this.sendSeeyou(rinfo.address, rinfo.port, obj.thisAddress, obj.thisPort, this.myAddress);
+            this.emit("new-node", obj);
+            return;
+        }
+        if (obj && obj.type == "see-you" || obj.type == "see-nat"){
+            Frame.log("Getting see-you from " + rinfo.address + ":" + rinfo.port);
+            Frame.log(obj);
+            this.emit("new-node", obj);
+            if (obj.type == "see-nat"){
+                this.remoteAddress = obj.yourAddr;
+                this.emit("address-changed", this.remoteAddress);
+                Frame.log("my address " + this.myAddress);
+            }
+            this.knownNodes.push(obj);
+        }
+    });
+}
+
+Inherit(UdpServer, EventEmitter, {
+    broadcastHello : function(toPort){
+        if (!toPort) toPort = this.localPort;
+        const addressParts = this.localAddress.split(".");
+        addressParts[3] = '255';
+        this.sendHello(addressParts.join("."), toPort);
+    },
+    sendHello : function (addressTo, portTo) {
+        Frame.log("Send hello to " + addressTo + ":" + portTo);
+        this.udpServer.send({
+            type: "hello",
+            id: this.serviceId,
+            localAddress: this.localAddress,
+            remoteAddress: this.remoteAddress,
+            localPort: this.localPort,
+            remotePort: this.remotePort,
+            tcpPort: this.port,
+            serviceType: "DiscoveryService",
+            parentId: ServicesManager.serviceId,
+            parentPort: Frame.servicesManagerPort
+        }, portTo, addressTo);
+    },
+    sendSeeyou : function (addressTo, portTo, addressFrom, portFrom, addressMe) {
+        this.udpServer.send({
+            type: addressTo == addressFrom && portTo == portFrom ? "see-you" : "see-nat",
+            id: this.serviceId,
+            thisAddress: addressMe,
+            thisPort: this.lookupPort,
+            sentAddress: addressFrom,
+            yourAddr: addressTo,
+            yourPort: portTo,
+            tcpPort: this.port,
+            serviceType: "DiscoveryService",
+            parentId: ServicesManager.serviceId,
+            parentPort: Frame.servicesManagerPort
+        }, portTo, addressTo);
+    }
+});
 
 function DiscoveryService(config){
     var self = this;
@@ -51,50 +125,11 @@ function DiscoveryService(config){
     this.GetInterfaces = function() {
         return os.networkInterfaces();
     };
-    this.ReCheckHosts = function () {
-        return this.recheckNodes();
-    };
 
     var result = Service.apply(this, arguments);
 
-    this.helloInfo = {
-        type: "hello",
-        id: this.serviceId,
-        tcpPort: this.port,
-        serviceType: "DiscoveryService",
-        parentId: ServicesManager.serviceId,
-        parentPort: Frame.servicesManagerPort
-    };
-
-    this.seeYouInfo = {
-        type: "see-you",
-        id: this.serviceId,
-        tcpPort: this.port,
-        serviceType: "DiscoveryService",
-        parentId: ServicesManager.serviceId,
-        parentPort: Frame.servicesManagerPort
-    };
-
-
-    this.udpPort = config.udpPort || 31337;
-
-    this.udpServer = new UdpJsonServer({port: this.udpPort, broadcast: true});
-    this.udpServer.on("json", (obj, rinfo) => {
-        if (obj && obj.type == "hello"){
-            Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
-            Frame.log(obj);
-            this.udpServer.send(this.seeYouInfo, rinfo.port, rinfo.address);
-        }
-        if (obj && obj.type == "see-you"){
-            Frame.log("Getting see-you from " + rinfo.address + ":" + rinfo.port);
-            Frame.log(obj);
-            this.knownNodes.push(obj);
-        }
-    });
-
-    Frame.log("Discovery service at " + this.udpPort);
-
     this.interfacePoints = [];
+    this.serverPool = [];
     /*
         {
             name: "Wi-Fi",
@@ -107,6 +142,7 @@ function DiscoveryService(config){
             cidr:"fe80::d969:68fc:938:ca1b/64",
         }
     */
+
     var interfaces = os.networkInterfaces();
     for (var item in interfaces){
         interfaces[item].forEach((config) => {
@@ -117,18 +153,23 @@ function DiscoveryService(config){
         });
     };
 
-
-    this.lookupPort = 31337;
-
-    this.udpServer.send(this.helloInfo, this.lookupPort, "192.168.0.101");
-
-
     this.interfacePoints.forEach((point) =>{
-        const addressParts = point.address.split(".");
-        addressParts[3] = '255';
-        console.log("Send hello to " + addressParts.join(".") + ":" + this.lookupPort);
-        this.udpServer.send(this.helloInfo, this.lookupPort, addressParts.join("."));
+        var server = new UdpServer(point, {
+            port: config.port,
+            serviceId: this.serviceId
+        });
+        this.serverPool.push(server);
+        server.broadcastHello();
+        Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
+
+    if (config.hosts && Array.isArray(config.hosts)) {
+        config.hosts.forEach((remotePoint) => {
+            this.serverPool.forEach((server) =>{
+                server.sendHello(remotePoint.address, remotePoint.port);
+            });
+        });
+    }
 
     return result;
 }

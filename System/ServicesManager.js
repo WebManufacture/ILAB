@@ -174,7 +174,11 @@ Inherit(ServicesManager, Service, {
     _messageEvent : function(obj, msg){
         if (typeof obj == "object"){
             if (obj.type == "error"){
-                return this.emit("error", new Error(obj.item + ""));
+                if (obj.item) {
+                    return this.emit("error", new Error(obj.item + ""));
+                } else {
+                    return this.emit("error", new Error(obj.message));
+                }
             }
             if (obj.type == "log"){
                 return  this.emit("message", obj.item);

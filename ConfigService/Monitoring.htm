@@ -58,7 +58,11 @@
 			};
 			
 			Monitor.ConnectService = function(){
-			    ServiceProxy.Connect("ws://localhost:5700/" + Monitor.serviceId).then((service) => {
+			    var url = "ws://localhost:5700/";
+			    if (Request.Params.url){
+			        url = "ws://" + Request.Params.url + "/";
+				}
+			    ServiceProxy.Connect(url + Monitor.serviceId).then((service) => {
 			        ServiceName.set(Monitor.serviceId);
                     ServiceMethods.clear();
                     if (service){

@@ -12,6 +12,13 @@ function AutoSyncService(params){
         Frame.log("AUTOSYNC FROM " + params.source + " TO " + params.destination);
         ServiceProxy.connect(params.source).then((fs) => {
             self.sourceFs = fs;
+            Frame.log("Connected to " + params.source+ "/" + fs.serviceId);
+            /*fs.Watch("").then((path) => {
+                Frame.log("Wathing " + path);
+            });
+            fs.on("watch", (eventType, path, npath) => {
+                Frame.log(eventType + " on " + path + " with " + npath);
+            });*/
             Frame.log("Listening " + params.source);
             fs.on("creating-dir", (params) => {
                 if (!selfBlockSyncCreate[params]) {
@@ -38,10 +45,12 @@ function AutoSyncService(params){
                 }
             });
         }).catch((err) => {
-
+            Frame.log("Can't connect " + params.source);
+            Frame.error(err);
         });
         ServiceProxy.connect(params.destination).then((fs) => {
             self.destinationFs = fs;
+            Frame.log("Connected to " + params.destination + "/" + fs.serviceId);
             if (params.mode == "bidirectional") {
                 Frame.log("Bidirectional syncing to " + params.destination);
                 fs.on("creating-dir", (params)=>{
@@ -70,7 +79,8 @@ function AutoSyncService(params){
                 });
             }
         }).catch((err) => {
-
+            Frame.log("Can't connect " + params.destination);
+            Frame.error(err);
         });
     }
     return Service.call(this, "AutoSyncService");

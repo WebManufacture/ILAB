@@ -9,7 +9,6 @@
     "basepath": ""
   },
   "ConfigService":{
-    "path":"ConfigService/ConfigService.js",
     "watchConfigFile" : true,
     "watchServicesPaths": true,
     "filesServiceId": "FilesService"

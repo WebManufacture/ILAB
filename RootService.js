@@ -23,6 +23,7 @@ Frame._initFrame = function () {
             debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
             console.log("Debug mode: " + debugMode);
         }
+        var configFileName = "config.json";
         for (var i = 2; i <= process.argv.length; i++){
             var arg = process.argv[i];
             if (!arg) continue;
@@ -31,20 +32,16 @@ Frame._initFrame = function () {
                 console.log("Debug mode: " + debugMode);
                 continue;
             }
-            if (arg === "--config") {
-                // используется config.json если третьим аргументом идёт флаг --config
-                if (fs.existsSync(Path.resolve("config.json"))) {
-                    var configFile = require(Path.resolve("config.json"));
-                    for (var key in configFile) {
-                        servicesToStart[key] = configFile[key];
-                    }
-                }
-                continue;
-            }
             if (arg === "--demo") {
-                // используется config.json если третьим аргументом идёт флаг --config
-                if (fs.existsSync(Path.resolve("config-sample.json"))) {
-                    var configFile = require(Path.resolve("config-sample.json"));
+                configFileName = "config-sample.json";
+            }
+            if (arg === "--demo" || arg.indexOf("--config") === 0) {
+                // используется config.json если аргументом идёт флаг --config
+                if (arg.indexOf("=") > 0){
+                    configFileName = arg.split("=")[1];
+                }
+                if (fs.existsSync(Path.resolve(configFileName))) {
+                    var configFile = require(Path.resolve(configFileName));
                     for (var key in configFile) {
                         servicesToStart[key] = configFile[key];
                     }

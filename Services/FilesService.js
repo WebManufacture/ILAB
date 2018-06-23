@@ -182,9 +182,9 @@ function FilesService(config){
                         }
                         try {
                             fs.watch(fpath, {recursive: recursive}, function (eventType, npath) {
-                                self.emit("watch:" + fpath, eventType, path, npath);
-                                self.emit("watch-" + eventType, path, npath);
-                                self.emit("watch", eventType, path, npath);
+                                self.emit("watch:" + path, eventType, npath);
+                                self.emit("watch-" + eventType, fpath + "\\" + npath, npath);
+                                self.emit("watch", eventType, fpath + "\\" + npath, npath);
                             });
                             resolve(fpath);
                         }
