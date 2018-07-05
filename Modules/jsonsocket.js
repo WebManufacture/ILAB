@@ -23,22 +23,28 @@ function JsonSocket() {
         self.emit('connect');
     });
 
-    socket.on('data', function (data) {
-        var str = data.toString();
-        var parts = str.split('\0');
-        json += parts.shift();
-        while (parts.length > 0) {
-            try {
-                json = JSON.parse(json);
+    var dataListener = (data) => {
+        if (!this.isStream) {
+            var str = data.toString();
+            var parts = str.split('\0');
+            json += parts.shift();
+            while (parts.length > 0) {
+                try {
+                    json = JSON.parse(json);
+                }
+                catch (err) {
+                    self.emit("error", new Error("Socket JSON Error parsing"));
+                    return;
+                }
+                self.emit('json', json);
+                json = parts.shift();
             }
-            catch (err) {
-                self.emit("error", new Error("Socket JSON Error parsing"));
-                return;
-            }
-            self.emit('json', json);
-            json = parts.shift();
+        } else {
+
         }
-    });
+    };
+
+    socket.on('data', dataListener);
 
     socket.on('end', function (arg1, arg2) {
         self.emit('end', arg1, arg2);

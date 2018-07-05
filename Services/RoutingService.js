@@ -44,42 +44,8 @@ function RoutingService(config){
             }
         });
     };
-    this.RegisterNode = function(info){
-        if (this.knownNodes.indexOf(s => s.id == info.id) < 0){
-            this.knownNodes.push(info);
-        }
-    };
-    this.GetInterfaces = function() {
-        return os.networkInterfaces();
-    };
-    this.CheckNode = function (ipv6, port) {
-        return this.tryConnectExternalSM(ipv6, port);
-    };
-    this.ReCheckHosts = function () {
-        return this.recheckNodes();
-    };
 
     var result = Service.apply(this, arguments);
-
-    const dgram = require('dgram');
-    const server = this.udpServer = dgram.createSocket('udp4');
-
-    server.on('error', (err) => {
-        console.log(`discovery says: server error:\n${err.stack}`);
-        server.close();
-    });
-
-    server.on('message', (msg, rinfo) => {
-        console.log(`discovery server got: ${msg} from ${rinfo.address}:${rinfo.port}`);
-    });
-
-    server.on('listening', () => {
-        const address = server.address();
-        console.log(`discovery server listening ${address.address}:${address.port}`);
-    });
-
-    server.bind(41234);
-
 
     if (config.hosts && Array.isArray(config.hosts)) {
         this.recheckNodes(config.hosts);

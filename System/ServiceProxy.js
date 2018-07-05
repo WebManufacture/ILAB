@@ -155,7 +155,7 @@ ServiceProxy.CallMethod = function (host, port, methodName, args) {
                         socket.netSocket.setEncoding(message.encoding);
                     }
                     else {
-                        socket.netSocket.setEncoding('binary');
+                        socket.netSocket.setEncoding(null);
                     }
                     resolve(message.stream);
                 }
@@ -216,6 +216,7 @@ Inherit(ServiceProxy, EventEmitter, {
                         resolve(message.result);
                     }
                     if (message.type == "stream" && message.id) {
+                        socket.isStream = true;
                         message.stream = socket.netSocket;
                         message.stream.length = message.length;
                         if (message.encoding){

@@ -133,7 +133,7 @@ Inherit(Service, EventEmitter, {
                                     socket.netSocket.setEncoding(result.encoding);
                                 }
                                 else {
-                                    socket.netSocket.setEncoding('binary');
+                                    socket.netSocket.setEncoding('ascii');
                                 }
                                 if (result instanceof stream.Readable) {
                                     result.pipe(socket.netSocket);

@@ -67,6 +67,9 @@ Inherit(HttpProxyService, Service, {
             if (method) {
                 var args = context.tail.split("/");
                 args.shift();
+                for (var i = 0; i < args.length; i++){
+                    args[i] = decodeURIComponent(args[i]);
+                }
                 if (!context.data) context.data = "[]";
                 var data = JSON.parse(context.data);
                 if (data && data.length) {

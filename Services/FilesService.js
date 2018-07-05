@@ -137,7 +137,6 @@ function FilesService(config){
     };
 
     this.ReadStream = function(path, encoding){
-        if (!encoding) encoding = 'binary';
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
             try {
@@ -146,7 +145,7 @@ function FilesService(config){
                         reject("File " + fpath + " read error " + err);
                         return;
                     }
-                    const stream = fs.createReadStream(fpath, encoding);
+                    const stream = encoding ?  fs.createReadStream(fpath, encoding): fs.createReadStream(fpath);
                     stream.length = stats.size;
                     stream.encoding = encoding;
                     resolve(stream);
@@ -159,11 +158,10 @@ function FilesService(config){
     };
 
     this.WriteStream = function(path, encoding){
-        if (!encoding) encoding = 'binary';
         self.emit("writing", this.formatPath(path));
         const fpath = Path.resolve(self.preparePath(path));
         var socket = this;
-        var stream = fs.createWriteStream(fpath, socket, encoding);
+        var stream = encoding ? fs.createWriteStream(fpath, socket, encoding) :  fs.createWriteStream(fpath, socket);
         stream.once("finish", ()=> {
             self.emit("writed", this.formatPath(path));
         });

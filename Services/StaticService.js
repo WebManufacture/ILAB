@@ -95,7 +95,7 @@ StaticContentService.MimeTypes = {
     js: "text/javascript; charset=utf-8",
     css: "text/css; charset=utf-8",
     json: "text/json; charset=utf-8",
-    png: "image/png",
+    png: "image/png; charset=UTF-8",
     gif: "image/gif",
     jpg: "image/jpeg",
     bmp: "image/bmp",
@@ -176,23 +176,39 @@ Inherit(StaticContentService, Service, {
                                 var ext = Path.extname(fpath);
                                 ext = ext.replace(".", "");
                                 ext = serv.mime[ext];
-                                if (ext) {
-                                    res.setHeader("Content-Type", ext);
-                                }
-                                else {
-                                    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-                                }
-                                var encoding = 'binary';
+                                var encoding = null;
                                 if (ext.indexOf("text/") >= 0) {
                                     encoding = 'utf8';
                                 }
-                                serv.fs.ReadStream(fpath, encoding).then(function (stream) {
-                                    res.setHeader("Content-Length", stream.length);
-                                    stream.setEncoding(encoding);
-                                    stream.pipe(res);
+                                serv.fs.ReadStream(fpath, encoding).then((stream) => {
+                                    //stream.setEncoding('bi');
+                                    if (ext) {
+                                        res.setHeader("Content-Type", ext);
+                                    }
+                                    else {
+                                        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+                                    }
+                                    res.outputEncodings.push("binary");
+                                    //res.setHeader("Content-Length", stream.length);
+                                    //stream.pipe(res);
+                                    var actualLength = 0;
+                                    stream.on('data', (data)=> {
+                                        data = Buffer.from(data, 'binary');
+                                        res.write(data);
+                                        actualLength += data.length;
+                                    });
+                                    stream.on('end', (chunk) => {
+                                       if (chunk){
+                                           actualLength += chunk.length;
+                                       }
+                                       console.log("actual length " + actualLength);
+                                       res.end(chunk);
+                                    });
                                 }).catch(function (err) {
+                                    res.setHeader("Content-Type", "text/plain; charset=utf-8");
                                     res.statusCode = 500;
                                     res.end(err.message);
+                                    console.error(err);
                                 });
                             }
                         }
@@ -215,7 +231,7 @@ Inherit(StaticContentService, Service, {
                     else {
                         res.setHeader("Content-Type", "text/plain; charset=utf-8");
                     }
-                    var encoding = 'binary';
+                    var encoding = null;
                     if (ext.indexOf("text/") >= 0) {
                         encoding = 'utf8';
                     }
