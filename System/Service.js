@@ -111,8 +111,34 @@ Inherit(Service, EventEmitter, {
             self.emit("error", err);
         };
         socket.on("error", errorHandler);
+
+        var goStreamMode = (message, result) => {
+            socket.write({"type": "stream",  id: message.id, length: result.length});
+            socket.removeListener('messageHandlerFunction', messageHandlerFunction);
+            messageHandlerFunction = (message) => {
+                if (message.type == "stream-started"){
+                    if (result.encoding){
+                        socket.netSocket.setEncoding(result.encoding);
+                    }
+                    else {
+                        socket.netSocket.setEncoding('binary');
+                    }
+                    if (result instanceof stream.Readable) {
+                        result.pipe(socket.netSocket);
+                    }
+                    if (result instanceof stream.Writable) {
+                        socket.netSocket.pipe(result);
+                    }
+                } else {
+                    throw new Error("Reusable socket detected after go stream mode")
+                }
+            };
+            socket.on('json', messageHandlerFunction);
+
+        }
+
         var messageHandlerFunction = function (message) {
-            if (message.type == "method" || message.type == "stream"){
+            if (message.type == "method"){
                 try {
                     this._calleeFunctionMessage = message;
                     var result = self._callMethod(message.name, message.args);
@@ -128,19 +154,7 @@ Inherit(Service, EventEmitter, {
                     result.then(function (result) {
                         try {
                             if (result instanceof stream.Readable || result instanceof stream.Writable) {
-                                socket.write({"type": "stream",  id: message.id, length: result.length});
-                                if (result.encoding){
-                                    socket.netSocket.setEncoding(result.encoding);
-                                }
-                                else {
-                                    socket.netSocket.setEncoding('ascii');
-                                }
-                                if (result instanceof stream.Readable) {
-                                    result.pipe(socket.netSocket);
-                                }
-                                if (result instanceof stream.Writable) {
-                                    socket.netSocket.pipe(result);
-                                }
+                                goStreamMode(message, result);
                             }
                             else {
                                 socket.write({"type": "result", id: message.id, result: result});
@@ -160,19 +174,7 @@ Inherit(Service, EventEmitter, {
                 }
                 else {
                     if (result instanceof stream.Readable || result instanceof stream.Writable) {
-                        socket.write({"type": "stream",  id: message.id, length: result.length});
-                        if (result.encoding){
-                            socket.netSocket.setEncoding(result.encoding);
-                        }
-                        else {
-                            socket.netSocket.setEncoding('binary');
-                        }
-                        if (result instanceof stream.Readable) {
-                            result.pipe(socket.netSocket);
-                        }
-                        if (result instanceof stream.Writable) {
-                            socket.netSocket.pipe(result);
-                        }
+                        goStreamMode(message, result);
                     } else {
                         socket.write({"type": "result", id: message.id, result: result})
                     }

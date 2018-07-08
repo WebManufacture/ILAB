@@ -10,6 +10,9 @@ function JsonSocket() {
     var self = this;
     var socket = null;
     var json = "";
+    var id = (Math.random() + '').replace("0.", "");
+    var isStream = false;
+    var streamLength = 0;
 
     if (arguments[0] instanceof net.Socket) {
         socket = arguments[0];
@@ -19,47 +22,83 @@ function JsonSocket() {
 
     this.netSocket = socket;
 
+    socket.id = id;
+
     socket.on('connect', function () {
         self.emit('connect');
     });
 
     var dataListener = (data) => {
-        if (!this.isStream) {
+        streamLength += data.length;
+        if (!isStream) {
             var str = data.toString();
-            var parts = str.split('\0');
-            json += parts.shift();
-            while (parts.length > 0) {
+            var lastIndexOf = 0;
+            var index = 0;
+            var part = json;
+
+            while ((index = str.indexOf('\0', lastIndexOf)) > lastIndexOf) {
                 try {
-                    json = JSON.parse(json);
+                    part += str.substring(lastIndexOf, index);
+                    streamLength -= part.length + 1;
+                    part = JSON.parse(part);
                 }
                 catch (err) {
                     self.emit("error", new Error("Socket JSON Error parsing"));
                     return;
                 }
-                self.emit('json', json);
-                json = parts.shift();
+                self.emit('json', part);
+                part = "";
+                if (isStream){
+                    json = "";
+                    return;
+                }
+                lastIndexOf = index;
             }
-        } else {
-
+            if (lastIndexOf < str.length - 1){
+                json = str.substring(lastIndexOf, str.length - 1);
+            } else {
+                json = '';
+            }
         }
     };
 
-    socket.on('data', dataListener);
-
-    socket.on('end', function (arg1, arg2) {
+    var endListener = function (arg1, arg2) {
         self.emit('end', arg1, arg2);
-    });
+    };
 
-    socket.on('close', function (is_end, err) {
+    socket.on('end', endListener);
+
+    var closeHandler = function (is_end, err) {
         self.closed = true;
         self.emit('close', is_end, err);
-    });
+        if (isStream) {
+            //console.log(" stream closed " + id);
+        }
+    };
 
-    socket.on('error', function (ex, second) {
+    socket.on('close', closeHandler);
+
+    var errorHandler = function (ex, second) {
         if (ex && ex.code != "ECONNRESET") {
             self.emit('error', ex, second);
         }
-    });
+    };
+
+    socket.on('error', errorHandler);
+
+    this.goStreamMode = (id) => {
+        isStream = true;
+        this.netSocket.removeListener('data', dataListener);
+        this.netSocket.removeListener('end', endListener);
+        var obj = { type : "stream-started"};
+        if (id){
+            obj.id = id;
+        }
+        self.send(obj);
+        //console.log(this.netSocket.id + " Stream mode " + streamLength);
+    };
+
+    socket.on('data', dataListener);
 
     self.write = self.send = function (data) {
         if (!self.closed) {
@@ -72,20 +111,42 @@ function JsonSocket() {
         }
     };
 
-    self.close = function (error) {
-        socket.destroy(error);
+    self.close = (error) => {
+        if (this.netSocket) {
+            this.netSocket.destroy(error);
+            this.netSocket.removeListener('data', dataListener);
+            this.netSocket.removeListener('end', endListener);
+            this.netSocket.removeListener('close', closeHandler);
+            this.netSocket.removeListener('end', errorHandler);
+            this.netSocket = null;
+            socket = null;
+        }
+        if (isStream) {
+            console.log(id + " stream closed by command  close" + streamLength);
+        }
     };
 
-    self.end = function (param) {
-        socket.end(param);
+    self.end = (error) => {
+        if (this.netSocket) {
+            this.netSocket.end(error);
+            this.netSocket.removeListener('data', dataListener);
+            this.netSocket.removeListener('end', endListener);
+            this.netSocket.removeListener('close', closeHandler);
+            this.netSocket.removeListener('end', errorHandler);
+            this.netSocket = null;
+            socket = null;
+        }
+        if (isStream) {
+            console.log(id + " stream closed by command  end" + streamLength);
+        }
     };
 
 
-    self.connect = function () {
-        socket.connect.apply(socket, arguments);
+    self.connect = () => {
+        this.netSocket.connect.apply(this.netSocket, arguments);
     };
 
-    self.on('error', function () {
+    self.on('error', () => {
 
     });
 }

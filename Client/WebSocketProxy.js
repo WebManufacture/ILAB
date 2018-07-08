@@ -9,7 +9,7 @@ ServiceProxy = function(serviceName){
 };
 
 ServiceProxy.Connect = function(url, serviceId){
-    if (url.indexOf("ws://") != 0){
+    if (!url.indexOf("ws://") != 0){
         if (ServiceProxy.connected){
             serviceId = url;
             url = ServiceProxy.url;

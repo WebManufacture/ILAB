@@ -113,67 +113,15 @@ ServiceProxy.CreateProxyObject = function (service) {
 };
 
 ServiceProxy.CallMethod = function (host, port, methodName, args) {
-    return new Promise(function (resolve, reject) {
-        try {
-            function raiseError(err) {
-                console.log("Socket error while calling " + host + ":" + port + ":" + methodName);
-                console.error(err);
-                socket.removeAllListeners();
-                socket.close();
-                reject(err);
-            }
-
-            // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
-            var obj = { "type" : "method", name : methodName, args : args};
-            //Сделаем ID немного иначе и тогда будет можно на него положиться
-            obj.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
-            var socket = new JsonSocket(port, host, function () {
-                try {
-                    socket.send(obj);
-                }
-                catch (err) {
-                    raiseError(err);
-                }
-            });
-            socket.on('error', raiseError);
-            socket.once("close", function (err) {
-                if (err) {
-                    console.log("Socket closed unexpectely " + host + ":" + port + ":" + methodName);
-                    reject(new Error("Socket closed unexpectely " + host + ":" + port + ":" + methodName));
-                }
-            });
-            socket.once("json", function (message) {
-                if (message.type == "result") {
-                    socket.removeAllListeners();
-                    socket.close();
-                    resolve(message.result);
-                }
-                if (message.type == "stream" && message.id) {
-                    message.stream = socket.netSocket;
-                    message.stream.length = message.length;
-                    if (message.encoding){
-                        socket.netSocket.setEncoding(message.encoding);
-                    }
-                    else {
-                        socket.netSocket.setEncoding(null);
-                    }
-                    resolve(message.stream);
-                }
-                if (message.type == "error") {
-                    var err = new Error(message.result);
-                    console.log("Error while calling " + host + ":" + port + ":" + methodName);
-                    if (message.stack){
-                        err.stack = message.stack;
-                    }
-                    console.error(err);
-                    reject(err);
-                }
-            });
-        }
-        catch (err) {
-            reject(err);
-        }
-    });
+    var self = {
+        host: host,
+        port: port,
+        serviceId: "SingleCall",
+        emit: function () {
+            
+        }        
+    };
+    return ServiceProxy.prototype._callMethod.call(self, methodName, args);
 },
 
 Inherit(ServiceProxy, EventEmitter, {
@@ -216,14 +164,17 @@ Inherit(ServiceProxy, EventEmitter, {
                         resolve(message.result);
                     }
                     if (message.type == "stream" && message.id) {
-                        socket.isStream = true;
+                        socket.goStreamMode();
                         message.stream = socket.netSocket;
                         message.stream.length = message.length;
                         if (message.encoding){
                             socket.netSocket.setEncoding(message.encoding);
                         }
                         else {
-                            socket.netSocket.setEncoding('binary');
+                            socket.netSocket.setEncoding(null);
+                            /* fix due to issues in node */
+                            socket.netSocket._readableState.decoder = null;
+                            socket.netSocket._readableState.encoding = null;
                         }
                         resolve(message.stream);
                     }
