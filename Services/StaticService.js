@@ -177,9 +177,9 @@ Inherit(StaticContentService, Service, {
                                 ext = ext.replace(".", "");
                                 ext = serv.mime[ext];
                                 var encoding = null;
-                                if (ext.indexOf("text/") >= 0) {
+                                /*if (ext && ext.indexOf("text/") >= 0) {
                                     encoding = 'utf8';
-                                }
+                                }*/
                                 serv.fs.ReadStream(fpath, encoding).then((stream) => {
                                     //stream.setEncoding('bi');
                                     res.setHeader("request-id", stream.id);
