@@ -9,7 +9,7 @@ var UdpJsonServer = useModule('UdpJsonServer');
 
 function UdpServer(netInterface, config) {
     this._super.apply(this);
-    
+    this.knownNodes = [];
     this.serviceId = config.serviceId || "DiscoveryService";
     this.localPort = config.port || 31337;
     this.remotePort = this.localPort;

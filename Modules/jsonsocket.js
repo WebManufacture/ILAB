@@ -31,19 +31,19 @@ function JsonSocket() {
     var dataListener = (data) => {
         streamLength += data.length;
         if (!isStream) {
-            var str = data.toString();
+            var str = json + data.toString();
             var lastIndexOf = 0;
             var index = 0;
-            var part = json;
-
             while ((index = str.indexOf('\0', lastIndexOf)) > lastIndexOf) {
                 try {
-                    part += str.substring(lastIndexOf, index);
+                    var part = str.substring(lastIndexOf, index);
                     streamLength -= part.length + 1;
                     part = JSON.parse(part);
                 }
                 catch (err) {
+                    self.close();
                     self.emit("error", new Error("Socket JSON Error parsing"));
+                    //console.log(part.replace('\0', '*0*'));
                     return;
                 }
                 self.emit('json', part);
@@ -103,7 +103,8 @@ function JsonSocket() {
     self.write = self.send = function (data) {
         if (!self.closed) {
             if (data != undefined && data != null) {
-                socket.write(JSON.stringify(data) + '\0');
+                data = JSON.stringify(data) + '\0';
+                socket.write(data);
             }
             else {
                 self.emit("error", new Error("Error sending data"));
