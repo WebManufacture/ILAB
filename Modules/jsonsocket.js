@@ -31,7 +31,12 @@ function JsonSocket() {
     var dataListener = (data) => {
         streamLength += data.length;
         if (!isStream) {
-            var str = json + data.toString();
+            var str = data.toString();
+            if (str.indexOf('\0') < 0) {
+                json += str;
+                return;
+            }
+            str = json + str;
             var lastIndexOf = 0;
             var index = 0;
             while ((index = str.indexOf('\0', lastIndexOf)) > lastIndexOf) {
@@ -54,7 +59,7 @@ function JsonSocket() {
                 }
                 lastIndexOf = index;
             }
-            if (lastIndexOf < str.length - 1){
+            if (lastIndexOf >= 0 && lastIndexOf < str.length - 1){
                 json = str.substring(lastIndexOf, str.length - 1);
             } else {
                 json = '';
