@@ -33,10 +33,18 @@ function JsonSocket() {
         if (!isStream) {
             var str = data.toString();
             if (str.indexOf('\0') < 0) {
-                json += str;
+                if (json && str.indexOf('\0') > 0) {
+                    json = json.concat('\0' + str);
+                } else {
+                    json = json.concat(str);
+                }
                 return;
             }
-            str = json + str;
+            if (json && str.indexOf('\0') > 0) {
+                str = json.concat('\0' + str);
+            } else {
+                str = json.concat(str);
+            }
             var lastIndexOf = 0;
             var index = 0;
             while ((index = str.indexOf('\0', lastIndexOf)) > lastIndexOf) {
@@ -60,7 +68,7 @@ function JsonSocket() {
                 lastIndexOf = index;
             }
             if (lastIndexOf >= 0 && lastIndexOf < str.length - 1){
-                json = str.substring(lastIndexOf, str.length - 1);
+                json = str.substring(lastIndexOf + 1, str.length - 1);
             } else {
                 json = '';
             }
