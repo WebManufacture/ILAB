@@ -92,8 +92,8 @@ Frame._initFrame = function () {
         const services = Object.keys(servicesToStart);
         const params = [];
         services.forEach(sid => params.push(servicesToStart[sid]));
-        servicesManager.on("service-started", function (serviceId) {
-            console.log("Service started: " + serviceId + "");
+        servicesManager.on("service-started", function (serviceId, port) {
+            console.log("Service started: " + serviceId + " on TCP " + port);
         })
         servicesManager.StartServices(services, params).then(function (result) {
             console.log("All started!");
