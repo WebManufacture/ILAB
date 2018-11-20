@@ -9,7 +9,7 @@ var ServiceProxy = useRoot('System/ServiceProxy');
 
 Service = function(params){
     var self = this;
-    this.events = {};
+    this._eventsDescriptions = {};
     this.register("error", {
         args: [
             {
@@ -92,8 +92,8 @@ Service.GetDescription = function (service) {
     if (service.id){
         obj.id = service.id;
     }
-    if (service.events){
-        obj.events = JSON.parse(JSON.stringify(service.events));
+    if (service._eventsDescriptions){
+        obj.events = JSON.parse(JSON.stringify(service._eventsDescriptions));
     }
     for (var item in service){
         if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
@@ -105,6 +105,7 @@ Service.GetDescription = function (service) {
             }
         }
     }
+    return obj;
 }
 
 Service.CreateProxyObject = function (service) {
@@ -214,7 +215,9 @@ Inherit(Service, EventEmitter, {
             }
             if (message.type == "startup") {
                 var proxy = Service.CreateProxyObject(self);
-                socket.write(proxy);
+                if (proxy) {
+                    socket.write(proxy);
+                }
             }
             if (message.type == "subscribe") {
                 self.on("internal-event", internalEventHandler);
@@ -269,7 +272,7 @@ Inherit(Service, EventEmitter, {
             Service.base.emit.call(this, "internal-event", eventName, args);
         } else {
             //Self-descriptive events
-            if (!this.events[eventName]){
+            if (!this._eventsDescriptions[eventName]){
                 var args = [];
                 for (var i = 0; i <= arguments.length; i++){
                     args.push({
@@ -285,7 +288,7 @@ Inherit(Service, EventEmitter, {
     },
 
     register: function (eventName, description) {
-        this.events[eventName] = description;
+        this._eventsDescriptions[eventName] = description;
     }
 });
 
