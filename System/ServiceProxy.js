@@ -208,9 +208,9 @@ Inherit(ServiceProxy, EventEmitter, {
     _createFakeMethod : function(methodName, methodType) {
         var self = this;
         var method = self[methodName] = function () {
-            let callbackHandler = null;
-            let errorHandler = null;
-            let args = [];
+            var callbackHandler = null;
+            var errorHandler = null;
+            var args = [];
             //The callback function should be last
             for (var i = 0; i < arguments.length; i++){
                 if (typeof (arguments[i]) == "function"){
