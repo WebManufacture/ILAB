@@ -4,7 +4,6 @@ var os = require("os");
 useModule("utils.js");
 var Service = useRoot("/System/Service.js");
 var SerialPort = require('serialport');
-const SerialPortStream = require('@serialport/stream')
 
 /*Events
  virtual-start
@@ -92,7 +91,7 @@ function SerialService(params){
             console.log("Serial port connecting " + portName);
             if (typeof options != "object") options = {};
             options.autoOpen = false;
-            var port = new SerialPortStream(portName, options);
+            var port = new SerialPort(portName, options);
             port.on("error", function (err) {
                 self.emit("serial-error", portName, err.message);
                 self.emit("serial-error-" + portName, err.message);

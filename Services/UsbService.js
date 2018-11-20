@@ -37,10 +37,6 @@ function UsbService(params){
         self.emit("insert", device);
     });
 
-    usbDetect.on('add', function(device) {
-        self.emit("insert", device);
-    });
-
     usbDetect.on('remove', function(device) {
         self.emit("remove", device);
     });

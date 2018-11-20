@@ -272,6 +272,7 @@ Inherit(Service, EventEmitter, {
             Service.base.emit.call(this, "internal-event", eventName, args);
         } else {
             //Self-descriptive events
+            if (!this._eventsDescriptions) this._eventsDescriptions = {};
             if (!this._eventsDescriptions[eventName]){
                 var args = [];
                 for (var i = 0; i <= arguments.length; i++){
@@ -288,7 +289,10 @@ Inherit(Service, EventEmitter, {
     },
 
     register: function (eventName, description) {
-        this._eventsDescriptions[eventName] = description;
+        if (eventName) {
+            if (!this._eventsDescriptions) this._eventsDescriptions = {};
+            this._eventsDescriptions[eventName] = description;
+        }
     }
 });
 
