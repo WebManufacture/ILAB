@@ -47,12 +47,47 @@ function SerialService(params){
                 self.emit("serial-opened", portName);
                 self.emit("serial-opened-" + portName);
             });
+            port.on("disconnect", function (err) {
+                self.ports[portName] = null;
+                self.emit("serial-disconnected", portName, err);
+                self.emit("serial-disconnected-" + portName, err);
+            });
+            port.on("close", function (err) {
+                self.ports[portName] = null;
+                self.emit("serial-closed", portName, err);
+                self.emit("serial-closed-" + portName, err);
+            });
+            port.open(function (err) {
+                if (err) {
+                    console.error('Serial ' + portName + ' open Error: ', err.message);
+                    reject(err);
+                    return false;
+                }
+                console.log("Serial opened in stream mode: " + portName);
+                self.ports[portName] = port;
+                resolve(port);
+            });
+        });
+    };
+    this.OpenStream = function(portName, options){
+        return new Promise(function(resolve, reject){
+            if (self.ports[portName]) {
+                resolve(portName);
+                return true;
+            }
+            console.log("Serial port connecting " + portName);
+            if (typeof options != "object") options = {};
+            options.autoOpen = false;
+            var port = new SerialPort(portName, options);
+            port.on("error", function (err) {
+                self.emit("serial-error", portName, err.message);
+                self.emit("serial-error-" + portName, err.message);
+            });
+            port.on("open", function () {
+                self.emit("serial-opened", portName);
+                self.emit("serial-opened-" + portName);
+            });
             port.on("data", function (data) {
-                self.emit("serial-string", portName, data.toString("ascii"));
-                self.emit("serial-string-" + portName, data.toString("ascii"));
-                data = Array.from(data);
-                self.emit("serial-data", portName, data);
-                self.emit("serial-data-" + portName, data);
             });
             port.on("disconnect", function (err) {
                 self.ports[portName] = null;
