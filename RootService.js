@@ -19,7 +19,7 @@ Frame._initFrame = function () {
 
         let debugMode = false;
         var servicesToStart = {};
-        if (process.execArgv[0] && process.execArgv[0].indexOf("--inspect") >= 0){
+        if (process.execArgv[0] && (process.execArgv[0].indexOf("--inspect") >= 0 || process.execArgv[0].indexOf("--debug") >= 0)){
             debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
             console.log("Debug mode: " + debugMode);
         }
@@ -92,7 +92,12 @@ Frame._initFrame = function () {
         const services = Object.keys(servicesToStart);
         const params = [];
         services.forEach(sid => params.push(servicesToStart[sid]));
-        servicesManager.StartServices(services, params).catch((err)=>{
+        servicesManager.on("service-started", function (serviceId, port) {
+            console.log("Service started: " + serviceId + " on TCP " + port);
+        })
+        servicesManager.StartServices(services, params).then(function (result) {
+            console.log("All started!");
+        }).catch((err)=>{
             console.error(err);
         });
 /*

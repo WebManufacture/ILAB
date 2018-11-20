@@ -55,6 +55,10 @@ Frame._initFrame = function () {
                         if (Frame.nodePath.indexOf(".js") != Frame.nodePath.length - 3) {
                             Frame.nodePath += ".js";
                         }
+                        const tempPath = Path.resolve("./Temp/");
+                        if (!fs.existsSync(tempPath)){
+                            fs.mkdirSync(tempPath);
+                        }
                         Frame.nodePath =  Path.resolve("./Temp/" + Frame.nodePath);
                         fs.writeFile(Frame.nodePath, rawData, function (err, result) {
                            if (err){

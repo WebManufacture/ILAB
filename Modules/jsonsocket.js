@@ -33,10 +33,34 @@ function JsonSocket() {
         if (!isStream) {
             var str = data.toString();
             if (str.indexOf('\0') < 0) {
-                json += str;
+                json = json + str;
                 return;
             }
             str = json + str;
+            const lastIndex = str.lastIndexOf('\0');
+            json = str.substring(lastIndex + 1);
+            var parts = str.split('\0');
+            for (var i = 0; i < parts.length - 1; i++){
+                if (parts[i].length == 0) continue;
+                try {
+                    var part = parts[i];
+                    streamLength -= part.length + 1;
+                    part = JSON.parse(part);
+                }
+                catch (err) {
+                    //self.close();
+                    self.emit("error", new Error("Socket JSON Error parsing"));
+                    //console.log(part.replace('\0', '*0*'));
+                    return;
+                }
+                self.emit('json', part);
+                part = "";
+                if (isStream){
+                    json = "";
+                    return;
+                }
+            }
+            /*
             var lastIndexOf = 0;
             var index = 0;
             while ((index = str.indexOf('\0', lastIndexOf)) > lastIndexOf) {
@@ -46,7 +70,7 @@ function JsonSocket() {
                     part = JSON.parse(part);
                 }
                 catch (err) {
-                    self.close();
+                    //self.close();
                     self.emit("error", new Error("Socket JSON Error parsing"));
                     //console.log(part.replace('\0', '*0*'));
                     return;
@@ -60,10 +84,12 @@ function JsonSocket() {
                 lastIndexOf = index;
             }
             if (lastIndexOf >= 0 && lastIndexOf < str.length - 1){
-                json = str.substring(lastIndexOf, str.length - 1);
+                json = str.substring(lastIndexOf + 1, str.length - 1);
+                console.log("осталось " + json.length)
             } else {
                 json = '';
             }
+             */
         }
     };
 
@@ -110,6 +136,7 @@ function JsonSocket() {
             if (data != undefined && data != null) {
                 data = JSON.stringify(data) + '\0';
                 socket.write(data);
+                //console.log()
             }
             else {
                 self.emit("error", new Error("Error sending data"));
