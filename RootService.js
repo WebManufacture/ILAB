@@ -17,7 +17,7 @@ Frame._initFrame = function () {
 
 		var wd = process.argv[2];
 
-        let debugMode = false;
+        var debugMode = false;
         var servicesToStart = {};
         if (process.execArgv[0] && (process.execArgv[0].indexOf("--inspect") >= 0 || process.execArgv[0].indexOf("--debug") >= 0)){
             debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
@@ -73,7 +73,7 @@ Frame._initFrame = function () {
             }
         }
 
-        let smConfig = servicesToStart['ServicesManager'];
+        var smConfig = servicesToStart['ServicesManager'];
         if (!smConfig) smConfig = servicesToStart['ServicesManager'] = {};
         if (debugMode) smConfig.debugMode = debugMode;
         var servicesManager = new ServicesManager(smConfig, function () {
