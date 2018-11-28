@@ -4973,9 +4973,9 @@ window.eval(scripts[i].innerHTML);
 
         M.Context = {};
 
-        ServicesUrl = M.ServicesUrl = "http://services.web-manufacture.net";
-        SystemUrl = M.SystemUrl = "http://system.web-manufacture.net";
-        ModulesUrl = M.ModulesUrl = "http://modules.web-manufacture.net";
+        ServicesUrl = M.ServicesUrl = window.ServicesUrl ? ServicesUrl : "http://services.web-manufacture.net";
+        SystemUrl = M.SystemUrl = window.SystemUrl ? SystemUrl : "http://system.web-manufacture.net";
+        ModulesUrl = M.ModulesUrl = window.ModulesUrl ? ModulesUrl : "http://modules.web-manufacture.net";
 
         M.Namespaces = {
             services: {
@@ -4985,7 +4985,7 @@ window.eval(scripts[i].innerHTML);
                 url: M.SystemUrl
             },
             ui: {
-                url: M.ServicesUrl + "/ui"
+                url: M.ServicesUrl
             }
         };
 
@@ -7289,7 +7289,6 @@ Storages.Global.Site = Storages.Site.Global;*/
             }
             data = this._formatObject(selector, data);
             //if (data._intID) data._intID = this._getId();
-
             this._addToLayer(0, data);
             this._save();
             return data;
@@ -7464,7 +7463,9 @@ Storages.Global.Site = Storages.Site.Global;*/
         ui.Init = function () {
             Ev.CreateEvent("OnActionEvent", ui);
             ui.info("UI Initializing");
-            C.Process(WS.Body, "ui-processing");
+            ui.onload(function() {
+                C.Process(WS.Body, "ui-processing");
+            });
             ui.namespace = M.Namespaces.ui;
             ui.componentStorage = new Storage();
         };

@@ -401,7 +401,7 @@ Inherit(ServicesManager, Service, {
 
     getServicesAdvancedInfo : function(){
         var services = [{
-            id: "RootServicesManager",
+            id: this.id,
             path: Frame.nodePath,
             serviceType: "ServicesManager",
             resultId : this.serviceId,

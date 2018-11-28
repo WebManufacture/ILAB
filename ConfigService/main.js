@@ -97,11 +97,11 @@ ConfManager.CreateSection = function(name, baseUrl){
             return configService.GetConfigs();
         })
     }).then((configs) => {
-        for (var item in section.services){
-            var service = section.services[item];
-            ConfManager.ConnectServiceLog(baseUrl, item);
-            section.services[item].config = configs[item] ? configs[item] : {};
-        }
+        section.services.each((service)=>{
+            var id = service.resultId;
+            ConfManager.ConnectServiceLog(baseUrl, id);
+            service.config = configs[id] ? configs[id] : {};
+        });
         for (var item in configs){
             if (!section.services[item]){
                 section.services[item] = {
@@ -149,10 +149,11 @@ ConfManager.ShowSection = function(section){
     var header = sectionDiv.div(".section-header");
     header.div(".section-name", section.name);
     header.div(".section-url", section.url);
-    for (var id in section.services) {
-        var elem = ConfManager.CreateNodeItem(section, section.services[id]);
+    section.services.each((service)=>{
+        var elem = ConfManager.CreateNodeItem(section, service);
         sectionDiv.add(elem);
-    };
+    });
+    C.Process(sectionDiv, "ui-processing");
 };
 
 ConfManager.CreateNodeItem = function (section, node) {

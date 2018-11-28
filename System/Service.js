@@ -9,6 +9,7 @@ var ServiceProxy = useRoot('System/ServiceProxy');
 
 Service = function(params){
     var self = this;
+    this._config = {};
     this._eventsDescriptions = {};
     this.register("error", {
         args: [
@@ -57,8 +58,8 @@ Service = function(params){
         throw ("Cannot start " + this.serviceId + " on " + this.port + "\n" + error.message);
     }
     this.register("exiting", {
-       description: "occurs when service process like to exit",
-       args: []
+        description: "occurs when service process like to exit",
+        args: []
     });
     var wasExiting = false;
     process.once("exiting", () =>{
@@ -93,7 +94,7 @@ Service.GetDescription = function (service) {
         obj.id = service.id;
     }
     if (service._eventsDescriptions){
-        obj.events = JSON.parse(JSON.stringify(service._eventsDescriptions));
+        obj._events = JSON.parse(JSON.stringify(service._eventsDescriptions));
     }
     for (var item in service){
         if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
@@ -104,6 +105,9 @@ Service.GetDescription = function (service) {
                 obj[item] = "method";
             }
         }
+    }
+    if (service._config){
+        obj._config = service._config
     }
     return obj;
 }
@@ -292,6 +296,13 @@ Inherit(Service, EventEmitter, {
         if (eventName) {
             if (!this._eventsDescriptions) this._eventsDescriptions = {};
             this._eventsDescriptions[eventName] = description;
+        }
+    },
+
+    info: function (key, description) {
+        if (key) {
+            if (!this._config) this._config = {};
+            this._config[key] = description;
         }
     }
 });

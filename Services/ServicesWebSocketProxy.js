@@ -6,22 +6,25 @@ var Service = useRoot("/System/Service.js");
 var JsonSocket = useModule('jsonsocket');
 
 function WebSocketProxyService(param1){
+    var result = Service.apply(this, arguments);
     this.nodes = {};
     var self = this;
     this.knownServices = {
 
     };
+    var wsPort = 5700;
     if (typeof param1 == "object"){
         if (typeof param1.port == "number"){
-            this.port = param1.port;
+            wsPort = param1.port;
         }
     }
     else{
         if (typeof param1 == "number"){
-            this.port = param1;
+            wsPort = param1;
         }
     }
-    if (!this.port) this.port = 5700;
+    if (!wsPort) wsPort = 5700;
+    this.info("web-socket-port", wsPort);
     this.proxies = {};
 
     this.GetConnections = function () {
@@ -74,10 +77,10 @@ function WebSocketProxyService(param1){
             node.once("error", reject);
         });
     };
-    if (this.port){
-        this.OpenPort(this.port)
+    if (wsPort){
+        this.OpenPort(wsPort)
     }
-    return Service.call(this);
+    return result;
 }
 
 WebSocketProxyService.serviceId = "WebSocketProxyService";

@@ -12,6 +12,7 @@ HttpProxyService = function(params){
     this.listServices();
     var port = 5100;
     if (params && params.port) port = params.port;
+    this.info("http-port", port);
     this.router = new HttpRouter(port, 15000);
     //this.router.debugMode = "trace";
     this.router.on("/<", (context) => {

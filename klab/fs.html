@@ -2,12 +2,18 @@
 <head>
 
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
-    <script type="text/javascript" src="http://services.web-manufacture.net/Base/v1.5?join=true"></script>
-    <link href="http://services.web-manufacture.net/Styles/System.default.css" rel="stylesheet">
     <title>Server Files</title>
 
-    <script src="http://services.web-manufacture.net/ilab-socket.js" type="text/javascript"></script>
-    <script src="../Client/WebSocketProxy.js" type="text/javascript"></script>
+    <script src="../client/local-fixes.js" type="text/javascript"></script>
+
+    <link href="../client/System.default.css" rel="stylesheet">
+    <link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
+
+    <script src="../client/domjs_v1.5.js" type="text/javascript"></script>
+    <script src="../client/WebSocketProxy.js" type="text/javascript"></script>
+
+
+    <script src="../client/SharedIlab.js" type="text/javascript"></script>
 
     <script type="text/javascript">
 
@@ -286,8 +292,11 @@
         };
 
         FS.LoadFile = function(file) {
+            var path = (FS.CurrentDir.replace("/", ''))
+            path = (path ? path + "/" : '') + file.fileName;
             var url = 'http://' + FS.baseUrl + FS.CurrentDir + "/" + file.fileName;
-            url = "http://klab.web-manufacture.net/klab/textEditor.htm?action=edit&url=" + encodeURIComponent(url);
+            //url = "http://klab.web-manufacture.net/klab/textEditor.htm?action=edit&url=" + encodeURIComponent(url);
+            url = 'http://' + FS.baseUrl + "/klab/textEditor.htm?file=" + path;
             //if (file.is(".css") || file.is(".htm") || file.is(".html") || file.is(".js") || file.is(".cs") || file.is() {
             //url += "?action=edit";
             //}
@@ -364,7 +373,7 @@
                 FS.InitFileElement(file);
                 Notify.Show(file.fileName + " file created");
                 var url = 'http://' + FS.baseUrl + FS.CurrentDir + "/" + fileName;
-                window.open("http://klab.web-manufacture.net/klab/textEditor.htm?action=create&url=" + encodeURIComponent(url));
+                window.open("http://" + FS.baseUrl + "/klab/textEditor.htm?action=create&url=" + encodeURIComponent(url));
             };
 
             //var dialog = W.get(".edit-name-dialog");
@@ -679,13 +688,13 @@
         }
 
         .link.back{
-            background-image: url("http://cdn1.iconfinder.com/data/icons/customicondesignoffice5/24/go-back.png");
+            background-image: url("http://localhost/Client/Images/go-back.png");
             background-position: 20px center;
             background-repeat: no-repeat;
         }
 
         .dir{
-            background-image: url("http://cdn1.iconfinder.com/data/icons/momenticons-basic/16x16/folderopen1.png");
+            background-image: url("http://localhost/Client/Images/folderopen1.png");
             background-position: 20px center;
             background-repeat: no-repeat;
 
@@ -802,21 +811,21 @@
 <body>
 
 <!--include url='http://services.web-manufacture.net/SysUtils/Log.htm'></include-->
-<include url='http://services.web-manufacture.net/UI/toolbars.htm'></include>
-<include url='http://services.web-manufacture.net/UI/Notification.htm'></include>
-<include url='http://services.web-manufacture.net/UI/HtmlElements.htm'></include>
+<include url='../Client/Components/toolbars.htm'></include>
+<include url='../Client/Components/Notification.htm'></include>
+<include url='../Client/Components/HtmlElements.htm'></include>
 <!--include url='http://services.web-manufacture.net/Authentication/Authentication.htm'></include-->
 <div class='toolbar vertical fixed with-titles' id='HeaderBar'>
-    <div class='menuitem file-manager-button' id='create-file-button' icon="http://system.web-manufacture.net/images/document-small.png" onclick="FS.CreateNewDoc()">
+    <div class='menuitem file-manager-button' id='create-file-button' icon="http://localhost/Client/images/document-small.png" onclick="FS.CreateNewDoc()">
         Создать
     </div>
-    <div class='menuitem file-manager-button' id='create-folder-button' icon="http://system.web-manufacture.net/images/folderopened_yellow.png" onclick="FolderInputRender()">
+    <div class='menuitem file-manager-button' id='create-folder-button' icon="http://localhost/Client/images/folderopened_yellow.png" onclick="FolderInputRender()">
         Создать папку
     </div>
-    <div class='menuitem file-manager-button' id='delete-file' icon="http://system.web-manufacture.net/images/delete-mini.png" onclick="FS.DeleteDocs()">
+    <div class='menuitem file-manager-button' id='delete-file' icon="http://localhost/Client/images/delete-mini.png" onclick="FS.DeleteDocs()">
         Удалить
     </div>
-    <div class="menuitem round" icon="http://system.web-manufacture.net/images/ButtonUSSR.png" onclick="FS.ClearTagFilter();">
+    <div class="menuitem round" icon="http://localhost/Client/images/ButtonUSSR.png" onclick="FS.ClearTagFilter();">
         Отменить фильтрацию
     </div>
     <div class="menuitem round" icon="" onclick="FS.ClearSelect();">

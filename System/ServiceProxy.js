@@ -277,6 +277,12 @@ Inherit(ServiceProxy, EventEmitter, {
                                 self._createFakeMethod(item, proxyObj[item]);
                             }
                         }
+                        if (proxyObj._config) {
+                            self.config = proxyObj._config;
+                        }
+                        if (proxyObj._events) {
+                            self.events = proxyObj._events;
+                        }
                         if (typeof callback == "function") {
                             callback.call(self, proxyObj);
                         }

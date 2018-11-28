@@ -107,6 +107,9 @@ Inherit(StaticContentService, Service, {
         if (this.config.rootFile && path == "/") {
             path = this.config.rootFile;
         }
+        if (this.config.settingsRequest && path == "/" + this.config.settingsRequest){
+            path = '/settings';
+        }
         return path;
     },
 
@@ -140,7 +143,6 @@ Inherit(StaticContentService, Service, {
                 }
             }
         }
-
         if (req.method == 'OPTIONS') {
             res.statusCode = 200;
             res.end("OK");
@@ -149,6 +151,37 @@ Inherit(StaticContentService, Service, {
         try {
             if (self.enabled) {
                 if (req.method == "GET") {
+                    if (fpath == "/settings"){
+                        if (serv.config.allowSettings) {
+                            var settings = {};
+                            return Promise.all([
+                                ServicesManager.GetService("ServicesWebSocketProxy").then((proxy)=>{
+                                    settings.ServicesWebSocketProxy = proxy;
+                                }),
+                                ServicesManager.GetService("ServicesHttpProxy").then((proxy)=>{
+                                    settings.ServicesHttpProxy = proxy;
+                                }),
+                                ServicesManager.GetService("StaticService").then((proxy)=>{
+                                    settings.StaticService = proxy;
+                                }),
+                                ServicesManager.GetServices().then((proxy)=>{
+                                    settings.OtherServices = proxy;
+                                })
+                            ]).then(()=>{
+                                res.setHeader("Content-Type", "application/json");
+                                res.statusCode = 200;
+                                res.end("window.LocalIlabSettings = " + JSON.stringify(settings));
+                            }).catch((err)=>{
+                                res.statusCode = 500;
+                                Frame.error(err);
+                                res.end(JSON.stringify(err));
+                            });
+                        } else {
+                            return false;
+                            res.statusCode = 403;
+                            res.end("Not allowed by config");
+                        }
+                    };
                     return this.fs.Stats(fpath).then(
                         function (stats, err) {
                             if (stats.isDirectory) {
