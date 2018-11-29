@@ -1,0 +1,371 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>ILAB client</title>
+
+	<link href="../client/System.default.css" rel="stylesheet">
+	<link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
+	<script type="text/javascript" src="http://services.web-manufacture.net/Base/v1.5?join=true"></script>
+
+	<script src="../client/domjs_v1.5.js" type="text/javascript"></script>
+	<script src="../Client/WebSocketProxy.js" type="text/javascript"></script>
+
+	<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+	<style type="text/css">
+		body{
+			font-size: 24px;
+			background: black;
+			color: white;
+		}
+
+	</style>
+
+	<script type="text/javascript">
+
+
+
+        WS.DOMload(function(){
+            Monitor.Init();
+            window.log = Monitor.log;
+            window.error = Monitor.error;
+            window.info = Monitor.info;
+            Monitor.info("Устанавливаем соединение с ws://localhost:5700...");
+            ServiceProxy.Init("ws://localhost:5700").then(function (ServicesManager) {
+                Monitor.info("Соединение с ws://localhost:5700 установлено!");
+                ServicesManager.on("external-result", function(event, message){
+                    Monitor.log(message.result);
+                });
+                ServicesManager.on("external-error", function(event, message){
+                    Monitor.error(message.result);
+                });
+                Monitor.obj(ServicesManager);
+                Monitor.Start();
+                return ServicesManager;
+            }).catch(function(error){
+                Monitor.error(error);
+            });
+
+            cmdText.onkeydown = function(event){
+                if (event.keyCode == 13){
+                    Monitor.Send(cmdText.value);
+                    Monitor.log(cmdText.value);
+                    cmdText.value = "";
+                    return false;
+                }
+            }
+        });
+
+        Monitor = {
+            Init: function(){
+                Monitor._protos = {};
+                if (!Monitor.logs){ Monitor.logs = document.getElementById("logsMonitor");};
+                if (!Monitor.logProto){Monitor._protos["log"] = Monitor.logProto = document.querySelector(".log-item.log.prototype")};
+                if (!Monitor.errorProto){Monitor._protos["error"] = Monitor.errorProto = document.querySelector(".log-item.error.prototype")};
+                if (!Monitor.infoProto){Monitor._protos["info"] =Monitor.infoProto = document.querySelector(".log-item.info.prototype")};
+                if (!Monitor.objProto){Monitor._protos["obj"] =Monitor.objProto = document.querySelector(".log-item.obj.prototype")};
+            },
+
+            item : function(itemClass, text) {
+                var div = document.createElement("div");
+                div.className = "log-item " + itemClass;
+                div.innerHTML = Monitor._protos[itemClass].innerHTML;
+                div.querySelector(".datetime").textContent = (new Date()).toLocaleTimeString();
+                div.querySelector(".text").textContent = text;
+                Monitor.logs.appendChild(div);
+                return div;
+            },
+
+            log : function(text) {
+                return Monitor.item("log", text);
+            },
+
+            error : function(text) {
+                return Monitor.item("error", text);
+            },
+
+            warn : function(text) {
+                return Monitor.item("error", text);
+            },
+
+            info : function(text) {
+                return Monitor.item("info", text);
+            },
+
+            obj : function(obj) {
+                if (typeof obj == "undefined") {
+                    throw "logging empty object!";
+                }
+                var text = typeof(obj);
+                if (typeof(obj) == "function"){
+                    if (obj.prototype){
+                        text = obj.name + ":";
+                    }
+                    else{
+                        text = obj.toString();
+                    }
+                }
+                else{
+                    if (typeof obj == "object"){
+                        if (obj.constructor){
+                            text = obj.constructor.name;
+                        }
+                        text += ": { "
+                        for (var key in obj){
+                            if (key[0] != "_"){
+                                text += key + ","
+                            }
+                        }
+                        text += "}";
+                    }
+                    else{
+                        text += ":" + obj;
+                    }
+                }
+                var div = Monitor.item("obj", text);
+                div.onclick = function(){
+
+                }
+            },
+        };
+
+
+        Monitor.Start = function(){
+            if (Monitor.proxy){
+                Monitor.info("Соединение c ConsoleService уже существует!");
+                Monitor.proxy.Start();
+                return;
+            }
+            ServiceProxy.Connect("ConsoleService").then(function(proxy){
+                Monitor.proxy = proxy;
+                Monitor.info("Соединение c ConsoleService установлено.");
+                proxy.on("close", function(event, reason){
+                    if (!event){
+                        Monitor.info('Соединение c сервисом ConsoleService УЖЕ было закрыто ранее');
+                        return;
+					}
+                    if (event.wasClean) {
+                        Monitor.info('Соединение c сервисом ConsoleService закрыто');
+                    } else {
+                        Monitor.info('Обрыв соединения с ConsoleService <br/> Код: ' + event.code + ' причина: ' + event.reason);
+                    }
+                });
+
+                proxy.on("error", function(error){
+                    if (error){
+                        Monitor.error('Ошибка в ConsoleService:' + error.message);
+                        Monitor.obj(error);
+                    }
+                    else{
+                        Monitor.error('Ошибка в ConsoleService!');
+                    }
+                });
+
+                proxy.on("virtual-start", function(param){
+                    Monitor.info("virtual-start");
+                });
+
+                proxy.on("virtual-stop", function(param){
+                    Monitor.info("virtual-stop");
+                });
+
+                proxy.on("virtual-exited", function(param){
+                    Monitor.info("virtual-exited");
+                });
+
+                proxy.on("virtual-cmd", function(param){
+                    // Monitor.info("virtual-cmd: " + param);
+                });
+
+                proxy.on("virtual-error", function(error){
+                    Monitor.error("virtual-error: " + error);
+                });
+
+
+                proxy.on("virtual-output", function(param){
+                    Monitor.log(param);
+                });
+
+                proxy.Start();
+            }).catch(function(error){
+                Monitor.error("ConsoleServiceProxy:" + (error.message ? error.message : error +''));
+            });
+        };
+
+
+        Monitor.Stop = function(){
+            if (Monitor.proxy){
+                Monitor.proxy.once("close", function(){
+                    Monitor.proxy = null;
+                });
+                Monitor.proxy.Stop();
+                Monitor.proxy.close();
+            }
+        };
+
+        Monitor.Send = function(text){
+            if (Monitor.proxy){
+                Monitor.proxy.Command(text).catch(function (error) {
+					
+                });
+            }
+        }
+
+	</script>
+
+
+	<style>
+
+		body{
+			padding-top: 100px;
+			color: #9DA;
+			background-color: #202020;
+		}
+
+		body.loading .header.toolbar .menuitem.server-control {
+			display: none;
+		}
+
+		body.online .toolbar{
+			background-color: #CFA;
+		}
+
+		#logsMonitor {
+			display: block;
+			font-size: 12px;
+			padding: 2px;
+			text-align: left;
+			font-family: monospace;
+			width:80%;
+			padding-bottom: 140px;
+		}
+
+		#logsMonitor .log-item{
+			width: 100%;
+		}
+
+		#logsMonitor .log-item.old:first-child{
+			margin-top: 10px;
+		}
+
+		#logsMonitor .log-item.old{
+			opacity: 0.5;
+		}
+
+		#logsMonitor .log-item.old:hover{
+			opacity: 1;
+		}
+
+		#logsMonitor .log-item .datetime{
+			color: #777;
+		}
+
+		#logsMonitor .log-item.error .datetime{
+			color: red;
+		}
+
+
+		#logsMonitor .log-item .text{
+			white-space: pre;
+		}
+
+		.stack-line{
+			float: none;
+			clear:both;
+		}
+
+		.stack-line .stack-part{
+			display: inline-block;
+			padding-left: 5px;
+		}
+
+		.stack-line .stack-part.function{
+			color: green;
+		}
+
+		.stack-line .stack-part.module-name{
+			color: gray;
+		}
+
+		.stack-line .stack-part.line{
+			color: navy;
+			font-weight: bold;
+		}
+
+		.header.toolbar .menuitem.server-control:active{
+			border:  1px solid black;
+		}
+
+		.header.toolbar #urlBar {
+			border: 1px solid silver;
+			border-radius: 5px;
+			display: inline-block;
+			width: 500px;
+		}
+
+		#cmdBlock{
+			position: fixed;
+			bottom: 0;
+			width: 100%;
+			box-sizing: border-box;
+			padding: 10px 20px;
+			background-color: rgba(126,122,122,0.5);
+		}
+
+		#cmdText {
+			width: 100%;
+			font-family: Monospace;
+			font-size: 12px;
+		}
+
+	</style>
+
+</head>
+<body>
+
+<include url='http://services.web-manufacture.net/UI/toolbars.htm'></include>
+<div class='toolbar vertical right-side'>
+	<div class='menuitem server-control start-btn' id='serverStart' onclick="Monitor.Start();">
+		СТАРТ
+	</div>
+	<div class='menuitem server-control stop-btn' id='serverStop' onclick="Monitor.Stop();">
+		СТОП
+	</div>
+	<div class='menuitem server-control reload-btn' id='serverRestart' onclick="Monitor.Reset();">
+		РЕСТАРТ
+	</div>
+
+	<div class="menuitem server-control url-go invisible" onclick="Monitor.GoUrl(DOM('#urlBar').innerHTML);">GO!</div>
+	<div id="urlBar" class="invisible" contenteditable="true" ></div>
+</div>
+<div  id='logsMonitor'>
+
+</div>
+<div id='cmdBlock'>
+	<textarea id='cmdText' type='text'></textarea>
+</div>
+<div class="invisible prototype">
+	<div class='log-item info prototype'>
+		<span class='datetime'></span>
+		<span class='text'></span>
+	</div>
+	<div class='log-item obj prototype'>
+		<span class='datetime'></span>
+		<span class='text'></span>
+	</div>
+	<div class='log-item warn prototype'>
+		<span class='datetime'></span>
+		<span class='text'></span>
+	</div>
+	<div class='log-item error prototype'>
+		<span class='datetime'></span>
+		<span class='text'></span>
+	</div>
+	<div class='log-item log prototype'>
+		<span class='datetime'></span>
+		<span class='text'></span>
+	</div>
+</div>
+</body>
+
+</html>
+</html>

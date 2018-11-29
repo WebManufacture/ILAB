@@ -13,7 +13,7 @@ var Storage = useModule("storage.js");
 
 StorageService = function (params) {
     var result = Service.apply(this, arguments);
-    this.storage = new Storage("/Temp/tempStorage.json", true);
+    this.storage = new Storage(Path.resolve(Frame.ilabPath + "/Temp/tempStorage.json"), true);
 
     this.all = function(selector, object) {
         return this.storage.all(selector, object);
@@ -24,15 +24,21 @@ StorageService = function (params) {
     };
 
     this.del = function(selector, object) {
-        return this.storage.del(selector, object);
+        var result = this.storage.del(selector, object);
+        this.emit("del", selector, result);
+        return result;
     };
 
     this.add = function(selector, object) {
-        return this.storage.add(selector, object);
+        var result = this.storage.add(selector, object);
+        this.emit("add", result);
+        return result;
     };
 
     this.set = function(selector, object) {
-        return this.storage.set(selector, object);
+        var result = this.storage.set(selector, object);;
+        this.emit("set", selector, result);
+        return result;
     };
 
     this.save = function(selector, object) {
