@@ -2,7 +2,7 @@ var fs = useSystem('fs');
 var http = useSystem('http');
 var stream = useSystem('stream');
 var EventEmitter = useSystem('events');
-var HttpRouter = useModule('Router');
+var HttpRouter = useModule('HttpRouter');
 var Service = useRoot("/System/Service.js");
 
 HttpProxyService = function(params){

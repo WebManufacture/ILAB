@@ -55,12 +55,12 @@ Selector.prototype = {
                 var value = keyValue[1];
                 if(entity.contains("==")) {// Fenrir 21022015 / Добавил т.к. неправильно определяло имя и символ
                     var es = "=";
-                    var name = name.substr(0, name.length);
+                    name = name.substr(0, name.length);
                     value = keyValue[2];
                 }
                 else{
                     var es = name[name.length - 1];
-                    var name = name.substr(0, name.length - 2);//Fenrir 21022015 / var name = name.substr(0, name.length - 2);
+                    name = name.substr(0, name.length - 2);//Fenrir 21022015 / var name = name.substr(0, name.length - 2);
                 } // Fenrir 21022015 /
                 this.conditions.push({name : name, value : value, condition : es})
             }
