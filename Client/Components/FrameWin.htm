@@ -1,0 +1,70 @@
+<include url='%UI%/Win.htm'></include>
+
+<style>
+	.frame-window iframe{
+		border: none;
+		width: 100%;
+		height: 97%;
+	}
+</style>
+
+
+<script>
+
+	FrameWin = M.GetModuleEndsUrl("FrameWin.htm");
+	
+	FrameWin.initComponent = function(context, elem){
+		var src = elem.get("@src");
+		var win = Win.CreateWindow(elem, FrameWin);
+		if (src){
+			
+		}
+	};
+		
+	FrameWin.CreateWin = function(url, width, height){
+		var iframe = DOM.div(null, '<iframe></iframe>');
+		iframe = iframe.get("iframe");
+		iframe.src = url;
+		var win = Win.CreateWindow(null, FrameWin);
+		if (win){
+			win.setTitle("Loading: " + url);
+			win.add(iframe);
+				win.cls("frame-window");
+		var arg1 = arguments[1];
+		iframe.onload = function(){			
+			var ifDoc;
+			
+			try
+			{   
+				ifDoc = this.contentWindow.document.documentElement;  
+			}
+			catch( e )
+			{
+				try
+				{ 
+					ifDoc = this.contentDocument.documentElement;  
+				}
+				catch( ee ){}  
+			}
+			try{
+				if (typeof (arg1) == 'function'){
+					arg1(win, ifDoc);
+				}
+				win.setTitle(url);
+			}
+			catch( eee ){
+				
+			}
+		}
+		win.frameUrl = win.attr("frame-url", url);		
+		if (width){
+			win.style.width = width + "px";
+		}
+		if (height){
+			win.style.height = height + "px";	
+		}
+	}
+		return win;
+	}
+	
+</script>
