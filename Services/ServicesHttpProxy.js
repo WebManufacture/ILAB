@@ -16,13 +16,21 @@ HttpProxyService = function(params){
     this.router = new HttpRouter(port, 15000);
     //this.router.debugMode = "trace";
     this.router.on("/<", (context) => {
+        Frame.error("No service found " + context.path);
         context.error("No service found " + context.path, 404);
     });
     this.router.on("/", (context) => {
-        context.finish(self.services);
+        try {
+            context.finish(self.services);
+        } catch (err){
+            Frame.error(err);
+            this.emit('error', err);
+            context.error(err);
+        }
+        return false;
     });
     ServicesManager.on("service-started", function (serviceId, servicePort) {
-        console.log("HttpProxy catch service start: " + serviceId + ":" + servicePort);
+        //console.log("HttpProxy catch service start: " + serviceId + ":" + servicePort);
         self.services[serviceId] = servicePort;
         self.addServiceHandler(serviceId, servicePort);
     });
@@ -87,6 +95,8 @@ Inherit(HttpProxyService, Service, {
                         context.finish(result);
                     }
                 }).catch((err) => {
+                    Frame.error(err);
+                    this.emit('error', err);
                     context.error(err);
                 })
             }
@@ -100,7 +110,9 @@ Inherit(HttpProxyService, Service, {
             proxy.attach(port, "localhost", (proxyObj) => {
                 httpContext.finish(proxyObj);
             }).catch((err) => {
-                console.log(err);
+                //console.log(err);
+                Frame.error(err);
+                this.emit('error', err);
                 httpContext.error(err);
             });
             return false;
@@ -114,8 +126,8 @@ Inherit(HttpProxyService, Service, {
                 proxy.attach(port, "localhost", (proxyObj) => {
                     return callMethod(context);
                 }).catch((err) => {
-                    console.log(err);
-                    httpContext.error(err);
+                    Frame.error(err);
+                    this.emit('error', err);
                 });
             }
             return false;
