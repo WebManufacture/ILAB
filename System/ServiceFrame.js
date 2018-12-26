@@ -124,7 +124,7 @@ Frame._startFrame = function (node) {
                 node = node(params);
                 console.log(Frame.nodePath + " node started");
             }
-            process.send({type: "control", state: "started", serviceId: Frame.serviceId, nodeType : node.name});
+            process.send({type: "control", state: "started", serviceId: Frame.serviceId, config : params });
         }
         catch (err){
             Frame.error(err);
