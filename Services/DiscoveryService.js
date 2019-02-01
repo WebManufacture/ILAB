@@ -27,43 +27,12 @@ function UdpServer(netInterface, config) {
             this.emit(obj.type, obj, rinfo);
         }
     });
-
-    this.on("hello", (obj, rinfo) => {
-        if (obj.id == this.serviceId) return;
-        Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
-        Frame.log(obj);
-        this.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
-        this.emit("new-node", {
-            id: obj.id,
-            type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
-            serviceType: obj.serviceType,
-            address: rinfo.address,
-            port: rinfo.port,
-            tcpPort: obj.tcpPort,
-            managerId: obj.parentId,
-            managerPort: obj.parentPort
-        });
-    });
-    this.on("see-you", (obj, rinfo) => {
-        Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
-        Frame.log(obj);
-        this.emit("new-node", {
-            id: obj.id,
-            type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
-            serviceType: obj.serviceType,
-            address: rinfo.address,
-            port: rinfo.port,
-            tcpPort: obj.tcpPort,
-            managerId: obj.parentId,
-            managerPort: obj.parentPort
-        });
-        if (rinfo.address != obj.myAddress || rinfo.port != obj.myPort){
-            this.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
-        }
-    });
 }
 
 Inherit(UdpServer, EventEmitter, {
+    send: function(addressTo, portTo, message){
+        return this.udpServer.send(message, portTo, addressTo);
+    },
     broadcastHello : function(toPort){
         if (!toPort) toPort = this.localPort;
         const addressParts = this.localAddress.split(".");
@@ -105,7 +74,7 @@ function DiscoveryService(config){
     var self = this;
     // это публичная функция:
 
-    this.knownNodes = [];
+    this.knownNodes = {};
 
     this.GetKnownNodes = function() {
         return this.knownNodes;
@@ -138,9 +107,7 @@ function DiscoveryService(config){
         });
     };
     this.RegisterNode = function(info){
-        if (self.knownNodes.indexOf(s => s.id == info.id) < 0){
-            self.knownNodes.push(info);
-        }
+        return this.registerNode(info);
     };
     this.GetInterfaces = function() {
         return os.networkInterfaces();
@@ -162,6 +129,30 @@ function DiscoveryService(config){
             cidr:"fe80::d969:68fc:938:ca1b/64",
         }
     */
+
+    ServicesManager.GetServices().then((services)=>{
+        for (var serviceId in services){
+            this.registerNode({
+                id: serviceId,
+                type: "local",
+                serviceType: services[serviceId].serviceType,
+                tcpPort: services[serviceId].port
+            });
+        };
+    });
+
+    ServicesManager.on("service-started", (serviceId, servicePort, config) => {
+        this.registerNode({
+            id: serviceId,
+            type: "local",
+            serviceType: config.serviceType,
+            tcpPort: servicePort
+        });
+    });
+
+    ServicesManager.on("service-exited",(serviceId, servicePort) => {
+        delete this.knownNodes[serviceId];
+    });
 
     var interfaces = os.networkInterfaces();
     for (var item in interfaces){
@@ -191,10 +182,44 @@ function DiscoveryService(config){
                     server.sendHello(remotePoint.address, remotePoint.port);
                 });
             }
-        });
-        server.on("new-node", (nfo)=>{
-            this.RegisterNode(nfo);
-            console.log("registered node " + nfo.serviceType + "#" + nfo.id);
+
+            server.on("hello", (obj, rinfo) => {
+                if (obj.id == this.serviceId) return;
+                Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
+                Frame.log(obj);
+                server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
+                this.registerNode( {
+                    id: obj.id,
+                    type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
+                    serviceType: obj.serviceType,
+                    address: rinfo.address,
+                    port: rinfo.port,
+                    tcpPort: obj.tcpPort,
+                    managerId: obj.parentId,
+                    managerPort: obj.parentPort
+                });
+            });
+            server.on("see-you", (obj, rinfo) => {
+                Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
+                Frame.log(obj);
+                this.registerNode({
+                    id: obj.id,
+                    type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
+                    serviceType: obj.serviceType,
+                    address: rinfo.address,
+                    port: rinfo.port,
+                    tcpPort: obj.tcpPort,
+                    managerId: obj.parentId,
+                    managerPort: obj.parentPort
+                });
+                /*if (rinfo.address != obj.myAddress || rinfo.port != obj.myPort){
+                    server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
+                }*/
+            });
+            server.on("get-known", (obj, rinfo)=>{
+                server.send(rinfo.address, rinfo.port, this.knownNodes);
+            });
+
         });
         Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
@@ -205,6 +230,13 @@ function DiscoveryService(config){
 DiscoveryService.serviceId = "DiscoveryService";
 
 Inherit(DiscoveryService, Service, {
+
+    registerNode : function(nfo){
+        if (nfo && nfo.id && !this.knownNodes[nfo.id]){
+            this.knownNodes[nfo.id] = nfo;
+        }
+    },
+
     recheckNodes: function (hosts) {
         var self = this;
         hosts.forEach((node)=>{
