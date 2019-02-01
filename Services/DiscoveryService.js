@@ -130,12 +130,20 @@ function DiscoveryService(config){
         }
     */
 
+    this.registerNode({
+        id: this.id,
+        type: "self",
+        rank: 2,
+        serviceType: this.serviceType,
+        tcpPort: this.port
+    });
+
     ServicesManager.GetServicesInfo().then((services)=>{
         services.forEach((service)=> {
             this.registerNode({
                 id: service.resultId,
                 type: "local",
-                rank: 0,
+                rank: 6,
                 serviceType: service.serviceType,
                 tcpPort: service.port
             });
@@ -146,6 +154,7 @@ function DiscoveryService(config){
         this.registerNode({
             id: serviceId,
             type: "local",
+            rank: 5,
             serviceType: config.serviceType,
             tcpPort: servicePort
         });
@@ -202,7 +211,7 @@ function DiscoveryService(config){
                 });
             });
             server.on("see-you", (obj, rinfo) => {
-                //Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
+                console.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
                 //Frame.log(obj);
                 this.registerNode({
                     id: obj.id,
@@ -240,15 +249,21 @@ function DiscoveryService(config){
                 if (obj.knownNodes) {
                     if (Array.isArray(obj.knownNodes)) {
                         obj.knownNodes.forEach((node) => {
+                            console.log(node);
                             this.registerNode({
                                 id: node.id,
                                 type: "routed",
                                 rank: node.type == 'local' ? 50: 60,
+                                address: node.address,
+                                port: node.port,
                                 serviceType: node.serviceType,
                                 tcpPort: node.tcpPort,
                                 parentId: obj.id,
                                 parentType: obj.serviceType
                             });
+                            if (node.address && node.port){
+                                server.sendHello(node.address, node.port);
+                            }
                         });
                     } else {
                         for (var item in obj.knownNodes){
@@ -257,6 +272,8 @@ function DiscoveryService(config){
                                 id: node.id,
                                 type: "routed",
                                 rank: node.type == 'local' ? 50: 60,
+                                address: node.address,
+                                port: node.port,
                                 serviceType: node.serviceType,
                                 tcpPort: node.tcpPort,
                                 parentId: obj.id,
@@ -281,11 +298,11 @@ Inherit(DiscoveryService, Service, {
         if (nfo && nfo.id){
             var existing = this.knownNodes[nfo.id];
             if (!existing) {
-                Frame.log("registered node " + nfo.id);
+                Frame.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
                 this.knownNodes[nfo.id] = nfo;
             } else {
                 if (existing.rank > nfo.rank) {
-                    Frame.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + ":" + (nfo.parentId ? nfo.parentId : nfo.id));
+                    Frame.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
                     this.knownNodes[nfo.id] = nfo;
                 }
             }
