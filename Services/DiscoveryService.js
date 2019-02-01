@@ -10,7 +10,7 @@ var UdpJsonServer = useModule('UdpJsonServer');
 function UdpServer(netInterface, config) {
     this._super.apply(this);
     var self = this;
-    this.knownNodes = [];
+    this.tcpPort = config.tcpPort;
     this.serviceId = config.serviceId || "DiscoveryService";
     this.localPort = config.port || 31337;
     this.remotePort = this.localPort;
@@ -23,23 +23,42 @@ function UdpServer(netInterface, config) {
         this.emit("ready");
     });
     this.udpServer.on("json", (obj, rinfo) => {
-        if (obj && obj.type == "hello"){
-            if (obj.id == this.serviceId) return;
-            Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
-            Frame.log(obj);
-            this.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
-            this.emit("new-node", obj);
+        if (obj && obj.type) {
+            this.emit(obj.type, obj, rinfo);
         }
-        if (obj && obj.type == "see-you" || obj.type == "see-nat"){
-            Frame.log("Getting " + obj.type + " from " + rinfo.address + ":" + rinfo.port);
-            Frame.log(obj);
-            this.emit("new-node", obj);
-            if (obj.type == "see-nat"){
-                //this.remoteAddress = obj.yourAddr;
-                //this.emit("address-changed", this.remoteAddress);
-                //Frame.log("my address " + obj.yourAddr);
-            }
-            this.knownNodes.push(obj);
+    });
+
+    this.on("hello", (obj, rinfo) => {
+        if (obj.id == this.serviceId) return;
+        Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
+        Frame.log(obj);
+        this.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
+        this.emit("new-node", {
+            id: obj.id,
+            type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
+            serviceType: obj.serviceType,
+            address: rinfo.address,
+            port: rinfo.port,
+            tcpPort: obj.tcpPort,
+            managerId: obj.parentId,
+            managerPort: obj.parentPort
+        });
+    });
+    this.on("see-you", (obj, rinfo) => {
+        Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
+        Frame.log(obj);
+        this.emit("new-node", {
+            id: obj.id,
+            type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
+            serviceType: obj.serviceType,
+            address: rinfo.address,
+            port: rinfo.port,
+            tcpPort: obj.tcpPort,
+            managerId: obj.parentId,
+            managerPort: obj.parentPort
+        });
+        if (rinfo.address != obj.myAddress || rinfo.port != obj.myPort){
+            this.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
         }
     });
 }
@@ -58,7 +77,7 @@ Inherit(UdpServer, EventEmitter, {
             id: this.serviceId,
             myAddress: this.localAddress,
             myPort: this.localPort,
-            tcpPort: this.port,
+            tcpPort: this.tcpPort,
             serviceType: "DiscoveryService",
             parentId: ServicesManager.serviceId,
             parentPort: Frame.servicesManagerPort
@@ -66,7 +85,7 @@ Inherit(UdpServer, EventEmitter, {
     },
     sendSeeyou : function (addressTo, portTo, addressFrom, portFrom) {
         this.udpServer.send({
-            type: addressTo == addressFrom && portTo == portFrom ? "see-you" : "see-nat",
+            type: "see-you",
             id: this.serviceId,
             myAddress: this.localAddress,
             myPort: this.localPort,
@@ -74,7 +93,7 @@ Inherit(UdpServer, EventEmitter, {
             sentPort: portFrom,
             yourAddress: addressTo,
             yourPort: portTo,
-            tcpPort: this.port,
+            tcpPort: this.tcpPort,
             serviceType: "DiscoveryService",
             parentId: ServicesManager.serviceId,
             parentPort: Frame.servicesManagerPort
@@ -161,6 +180,7 @@ function DiscoveryService(config){
             mask: point.mask,
             mac: point.mac,
             port: config.port,
+            tcpPort: this.port,
             serviceId: this.serviceId
         });
         this.serverPool.push(server);
@@ -171,6 +191,10 @@ function DiscoveryService(config){
                     server.sendHello(remotePoint.address, remotePoint.port);
                 });
             }
+        });
+        server.on("new-node", (nfo)=>{
+            this.RegisterNode(nfo);
+            console.log("registered node " + nfo.serviceType + "#" + nfo.id);
         });
         Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
