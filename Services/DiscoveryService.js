@@ -19,8 +19,8 @@ function UdpServer(netInterface, config) {
     this.udpServer = new UdpJsonServer({port: this.localPort, address: this.localAddress, broadcast: true});
     this.udpServer.once("connect", ()=>{
         this.myLocalAddress = this.udpServer.address().address;
-        this.emit("ready");
         Frame.log("My local address " + this.myLocalAddress);
+        this.emit("ready");
     });
     this.udpServer.on("json", (obj, rinfo) => {
         if (obj && obj.type == "hello"){
@@ -164,20 +164,16 @@ function DiscoveryService(config){
             serviceId: this.serviceId
         });
         this.serverPool.push(server);
+        server.once("ready", ()=>{
+            server.broadcastHello();
+            if (config.hosts && Array.isArray(config.hosts)) {
+                config.hosts.forEach((remotePoint) => {
+                    server.sendHello(remotePoint.address, remotePoint.port);
+                });
+            }
+        });
         Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
-
-    this.serverPool.forEach((server)=>{
-        server.broadcastHello();
-    });
-
-    if (config.hosts && Array.isArray(config.hosts)) {
-        config.hosts.forEach((remotePoint) => {
-            this.serverPool.forEach((server) =>{
-                server.sendHello(remotePoint.address, remotePoint.port);
-            });
-        });
-    }
 
     return result;
 }
