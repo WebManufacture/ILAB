@@ -226,21 +226,35 @@ function DiscoveryService(config){
                     type: "i-know",
                     id: this.serviceId,
                     serviceType: "DiscoveryService",
-                    knowNodes: this.knownNodes
+                    knownNodes: Object.values(this.knownNodes)
                 });
             });
             server.on("i-know", (obj, rinfo)=>{
-                if (obj.knownNodes && obj.knownNodes.length) {
-                    obj.knownNodes.forEach((node)=>{
-                        this.registerNode({
-                            id: node.id,
-                            type: "routed",
-                            serviceType: node.serviceType,
-                            tcpPort: node.tcpPort,
-                            parentId: obj.id,
-                            parentType: obj.serviceType
+                if (obj.knownNodes) {
+                    if (Array.isArray(obj)) {
+                        obj.knownNodes.forEach((node) => {
+                            this.registerNode({
+                                id: node.id,
+                                type: "routed",
+                                serviceType: node.serviceType,
+                                tcpPort: node.tcpPort,
+                                parentId: obj.id,
+                                parentType: obj.serviceType
+                            });
                         });
-                    });
+                    } else {
+                        for (var item in obj.knownNodes){
+                            var node = obj.knownNodes[item];
+                            this.registerNode({
+                                id: node.id,
+                                type: "routed",
+                                serviceType: node.serviceType,
+                                tcpPort: node.tcpPort,
+                                parentId: obj.id,
+                                parentType: obj.serviceType
+                            });
+                        }
+                    }
                 }
             });
         });
