@@ -112,10 +112,26 @@ ServiceProxy.CreateProxyObject = function (service) {
     return obj;
 };
 
+ServiceProxy.CallMethod = function (host, port, methodName, args) {
+    var self = {
+        host: host,
+        port: port,
+        serviceId: "SingleCall",
+        emit: function () {
+            
+        }        
+    };
+    return ServiceProxy.prototype._callMethod.call(self, methodName, args);
+},
+
 Inherit(ServiceProxy, EventEmitter, {
     _callMethod : function (methodName, args) {
         var self = this;
-        return new Promise(function (resolve, reject) {
+        // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
+        var obj = { "type" : "method", name : methodName, args : args};
+        //Сделаем ID немного иначе и тогда будет можно на него положиться
+        obj.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
+        var promise = new Promise(function (resolve, reject) {
             try {
                 function raiseError(err) {
                     console.log("Socket error while calling " + self.serviceId + ":" + self.port + ":" + methodName);
@@ -126,10 +142,6 @@ Inherit(ServiceProxy, EventEmitter, {
                     reject(err);
                 }
 
-                // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
-                var obj = { "type" : "method", name : methodName, args : args};
-                //Сделаем ID немного иначе и тогда будет можно на него положиться
-                obj.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
                 var socket = new JsonSocket(self.port, self.host, function () {
                     try {
                         socket.send(obj);
@@ -152,13 +164,17 @@ Inherit(ServiceProxy, EventEmitter, {
                         resolve(message.result);
                     }
                     if (message.type == "stream" && message.id) {
+                        socket.goStreamMode();
                         message.stream = socket.netSocket;
                         message.stream.length = message.length;
                         if (message.encoding){
                             socket.netSocket.setEncoding(message.encoding);
                         }
                         else {
-                            socket.netSocket.setEncoding('binary');
+                            socket.netSocket.setEncoding(null);
+                            /* fix due to issues in node */
+                            socket.netSocket._readableState.decoder = null;
+                            socket.netSocket._readableState.encoding = null;
                         }
                         resolve(message.stream);
                     }
@@ -179,14 +195,22 @@ Inherit(ServiceProxy, EventEmitter, {
                 reject(err);
             }
         });
+        promise.before = function (f) {
+            if (typeof f == "function"){
+                f.call(self, promise, obj);
+            }
+            return promise;
+        };
+        promise._callId = obj.id;
+        return promise;
     },
 
     _createFakeMethod : function(methodName, methodType) {
         var self = this;
         var method = self[methodName] = function () {
-            let callbackHandler = null;
-            let errorHandler = null;
-            let args = [];
+            var callbackHandler = null;
+            var errorHandler = null;
+            var args = [];
             //The callback function should be last
             for (var i = 0; i < arguments.length; i++){
                 if (typeof (arguments[i]) == "function"){
@@ -246,12 +270,18 @@ Inherit(ServiceProxy, EventEmitter, {
                         }
                         self.serviceId = proxyObj.serviceId;
                         if (self.serviceId != "ServicesManager") {
-                            console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
+                            //console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
                         }
                         for (var item in proxyObj) {
                             if (proxyObj[item] == "method" || proxyObj[item] == "stream") {
                                 self._createFakeMethod(item, proxyObj[item]);
                             }
+                        }
+                        if (proxyObj._config) {
+                            self.config = proxyObj._config;
+                        }
+                        if (proxyObj._events) {
+                            self.events = proxyObj._events;
                         }
                         if (typeof callback == "function") {
                             callback.call(self, proxyObj);
@@ -310,7 +340,11 @@ Inherit(ServiceProxy, EventEmitter, {
                 });
                 var messageHandlerFunction = function (message) {
                     if (message.type == "event") {
+                        self._calleeFunctionId = message.calleeId;
+                        self._calleeFunctionName = message.calleeName;
                         self.emit.apply(self, message.args);
+                        delete self._calleeFunctionId;
+                        delete self._calleeFunctionName;
                     }
                     if (message.type == "error") {
                         raiseError(message);

@@ -1,8 +1,10 @@
 {
   "name": "ilab",
-  "version": "3.1.2",
+  "version": "3.6.2",
+  "electronVersion": "0.33.1",
   "description": "ILab server",
-  "main": "RootService.js",
+  "publishName": "ILab",
+  "main": "rootservice.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -18,8 +20,9 @@
   "homepage": "https://github.com/WebManufacture/ILAB-3.0#readme",
   "dependencies": {
     "child-process-debug": "latest",
+    "npm": "^6.4.1",
     "serialport": "latest",
-    "uuid": "^3.2.1",
-    "ws": "^2.1.0"
+    "usb-detection": "latest",
+    "uuid": "^3.2.1"
   }
 }

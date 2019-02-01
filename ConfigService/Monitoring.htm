@@ -3,19 +3,17 @@
 <html>
 	<head>
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
-    <link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
-    <script type="text/javascript" src="http://services.web-manufacture.net/Base/v1.5?join=true"></script>
-    <script type="text/javascript" src="http://services.web-manufacture.net/ilab-socket.js"></script>
+		<link href="../client/System.default.css" rel="stylesheet">
+		<link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
+		<script type="text/javascript" src="http://services.web-manufacture.net/Base/v1.5?join=true"></script>
+		<script src="../client/WebSocketProxy.js" type="text/javascript"></script>
+		<script src="../client/domjs_v1.5.js" type="text/javascript"></script>
 
-    <title>Конфигурация сервера</title>
+    	<title>Конфигурация сервера</title>
     
     <link type='text/css' rel='stylesheet' href="main.css"/>
 		
 		<script>
-			M.ServicesUrl = "http://services.web-manufacture.net";
-			M.ModulesUrl = "http://modules.web-manufacture.net";
-			M.SystemUrl = "http://system.web-mnanufacture.net";
-			
 			Monitor = {};
 			
 			Monitor.Init = function(){
@@ -58,7 +56,11 @@
 			};
 			
 			Monitor.ConnectService = function(){
-			    ServiceProxy.Connect("ws://localhost:5700/" + Monitor.serviceId).then((service) => {
+			    var url = "ws://localhost:5700/";
+			    if (Request.Params.url){
+			        url = "ws://" + Request.Params.url + "/";
+				}
+			    ServiceProxy.Connect(url + Monitor.serviceId).then((service) => {
 			        ServiceName.set(Monitor.serviceId);
                     ServiceMethods.clear();
                     if (service){
@@ -388,17 +390,17 @@
 		
 	</head>
 	<body>
-		<include url='http://services.web-manufacture.net/UI/UiUtils.htm'></include>
-		<include url='http://services.web-manufacture.net/UI/toolbars.htm'></include>
+		<include url='../Client/Components/UiUtils.htm'></include>
+		<include url='../Client/Components/toolbars.htm'></include>
 		<div id="ServiceControl">
 			<div class='toolbar'>
-				<div class='menuitem server-control' id='serverStart' onclick="Server.Start();">
+				<div class='menuitem server-control start-btn  fixedsize' id='serverStart' onclick="Server.Start();">
 					СТАРТ
 				</div>
-				<div class='menuitem server-control' id='serverStop' onclick="Server.Stop();">
+				<div class='menuitem server-control stop-btn  fixedsize' id='serverStop' onclick="Server.Stop();">
 					СТОП
 				</div>
-				<div class='menuitem server-control' id='serverRestart' onclick="Server.Reset();">
+				<div class='menuitem server-control reload-btn  fixedsize' id='serverRestart' onclick="Server.Reset();">
 					РЕСТАРТ
 				</div>
 				<div class="menuitem server-control url-go invisible" onclick="Monitor.GoUrl(DOM('#urlBar').innerHTML);">GO!</div>

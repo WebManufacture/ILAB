@@ -1,27 +1,30 @@
 var fs = useSystem('fs');
 var http = useSystem('http');
 var util = useModule('utils');
-var WebSocket = useSystem('ws');
+var WebSocketServer = useModule('WebSocket/WebSocketServer');
 var Service = useRoot("/System/Service.js");
 var JsonSocket = useModule('jsonsocket');
 
 function WebSocketProxyService(param1){
+    var result = Service.apply(this, arguments);
     this.nodes = {};
     var self = this;
     this.knownServices = {
 
     };
+    var wsPort = 5700;
     if (typeof param1 == "object"){
         if (typeof param1.port == "number"){
-            this.port = param1.port;
+            wsPort = param1.port;
         }
     }
     else{
         if (typeof param1 == "number"){
-            this.port = param1;
+            wsPort = param1;
         }
     }
-    if (!this.port) this.port = 5700;
+    if (!wsPort) wsPort = 5700;
+    this.info("web-socket-port", wsPort);
     this.proxies = {};
 
     this.GetConnections = function () {
@@ -37,10 +40,17 @@ function WebSocketProxyService(param1){
         if (this.proxies[port+""]){
             throw this.serviceId + ": OpenPort - port " + port + " already open";
         }
-        var wss = new WebSocket.Server({ port: port });
-        this.proxies[port + ""] = wss;
-        wss.on('connection', this._onSocketConnection.bind(this));
-        console.log("WebSocket PROXY ON " + port);
+
+        var server = http.createServer();
+        server.listen(port, function() {
+            console.log("WebSocket PROXY ON " + port);
+        });
+
+        var wss = new WebSocketServer({
+            httpServer: server,
+            autoAcceptConnections: true
+        });
+        wss.on('connect', this._onSocketConnection.bind(this));
         process.on('exiting', () => {
             wss.close();
         });
@@ -67,18 +77,18 @@ function WebSocketProxyService(param1){
             node.once("error", reject);
         });
     };
-    if (this.port){
-        this.OpenPort(this.port)
+    if (wsPort){
+        this.OpenPort(wsPort)
     }
-    return Service.call(this);
+    return result;
 }
 
 WebSocketProxyService.serviceId = "WebSocketProxyService";
 
 Inherit(WebSocketProxyService, Service, {
-    _onSocketConnection: function connection(ws, req) {
+    _onSocketConnection: function connection(ws, wsRequest) {
         var self = this;
-        var url = req.url;
+        var url = wsRequest.resource;
         //console.log('WSproxy: WSconnection', url);
         var services = null;
         var header = null;
@@ -108,7 +118,7 @@ Inherit(WebSocketProxyService, Service, {
                 });
                 var wsHandler = function (message) {
                     //console.log("WSproxy: calling method: " + message);
-                    socket.write(JSON.parse(message));
+                    socket.write(JSON.parse(message.utf8Data));
                 };
                 if (header){
                     wsHandler(header);

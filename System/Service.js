@@ -9,7 +9,31 @@ var ServiceProxy = useRoot('System/ServiceProxy');
 
 Service = function(params){
     var self = this;
-    this.serviceId = Frame.serviceId;
+    this._config = {};
+    this._eventsDescriptions = {};
+    this.register("error", {
+        args: [
+            {
+                type: "object",
+                title: "error object or message"
+            }
+        ],
+    });
+    if (!this.serviceId) {
+        if (params && params.id) {
+            if (params.id == "auto") {
+                this.serviceId = useSystem('uuid/v4')();
+            } else {
+                this.serviceId = params.id;
+            }
+        } else {
+            if (Frame.serviceId) {
+                this.serviceId = Frame.serviceId;
+            } else {
+                this.serviceId = useSystem('uuid/v4')();
+            }
+        }
+    }
     this.port = Frame.servicePort;
     this._netServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,
@@ -33,12 +57,25 @@ Service = function(params){
     catch (error){
         throw ("Cannot start " + this.serviceId + " on " + this.port + "\n" + error.message);
     }
+    this.register("exiting", {
+        description: "occurs when service process like to exit",
+        args: []
+    });
+    var wasExiting = false;
     process.once("exiting", () =>{
+        self.emit("exiting");
         self._closeServer();
+        wasExiting = true;
     });
     process.once("exit", () =>{
-        self._closeServer();
+        if (!wasExiting){
+            self.emit("exiting");
+            self._closeServer();
+        }
     });
+    this.GetDescription = function () {
+        return Service.GetDescription(self);
+    }
     return EventEmitter.call(this);
 };
 
@@ -51,11 +88,13 @@ Service.STATUS_ERROR = 4;
 Service.STATUS_STOPPING = 6;
 Service.STATUS_WORKING = 7;
 
-Service.CreateProxyObject = function (service) {
-    if (!service) return {};
+Service.GetDescription = function (service) {
     var obj = { serviceId : service.serviceId };
     if (service.id){
         obj.id = service.id;
+    }
+    if (service._eventsDescriptions){
+        obj._events = JSON.parse(JSON.stringify(service._eventsDescriptions));
     }
     for (var item in service){
         if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
@@ -67,7 +106,19 @@ Service.CreateProxyObject = function (service) {
             }
         }
     }
+    if (service._config){
+        obj._config = service._config
+    }
     return obj;
+}
+
+Service.CreateProxyObject = function (service) {
+    if (!service) return {};
+    if (service.GetDescription) {
+        return service.GetDescription();
+    } else {
+        return Service.GetDescription(service);
+    }
 };
 
 Inherit(Service, EventEmitter, {
@@ -97,10 +148,38 @@ Inherit(Service, EventEmitter, {
             self.emit("error", err);
         };
         socket.on("error", errorHandler);
+
+        var goStreamMode = (message, result) => {
+            socket.write({"type": "stream",  id: message.id, length: result.length});
+            socket.removeListener('messageHandlerFunction', messageHandlerFunction);
+            messageHandlerFunction = (message) => {
+                if (message.type == "stream-started"){
+                    if (result.encoding){
+                        socket.netSocket.setEncoding(result.encoding);
+                    }
+                    else {
+                        socket.netSocket.setEncoding('binary');
+                    }
+                    if (result instanceof stream.Readable) {
+                        result.pipe(socket.netSocket);
+                    }
+                    if (result instanceof stream.Writable) {
+                        socket.netSocket.pipe(result);
+                    }
+                } else {
+                    throw new Error("Reusable socket detected after go stream mode")
+                }
+            };
+            socket.on('json', messageHandlerFunction);
+
+        }
+
         var messageHandlerFunction = function (message) {
-            if (message.type == "method" || message.type == "stream"){
+            if (message.type == "method"){
                 try {
+                    this._calleeFunctionMessage = message;
                     var result = self._callMethod(message.name, message.args);
+                    this._calleeFunctionMessage = null;
                 }
                 catch (err){
                     if (message.id) {
@@ -112,14 +191,7 @@ Inherit(Service, EventEmitter, {
                     result.then(function (result) {
                         try {
                             if (result instanceof stream.Readable || result instanceof stream.Writable) {
-                                socket.write({"type": "stream",  id: message.id, length: result.length});
-                                if (result.encoding){
-                                    socket.netSocket.setEncoding(result.encoding);
-                                }
-                                else {
-                                    socket.netSocket.setEncoding('binary');
-                                }
-                                result.pipe(socket.netSocket);
+                                goStreamMode(message, result);
                             }
                             else {
                                 socket.write({"type": "result", id: message.id, result: result});
@@ -139,14 +211,7 @@ Inherit(Service, EventEmitter, {
                 }
                 else {
                     if (result instanceof stream.Readable || result instanceof stream.Writable) {
-                        socket.write({"type": "stream",  id: message.id, length: result.length});
-                        if (result.encoding){
-                            socket.netSocket.setEncoding(result.encoding);
-                        }
-                        else {
-                            socket.netSocket.setEncoding('binary');
-                        }
-                        result.pipe(socket.netSocket);
+                        goStreamMode(message, result);
                     } else {
                         socket.write({"type": "result", id: message.id, result: result})
                     }
@@ -154,7 +219,9 @@ Inherit(Service, EventEmitter, {
             }
             if (message.type == "startup") {
                 var proxy = Service.CreateProxyObject(self);
-                socket.write(proxy);
+                if (proxy) {
+                    socket.write(proxy);
+                }
             }
             if (message.type == "subscribe") {
                 self.on("internal-event", internalEventHandler);
@@ -164,7 +231,12 @@ Inherit(Service, EventEmitter, {
             //args.shift();
             try {
                 if (!socket.closed) {
-                    socket.write({type: "event", name: eventName, args: args});
+                    socket.write({
+                        type: "event",
+                        name: eventName,
+                        calleeId: this._calleeFunctionMessage ? this._calleeFunctionMessage.id : null,
+                        calleeName: this._calleeFunctionMessage ? this._calleeFunctionMessage.name : null,
+                        args: args});
                 }
             } catch(err){
                //errorHandler(err);
@@ -173,7 +245,7 @@ Inherit(Service, EventEmitter, {
         var serverClosingHandler = function (eventName, args) {
             socket.end();
         };
-        socket.once("json", messageHandlerFunction);
+        socket.on("json", messageHandlerFunction);
         self.once("closing-server", serverClosingHandler);
 
         socket.once("close", function (isError) {
@@ -202,8 +274,36 @@ Inherit(Service, EventEmitter, {
             var args = Array.from(arguments);
             //args.shift();
             Service.base.emit.call(this, "internal-event", eventName, args);
+        } else {
+            //Self-descriptive events
+            if (!this._eventsDescriptions) this._eventsDescriptions = {};
+            if (!this._eventsDescriptions[eventName]){
+                var args = [];
+                for (var i = 0; i <= arguments.length; i++){
+                    args.push({
+                        type: typeof arguments[i]
+                    });
+                }
+                this.register(eventName, {
+                    args: args
+                });
+            }
         }
         Service.base.emit.apply(this, arguments);
+    },
+
+    register: function (eventName, description) {
+        if (eventName) {
+            if (!this._eventsDescriptions) this._eventsDescriptions = {};
+            this._eventsDescriptions[eventName] = description;
+        }
+    },
+
+    info: function (key, description) {
+        if (key) {
+            if (!this._config) this._config = {};
+            this._config[key] = description;
+        }
     }
 });
 

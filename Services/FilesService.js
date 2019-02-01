@@ -59,14 +59,32 @@ function FilesService(config){
 		const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
             try{
-                self.emit("deleting", path);
-                fs.unlink(fpath, function (err, result) {
+                self.emit("deleting", self.formatPath(path));
+                fs.stat(fpath, function (err, stat) {
                     if (err) {
-                        reject("Delete error " + path + " " + err);
+                        reject(err);
                         return;
                     }
-                    self.emit("deleted", path);
-                    resolve(path, stats);
+                    if (stat.isDirectory()) {
+                        fs.rmdir(fpath, function (err, result) {
+                            if (err) {
+                                reject("Delete error " + path + " " + err);
+                                return;
+                            }
+                            self.emit("deleted", path);
+                            resolve(path, result);
+                        });
+                    }
+                    else {
+                        fs.unlink(fpath, function (err, result) {
+                            if (err) {
+                                reject("Delete error " + path + " " + err);
+                                return;
+                            }
+                            self.emit("deleted", path);
+                            resolve(path, result);
+                        });
+                    }
                 });
             }
             catch (err){
@@ -80,12 +98,13 @@ function FilesService(config){
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
             try {
-                self.emit("writing", path);
+                self.emit("writing", self.formatPath(path));
                 fs.writeFile(fpath, content, function (err, result) {
                     if (err) {
                         reject("File " + path + " write error " + err);
                         return;
                     }
+                    self.emit("writed", path);
                     resolve(path);
                 });
             }
@@ -118,7 +137,6 @@ function FilesService(config){
     };
 
     this.ReadStream = function(path, encoding){
-        if (!encoding) encoding = 'binary';
         const fpath = Path.resolve(self.preparePath(path));
         return new Promise(function (resolve, reject) {
             try {
@@ -127,7 +145,7 @@ function FilesService(config){
                         reject("File " + fpath + " read error " + err);
                         return;
                     }
-                    const stream = fs.createReadStream(fpath, encoding);
+                    const stream = encoding ?  fs.createReadStream(fpath, encoding): fs.createReadStream(fpath);
                     stream.length = stats.size;
                     stream.encoding = encoding;
                     resolve(stream);
@@ -140,10 +158,14 @@ function FilesService(config){
     };
 
     this.WriteStream = function(path, encoding){
-        if (!encoding) encoding = 'binary';
+        self.emit("writing", this.formatPath(path));
         const fpath = Path.resolve(self.preparePath(path));
         var socket = this;
-        return fs.createWriteStream(fpath, socket, encoding);
+        var stream = encoding ? fs.createWriteStream(fpath, socket, encoding) :  fs.createWriteStream(fpath, socket);
+        stream.once("finish", ()=> {
+            self.emit("writed", this.formatPath(path));
+        });
+        return stream;
     };
 
     this.Watch = function(path, recursive){
@@ -158,9 +180,9 @@ function FilesService(config){
                         }
                         try {
                             fs.watch(fpath, {recursive: recursive}, function (eventType, npath) {
-                                self.emit("watch:" + fpath, eventType, path, npath);
-                                self.emit("watch-" + eventType, path, npath);
-                                self.emit("watch", eventType, path, npath);
+                                self.emit("watch:" + path, eventType, npath);
+                                self.emit("watch-" + eventType, fpath + "\\" + npath, npath);
+                                self.emit("watch", eventType, fpath + "\\" + npath, npath);
                             });
                             resolve(fpath);
                         }
@@ -173,16 +195,52 @@ function FilesService(config){
         return fpath;
     };
 
+    this.CreateDir = function (path) {
+        var self = this;
+        const fpath = Path.resolve(self.preparePath(path));
+        return new Promise(function (resolve, reject) {
+            try {
+                self.emit("creating-dir", self.formatPath(path));
+                fs.mkdir(fpath, function (err, result) {
+                    if (err) {
+                        reject("Dir " + path + " create error " + err);
+                        return;
+                    }
+                    self.emit("created-dir", path);
+                    resolve(path);
+                });
+            }
+            catch (err){
+                reject(err);
+            }
+        });
+    };
+
     return Service.call(this, config);
 };
 
 Inherit(FilesService, Service, {
+    formatPath : function(fpath){
+        if (!fpath) fpath = '';
+        if (fpath.indexOf(":\\") < 0) {
+            fpath = fpath.replace(/\\\\/g, "/");
+            fpath = fpath.replace(/\\/g, "/");
+            if (fpath.indexOf("/") != 0) fpath = "/" + fpath;
+            fpath = fpath.replace(/\/\//g, "/");
+        }
+        if (fpath.end("/")) fpath = fpath.substr(0, fpath.length - 1);
+        return fpath;
+    },
+
 	preparePath : function(fpath){
 	    if (!fpath) fpath = '';
-		fpath = fpath.replace(/\\\\/g, "/");
-        fpath = fpath.replace(/\\/g, "/");
-		if (!fpath.start("/")) fpath = "/" + fpath;
-		fpath = this.basePath + fpath;
+        if (fpath.indexOf(":\\") < 0) {
+	    	fpath = fpath.replace(/\\\\/g, "/");
+            fpath = fpath.replace(/\\/g, "/");
+    		if (fpath.indexOf("/") != 0) fpath = "/" + fpath;
+            fpath = this.basePath + fpath;
+            fpath = fpath.replace(/\/\//g, "/");
+        }
 		if (fpath.end("/")) fpath = fpath.substr(0, fpath.length - 1);
 		return fpath;
 	},

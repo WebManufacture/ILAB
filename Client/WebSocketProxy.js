@@ -9,11 +9,15 @@ ServiceProxy = function(serviceName){
 };
 
 ServiceProxy.Connect = function(url, serviceId){
-    if (!url.start("ws://")){
+    if (url.indexOf("ws://") < 0){
+        serviceId = url;
         if (ServiceProxy.connected){
-            serviceId = url;
             url = ServiceProxy.url;
+        } else {
+            url = "ws://localhost:5700/"
         }
+    } else {
+
     }
     var proxy = new ServiceProxy(serviceId);
     if (serviceId){
@@ -32,7 +36,7 @@ ServiceProxy.Init = function(url){
     ServiceProxy.url = url;
     ServicesManager = ServiceProxy.instance = new ServiceProxy("ServicesManager");
     ServicesManager.Connect = ServiceProxy.Connect;
-    return ServicesManager.attach(url ? url + "/ServicesManager" : "ws://localhost/ServicesManager").then(function(proxy){
+    return ServicesManager.attach(url ? url + "/ServicesManager" : "ws://localhost:5700/ServicesManager").then(function(proxy){
         if (proxy) {
             for (var item in proxy){
                 if (proxy.hasOwnProperty(item)){

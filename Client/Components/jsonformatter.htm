@@ -1,0 +1,223 @@
+<script type='text/javascript'>
+    JSON.createDiv = function(obj){
+		var eobj = JSON.format(obj);
+		
+		var JsPropertyClick = function(eobj, obj){
+    		this.contentEditable = true;	
+    		var ol = this.get("^.js-property-line");
+    		ol.add(".editing");
+    		this.focus();
+    		this.onblur = JsonEditor.JsPropertyBlur;
+    	};
+    	
+    	var JsPropertyBlur = function(){
+    		var eo = this.get("^.js-object");
+    		var ol = this.get("^.js-property-line");
+    		this.contentEditable = false;	
+    		ol.del(".editing");
+    		eo = eo.editingObj;
+    		var pname = ol.get("@name");
+    		var val = this.textContent;
+    		
+    		if (val.start("'") && val.end("'")){
+    			val = val.substr(1, val.length-2);
+    		}
+    		else{
+    			if (val.start("{") && val.end("}")){
+    				val = JSON.parse(val);
+    			}
+    			else{
+    				var num = parseFloat(val);
+    				if (!isNaN(num)){
+    					val = num;	
+    				}
+    			}	
+    		}
+    		eo[pname] = val;
+    		var par = this.get("^.js-entity");
+    		par.del();
+    		eo = ol.add(uutils._formatObj(eo[pname], true, true));
+    		JsonEditor.InitEditingObj(ol);
+    	};
+    	
+    	var JsValueClick = function(){
+    		this.contentEditable = true;	
+    		var ol = this.get("^.js-property-line");
+    		ol.add(".editing");
+    		this.focus();
+    		this.onblur = JsonEditor.JsValueBlur;
+    	};
+    	
+    	
+    	 var JsValueBlur = function(){
+    		var eo = this.get("^.js-object");
+    		var ol = this.get("^.js-property-line");
+    		this.contentEditable = false;	
+    		ol.del(".editing");
+    		eo = eo.editingObj;
+    		var pname = ol.get("@name");
+    		var val = this.textContent;
+    		
+    		if (val.start("'") && val.end("'")){
+    			val = val.substr(1, val.length-2);
+    		}
+    		else{
+    			if (val.start("{") && val.end("}")){
+    				val = JSON.parse(val);
+    			}
+    			else{
+    				var num = parseFloat(val);
+    				if (!isNaN(num)){
+    					val = num;	
+    				}
+    			}	
+    		}
+    		eo[pname] = val;
+    		var par = this.get("^.js-property-value");
+    		par.del();
+    		eo = ol.add(utils._formatObj(eo[pname], true, true));
+    	};
+		
+		eobj.all(".js-property-value").each(function(item){
+			item.onclick = JsValueClick;
+		});
+		eobj.all(".js-property-name").each(function(item){
+			item.onclick = JsPropertyClick;
+		});
+		return eobj;
+	};
+	
+	JSON.format = function(value){
+		var elem = DOM.div(".js-entity");
+		elem.editingObj = value;
+		elem.add(".js-" + typeof (value));
+		if (value !== null && typeof (value) == 'object'){
+			elem.add("@type", value.classType);
+			if (value.classType == "Array"){
+				elem.add(".js-array");
+				elem.div('.js-syntax.js-array-start','[');
+				var arrDiv = elem.div('.js-array-content');
+				elem.div('.js-syntax.js-array-finish',']');
+				for (var i = 0; i < value.length; i++){
+					var val = elem.add(JsonEditor._formatObj(value[i]));
+					if (val) val.add(".js-array-element");
+					if (i < value.length-1) elem.div(".js-syntax.js-array-separator", ",");
+				}
+				return elem;
+			}
+			elem.div('.js-syntax.js-object-start','{');
+			var oc = DOM.div('.js-syntax.js-object-content');
+			var objs = false;
+			for (var name in value){
+				objs = true;
+				var prop = oc.div(".js-property-line");
+				prop.propertyKey = name;
+				prop.add("@name", name);
+				prop.div(".js-property-name", name);
+				prop.div(".js-syntax.js-namevalue-separator",':');
+				var val = prop.add(JsonEditor._formatObj(value[name]));
+				if (val) val.add(".js-property-value");
+				prop.div(".js-syntax.js-properties-separator",',');
+			}
+			if (objs){ 
+				oc.first(".js-property-line").add(".first");
+				oc.last(".js-property-line").add(".last");
+				elem.add(oc)
+			};
+			elem.div('.js-syntax.js-object-finish','}');
+			return elem;
+		}
+		if (typeof (value) == 'string'){
+			elem.div('.js-syntax.js-quote-start','&quot;');
+			elem.div(".js-string-value").textContent = value;
+			elem.div('.js-syntax.js-quote-finish','&quot;');
+			return elem;
+		}
+		elem.textContent = value + "";
+		return elem;
+	};
+	
+	
+</script>
+
+<style type='text/css'>
+	
+	.json-obj .js-entity,
+	.json-obj .js-syntax{
+		display: inline-block;
+		vertical-align: top;
+		font-family: monospace;
+	}
+	
+	
+	.json-obj .js-object{
+		padding-left: 5px;
+		padding-right: 5px;
+		color : #A4F;	
+		background-color: rgba(150, 200, 170, 0.07);
+	}
+	
+	
+	.json-obj .js-object .js-entity{
+		padding-left: 3px;
+		padding-right: 3px;
+	}
+	
+	.json-obj .js-object .js-property-line{
+		display: block;
+		padding-right: 5px;
+		padding-left: 20px;
+	}
+	
+	.json-obj .js-object .js-object-start, 
+	.json-obj .js-object .js-object-finish {
+		display: block;
+		padding-left: 3px;
+		padding-right: 3px;
+	}
+	
+	.json-obj .js-number{
+		color : navy;
+	}
+	
+	.json-obj .js-array{
+		color : red;
+	}
+		
+	.json-obj .js-object .js-array>.js-object{
+		margin-left: 10px;
+		margin-right: 10px;
+	}
+	
+	.json-obj .js-string{
+		color : #f85;
+	}
+	
+	
+	.json-obj .js-string .js-string-value{
+		padding: 0!important;
+	}
+	
+	.json-obj .js-syntax{
+		font-weight: bold;	
+	}
+		
+	.json-obj .js-property-name{
+		color: green;
+		min-width: 30px;
+	}
+	
+	.json-obj .js-property-line.editing .js-property-value{
+		background-color: white;
+		color: black;
+	}
+	
+	.json-obj .js-property-line.editing .js-string .js-syntax{
+		display: none;	
+	}
+	
+	.json-obj .js-object .js-property-line.last .js-properties-separator{
+		display: none;
+	}
+	
+</style>

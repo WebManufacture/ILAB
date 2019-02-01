@@ -7,7 +7,7 @@ function MapNode(parentPath){
 	this["//"] = parentPath;
 };
 
-Router = function(port, timeout){
+Router = function(timeout){
 	this.HandlersIndex = [];
 	this.Handlers = {};
 	this.basePath = "";
@@ -18,57 +18,6 @@ Router = function(port, timeout){
 	this.ProcessingContextsCount = 0;
 	if (!timeout) timeout = 5000;
 	this.timeout = timeout;
-    if (port){
-        this.port = port;
-        var http = useSystem('http');
-        this.server = http.createServer((req, res) => {
-            res.setHeader("Access-Control-Allow-Origin", "*");
-            res.setHeader("Access-Control-Allow-Methods", "GET, DELETE, PUT, POST, HEAD, OPTIONS, SEARCH");
-            if (req.method == 'OPTIONS'){
-                res.statusCode = 200;
-                res.end("OK");
-                return;
-            }
-            var context = null;
-            try{
-                if (this.Enabled){
-                    var serv = this;
-                    var fullData = "";
-                    if (this.noCollectData){
-                        context = serv.GetContext(req, res);
-                        serv.Process(context);
-                    }
-                    else{
-                        req.on("data", function(data){
-                            fullData += data;
-                        });
-                        req.on("end", function(){
-                            context = serv.GetContext(req, res, fullData);
-                            serv.Process(context);
-                        });
-                    }
-                    return false;
-                }
-                else{
-                    res.statusCode = 403;
-                    res.end("Server disabled");
-                }
-            }
-            catch (e){
-                if (context){
-                    context.error(e);
-                }
-                res.statusCode = 500;
-                res.end(e.message);
-                throw e;
-            }
-            return true;
-        });
-		this.server.listen(port);
-	}
-	this.close = () => {
-		return this.server.close();
-    }
 };
 
 Router.prototype = {
@@ -103,12 +52,16 @@ Router.prototype = {
 		}
 	},
 	
-	GetContext: function(req, res, data){
-		var context = new RoutingContext(req, res, this.basePath, data);
+	GetContext: function(selector, data){
+		var context = new RoutingContext(selector, this.basePath, data);
 		context.debugMode = this.debugMode;
 		return context;
 	},
-	
+
+    do: function(selector, data){
+        return this.Process(this.GetContext(selector, data));
+    },
+
 	Process: function(context){
 		this.ProcessingContextsCount++;
 		this.ProcessingContexts[context.id] = context;
@@ -195,21 +148,12 @@ Router.prototype = {
 	},
 };
 
-RoutingContext = function(req, res, rootPath, data){
+RoutingContext = function(selector, rootPath, data){
 	this.id = (Math.random() + "").replace("0.", "");
-	this.url = require('url').parse(req.url, true);
-	this.hostname = this.url.hostname = req.headers.host;
-	this.method = req.method;
-	this.urlString = "http://" + req.headers.host + req.url;
-	this.req = req;
-	this.res = res;
 	this.data = data;
 	this.query = this.url.query;
-	this.debugMode = req.headers["debug-mode"];
 	this.logs = [];
-    this.path = this.url.pathname;
-	var pathname = this.url.pathname.toLowerCase();
-	if (!pathname) pathname += "/";
+    this.path = selector;
 	if (rootPath){
 		this.rootPath = rootPath.toLowerCase().substring(1).replace(">","").replace("<","");
 		pathname = pathname.replace(this.rootPath, "");
@@ -464,6 +408,9 @@ global.RoutingContext.prototype = {
 			delete(this.router);
 		}
 		delete(this.callPlans);
+
+        if (this.finalized) return;
+        this.finalized = true;
 	},
 	
 	_finish : function(status, result){
@@ -479,66 +426,9 @@ global.RoutingContext.prototype = {
 			delete(this.router);
 		}
 		delete(this.callPlans);
-		
-		if (this.req.method == 'HEAD' || this.req.method == "OPTIONS"){
-			return this._finishHead(status, result);
-		}
-		return this._finishBody(status, result);
-	},	
-	
-	_finishHead : function(status, result){		
-		//console.log("finishing head" + this.completed + " " + this.finalized);
-		this.completed = true;
-		this.res.writeHead(status, result + "");
-		this.res.end();
-	},
-	
-	_finishBody : function(status, result){
-		//console.log("finishing body" + this.completed + " " + this.finalized);
-		if (this.finalized) return;
-		this.log("finish: ", new Date());
-		this.completed = true;
-		this.setHeader("Start", this.startTime.valueOf());
-		this.setHeader("Finish", new Date().valueOf());
-		this.setHeader("Load", (new Date() - this.startTime) + " ms");
-		this.log("executing: ", (new Date() - this.startTime) + " ms");
-		if (status != 200){
-			this.setHeader("Content-Type", "text/plain; charset=utf-8");
-            result = result + "";
-            this.finalized = true;
-		}
-		this.res.statusCode = status;		
-		if (this.debugMode && this.debugMode == "trace"){
-			result = result + "\n\n" + this.formatLogs();		
-		}		
-		//this.res.setHeader("Content-Length", result.length);
-        let contentType = "text/plain; charset=utf-8";
-		if (!this.encoding){
-			this.encoding = 'utf8';
-		}
-		else{
-		    if (this.encoding == 'json'){
-                contentType  = "application/json; charset=utf-8"
-            }
-        }
-        if (typeof result != 'string'){
-            if (typeof result == "function"){
-                this.setHeader("Content-Type", "application/javascript; charset=utf-8");
-                this.res.end(result.toSource(), this.encoding);
-                this.finalized = true;
-                return;
-            }
-            if (Buffer.isBuffer(result)){
-                this.res.end(result, 'bin');
-                this.finalized = true;
-                return;
-            }
-            contentType = "application/json; charset=utf-8";
-            result = JSON.stringify(result);
-        }
-        this.setHeader("Content-Type", contentType);
+
+        if (this.finalized) return;
         this.finalized = true;
-        this.res.end(result, this.encoding);
 	},
 	
 	getLogSpaces : function(num){
@@ -594,21 +484,14 @@ global.RoutingContext.prototype = {
 			this.logger.warn(error);
 		}
 		if (!this.completed && !this.finalized){
-			if (!this.res.headersSent){
-				this.setHeader("Access-Control-Allow-Origin", "*");
-				this.setHeader("Access-Control-Allow-Methods", "GET, DELETE, PUT, POST, HEAD, OPTIONS, SEARCH");
-				this.setHeader("Access-Control-Allow-Headers", "debug-mode");
-				this.setHeader("Content-Type", "text/plain; charset=utf-8");
-				this.log("end: ", new Date());
-			}
 			this.abort();
-			this.res.statusCode = 500;
-			this.res.end(this.formatError(error));			
 		}
 		else{
 			console.error("UNEXPECTED ROUTER ERROR!");
 			console.error(error);
 		}
+        if (this.finalized) return;
+        this.finalized = true;
 	},
 }
 

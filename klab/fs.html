@@ -2,13 +2,20 @@
 <head>
 
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
-    <script type="text/javascript" src="http://services.web-manufacture.net/Base/v1.5?join=true"></script>
-    <link href="http://services.web-manufacture.net/Styles/System.default.css" rel="stylesheet">
     <title>Server Files</title>
 
-    <script src="../Client/WebSocketProxy.js" type="text/javascript"></script>
+    <script src="../client/local-fixes.js" type="text/javascript"></script>
+
+    <link href="../client/System.default.css" rel="stylesheet">
+    <link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
+
+    <script src="../client/domjs_v1.5.js" type="text/javascript"></script>
+    <script src="../client/WebSocketProxy.js" type="text/javascript"></script>
+
     <script type="text/javascript">
+
         WS.DOMload(function(){
+
             WS.Body.ondragover = function(event) {
                 var types = event.dataTransfer.types;
                 if (types[2] && types[2] == "Files"){ event.preventDefault(); return true; }
@@ -38,52 +45,13 @@
                 }
                 return false;
             };
+
+            DirInput.add("!blur", function() {
+                folderCreator.add(".invisible");
+                DirInput.value = '';
+            });
+
         })
-
-        Notify = {};
-
-        Notify.Show = Notify.info = Notify.Info = function (message) {
-            var nf = DOM("#Notify");
-            var ev = nf.div(".event.first", (new Date()).formatTime() + " " + message);
-            nf.show();
-            nf.ins(ev);
-            Notify.setTimeout();
-        };
-
-        Notify.Error = function (error) {
-            var nf = DOM("#Notify");
-            var ev = nf.div(".event.error.first", (new Date()).formatTime() + " " + error);
-            nf.show();
-            nf.ins(ev);
-            Notify.setTimeout();
-        };
-
-        Notify.setTimeout = function () {
-            if (Notify.timeout) {
-                window.clearTimeout(Notify.timeout);
-            }
-            Notify.timeout = window.setTimeout(Notify.clearFirst, 3000);
-        };
-
-        Notify.clearFirst = function () {
-            DOM.all("#Notify .event.first").del(".first");
-        };
-
-        Dialog = {};
-
-        Dialog.Apply = function(elem){
-            var dialog = elem.findParent(".dialog");
-            dialog.hide();
-            var value = dialog.get(".dialog-value");
-            if (Check(dialog.onapply)){
-                dialog.onapply(value.value);
-            }
-        };
-
-        Dialog.Close = function(elem){
-            var dialog = elem.findParent(".dialog");
-            dialog.hide();
-        };
 
         FS = {};
 
@@ -91,13 +59,38 @@
             FS.Loaded = false;
             FS.Tree = DOM.get(".files-block .tree-container");
             FS.InputField = DOM("#FilterInput");
+            FS.DirInput = DOM("#DirInput");
             FS.InputField.onkeyup = FS.SearchFile;
             //Drag.NoBodyDrop = true;
-            ServiceProxy.Init('ws://localhost:5700').then(function (services) {
-               ServiceProxy.Connect('FilesService').then(function (service) {
-                   FS.server = service;
-                   FS.ReloadSystem();
-               })
+            var url = 'localhost:5700';
+            if (Request.Params.url){
+                url = Request.Params.url;
+            }
+            FS.baseUrl = url.split(":")[0];
+            var serviceName = "FilesService";
+            if (Request.Params.service){
+                serviceName = Request.Params.service;
+            }
+            ServiceProxy.Connect('ws://' + url, serviceName).then(function (service) {
+                FS.server = service;
+                FS.ReloadSystem();
+                FS.server.on("created-dir", function(path){
+                    console.log("created-dir"+path);
+                    FS.CreateForUpdate(path, 'dir');
+                });
+                FS.server.on("writed", function(path){
+                    console.log("writed"+path)
+                    FS.CreateForUpdate(path, 'file');
+                });
+                FS.server.on("deleted", function(path){
+                    console.log("deleted"+path)
+                    path = FS.NeedUpdate(path);
+                    if(!path){return}
+                    var elem = FS.Tree.get('[name='+path+']');
+                    if(elem){
+                        elem.del();
+                    };
+                });
             });
             FS.CurrentDir = '/';
         };
@@ -272,7 +265,7 @@
                 if (FS.CurrentDir == "/") FS.CurrentDir = "";
                 FS.CurrentDir += "/" + this.name;
             }
-            history.pushState(null, FS.CurrentDir, FS.CurrentDir);
+            //history.pushState(null, FS.CurrentDir, FS.CurrentDir);
             //location.pathname = FS.CurrentDir;
             FS.ReloadSystem();
         };
@@ -290,21 +283,17 @@
         };
 
         FS.FileActivate = function() {
-            if (location.pathname == "/"){
-                window.open(location + this.fileName);
-            }
-            else{
-                window.open(location + "/" + this.fileName);
-            }
+            var url = 'http://' + FS.baseUrl + FS.CurrentDir + "/" + this.fileName;
+            window.open(url);
             this.del('.selected');
         };
 
         FS.LoadFile = function(file) {
-            var url = file.fileName;
-            if (location.pathname != "/"){
-                url = location.pathname + "/" + file.fileName;
-            }
-            url = "/klab/textEditor.htm?action=edit&file=" + encodeURIComponent(url);
+            var path = (FS.CurrentDir.replace("/", ''))
+            path = (path ? path + "/" : '') + file.fileName;
+            var url = 'http://' + FS.baseUrl + FS.CurrentDir + "/" + file.fileName;
+            //url = "http://klab.web-manufacture.net/klab/textEditor.htm?action=edit&url=" + encodeURIComponent(url);
+            url = 'http://' + FS.baseUrl + "/klab/textEditor.htm?file=" + path;
             //if (file.is(".css") || file.is(".htm") || file.is(".html") || file.is(".js") || file.is(".cs") || file.is() {
             //url += "?action=edit";
             //}
@@ -312,7 +301,7 @@
         };
 
         FS.DeleteDocs = function() {
-            var elements = FS.GetActiveFiles();
+            var elements = FS.Tree.all(".file.selected, .dir.selected");
 
             if (!elements.length) {
                 alert('Нет выбранных файлов');
@@ -331,9 +320,12 @@
         };
 
         FS.DeleteDoc = function(element) {
-            Net.Del(window.location.href + "/" + element.fileName, function(message){
-                Notify.info(message);
+            let path = FS.CurrentDir + "/" + element.fileName;
+            FS.server.Delete(path).then(function(message){
+                Notify.Show(message);
                 element.del();
+            }).catch(function(err){
+                Notify.Error(err.message);
             });
         };
 
@@ -348,11 +340,14 @@
                 files.hide();
                 files = FS.Tree.all(".file[name*='" + text.toLowerCase() + "']");
                 files.show();
-
+                var files = FS.Tree.all(".dir");
+                files.hide();
+                files = FS.Tree.all(".dir[name*='" + text.toLowerCase() + "']");
+                files.show();
             }
             else{
                 //var files = FS.Tree.all(".file");
-                var folder = FS.Tree.all(".dir")
+                var folder = FS.Tree.all(".dir,.file")
                 //files.show();
                 folder.show();
                 FS.InputField.value = "";
@@ -368,26 +363,54 @@
             var cpath = location.href;
             if (!cpath.ends('/')) cpath += "/"
             if(fileName.length > 0){
-                if (fileName.lastIndexOf(".") > 0){
-                    var file = FS.Tree.div('.File');
-                    //file.div(".name", fileName);
-                    file.fileName = fileName;
-                    file.attr("ext",fileName.substr(fileName.lastIndexOf(".") + 1));
-                    FS.InitFileElement(file);
-                    Notify.Show(file.fileName + " file created");
-                    window.open("/klab/textEditor.htm?action=create&file=" + encodeURIComponent(location.pathname + "/" +fileName));
-                }
-                else{
-                    Net.get(cpath + fileName + "?action=dir", "", function(){
-                        location.href = cpath + fileName;
-                    })
-
-                }
+                var file = FS.Tree.div('.File');
+                //file.div(".name", fileName);
+                file.fileName = fileName;
+                file.attr("ext", fileName.substr(fileName.lastIndexOf(".") + 1));
+                FS.InitFileElement(file);
+                Notify.Show(file.fileName + " file created");
+                var url = 'http://' + FS.baseUrl + FS.CurrentDir + "/" + fileName;
+                window.open("http://" + FS.baseUrl + "/klab/textEditor.htm?action=create&url=" + encodeURIComponent(url));
             };
 
             //var dialog = W.get(".edit-name-dialog");
             //dialog.show();
             //dialog.onapply = FileSystem.NewDocApply;
+        };
+
+        FS.CreateNewDir = function(){
+            var dirName = FS.CurrentDir + '/' + DirInput.value;
+            FS.server.CreateDir(dirName).then(function(path){
+            }).catch(function(error){
+                console.error(error)
+            });
+        };
+
+        FS.NeedUpdate = function(path){
+            if(path.indexOf(FS.CurrentDir,1)!=1){return false};
+            path = path.split('');
+            path.splice(0,FS.CurrentDir.length+1);
+            path = path.join('');
+            return path;
+        };
+
+        FS.CreateForUpdate = function(path, type){
+            path = FS.NeedUpdate(path);
+            if(!path){return};
+            var arr = FS.Tree.all('.'+type);
+            var i = 0;
+            while (arr[i].name<=path){
+                i++;
+            }
+            var file = DOM.div();
+            file.fileName = path;
+            file.fileType = type == 'dir' ? "directory" :  "file";
+            FS.Tree.insertBefore(file, arr[i]);
+            if(type == 'dir'){
+                FS.InitDirElement(file);
+            }else{
+                FS.InitFileElement(file);
+            }
         };
 
         FS.NewDocApply = function(name) {
@@ -460,12 +483,56 @@
 
         WS.DOMload(FS.Init);
 
+        Dialog = {};
+
+        Dialog.Apply = function(elem){
+            var dialog = elem.findParent(".dialog");
+            dialog.hide();
+            var value = dialog.get(".dialog-value");
+            if (Check(dialog.onapply)){
+                dialog.onapply(value.value);
+            }
+        };
+
+        Dialog.Close = function(elem){
+            var dialog = elem.findParent(".dialog");
+            dialog.hide();
+        };
+
+        InputEnter = function(event){
+            if(event.keyCode == 10){
+                folderCreator.hide();
+                DirInput.value = '';
+            }
+            if(event.keyCode == 13){
+                FS.CreateNewDir();
+                folderCreator.hide();
+                DirInput.value = '';
+                /*FS.server.CreateDir(DirInput.value).then(function(){
+                   Channels.emit('dir-created');
+                }).catch(function(error){
+                    console.error(error)
+                });*/
+            }
+        }
+
+        FolderInputRender = function(){
+            folderCreator.del(".invisible");
+
+        };
+
+
+
 
     </script>
 
     <style type="text/css">
+        #files-block{
+            margin-left: 90px;
+            width: 80%;
+        }
 
-        #Notify{
+        #Help{
             background-color: white;
             border: 1px solid navy;
             border-radius: 10px;
@@ -483,15 +550,15 @@
             z-index: 20;
         }
 
-        #Notify .event{
+        #Help .event{
             color: #333;
         }
 
-        #Notify .event.first{
+        #Help .event.first{
             background-color:yellow;
         }
 
-        #Notify .event.error{
+        #Help .event.error{
             color: red;
         }
 
@@ -519,18 +586,38 @@
         }
 
         #FilterBlock{
-            width: 250px;
-            float: left;
+            width: 100%;
             margin-left: 10px;
+            height: 60px;
         }
 
-        #FilterBlock #FilterInput{
-
+        #FilterBlock input:focus{
+            background-color: #CCFFFF;
         }
 
-        #HeaderBar.toolbar{
+        #FilterBlock .btn-ira{
+            margin-top: 10px;
+            height: 33px;
+            box-sizing: border-box;
+            padding-top: 7px;
+        }
+
+        #FilterBlock input{
+            border: 1px solid gray;
+            border-radius: 4px 4px 4px 4px;
+            height: 26px;
+            margin-right: 20px;
+            margin-top: 10px;
+            margin-left: 10px;
+            min-width: 200px;
+            padding-left: 10px;
+            padding-right: 10px;
+            padding-top: 4px;
             text-align: left;
+            vertical-align: top;
+            display: inline-block;
         }
+
 
         .search-elem {
             width: 150px;
@@ -598,13 +685,13 @@
         }
 
         .link.back{
-            background-image: url("http://cdn1.iconfinder.com/data/icons/customicondesignoffice5/24/go-back.png");
+            background-image: url("http://localhost/Client/Images/go-back.png");
             background-position: 20px center;
             background-repeat: no-repeat;
         }
 
         .dir{
-            background-image: url("http://cdn1.iconfinder.com/data/icons/momenticons-basic/16x16/folderopen1.png");
+            background-image: url("http://localhost/Client/Images/folderopen1.png");
             background-position: 20px center;
             background-repeat: no-repeat;
 
@@ -721,21 +808,21 @@
 <body>
 
 <!--include url='http://services.web-manufacture.net/SysUtils/Log.htm'></include-->
-<include url='http://services.web-manufacture.net/UI/toolbars.htm'></include>
-
+<include url='../Client/Components/toolbars.htm'></include>
+<include url='../Client/Components/Notification.htm'></include>
+<include url='../Client/Components/HtmlElements.htm'></include>
 <!--include url='http://services.web-manufacture.net/Authentication/Authentication.htm'></include-->
-<div class='toolbar header fixed' id='HeaderBar'>
-    <div id='FilterBlock'>
-        <div class='title'>Фильтр и поиск:</div>
-        <input id="FilterInput" type='text'/>
-    </div>
-    <div class='menuitem file-manager-button' id='create-file-button' icon="http://system.web-manufacture.net/images/document-small.png" onclick="FS.CreateNewDoc()">
+<div class='toolbar vertical fixed with-titles' id='HeaderBar'>
+    <div class='menuitem file-manager-button' id='create-file-button' icon="http://localhost/Client/images/document-small.png" onclick="FS.CreateNewDoc()">
         Создать
     </div>
-    <div class='menuitem file-manager-button' id='delete-file' icon="http://system.web-manufacture.net/images/delete-mini.png" onclick="FS.DeleteDocs()">
+    <div class='menuitem file-manager-button' id='create-folder-button' icon="http://localhost/Client/images/folderopened_yellow.png" onclick="FolderInputRender()">
+        Создать папку
+    </div>
+    <div class='menuitem file-manager-button' id='delete-file' icon="http://localhost/Client/images/delete-mini.png" onclick="FS.DeleteDocs()">
         Удалить
     </div>
-    <div class="menuitem round" icon="http://system.web-manufacture.net/images/ButtonUSSR.png" onclick="FS.ClearTagFilter();">
+    <div class="menuitem round" icon="http://localhost/Client/images/ButtonUSSR.png" onclick="FS.ClearTagFilter();">
         Отменить фильтрацию
     </div>
     <div class="menuitem round" icon="" onclick="FS.ClearSelect();">
@@ -744,7 +831,7 @@
 
 </div>
 
-<div id="Notify" class=''>
+<div id="Help" class=''>
     <div class="event info">
         <div class="event info">Вы можете перетащить сюда файлы для загрузки в данную папку.</div>
         <br>
@@ -758,10 +845,21 @@
         .</div>
 </div>
 <div id="files-block" class="files-block" title="File System">
+    <div id='FilterBlock'>
+        <div class='title'>Фильтр и поиск:</div>
+        <input id="FilterInput" type='text'/>
+        <div class="btn-ira round" onclick="FS.ClearTagFilter();">
+            очистить фильтр
+        </div>
+    </div>
+    <div id="folderCreator" class="invisible dir">
+        <input onkeydown="InputEnter(event)" id="DirInput" type="text" default-text="Название папки"></input>
+    </div>
     <div id='LoadingMask'>
         <div class='loading-text'>Loading...</div>
     </div>
     <div class="tree-container">
+
 
     </div>
     <div class="edit-name-dialog dialog">

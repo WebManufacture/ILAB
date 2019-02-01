@@ -22,13 +22,7 @@ function ServicesManager(config, portCountingFunc){
         }
     }
     this._getPort = portCountingFunc;
-    if (config.id) {
-        this.id = config.id;
-    } else {
-        this.id = useSystem('uuid/v4')();
-    }
     this.StartService = function (serviceId, params) {
-        this.params[serviceId] = params;
         return self.startServiceAsync(serviceId, params).then(function () {
             return serviceId + " started";
         });
@@ -168,8 +162,8 @@ Inherit(ServicesManager, Service, {
         }
         service.on("error", subEvent("error"));
         service.on("message", subEvent("message"));
-        service.on("service-started", function(serviceId, serviceType) {
-            self.emit.call(self, "service-started", serviceId, service.port, serviceType);
+        service.on("service-started", function(serviceId, serviceConfig) {
+            self.emit.call(self, "service-started", serviceId, service.port, serviceConfig);
         });
         service.on("service-loaded", subEvent("loaded"));
         service.on("service-connected", subEvent("connected"));
@@ -179,19 +173,23 @@ Inherit(ServicesManager, Service, {
     _messageEvent : function(obj, msg){
         if (typeof obj == "object"){
             if (obj.type == "error"){
-                return this.emit("error", new Error(obj.item + ""));
+                if (obj.item) {
+                    return this.emit("error", new Error(obj.item + ""));
+                } else {
+                    return this.emit("error", new Error(obj.message));
+                }
             }
             if (obj.type == "log"){
                 return  this.emit("message", obj.item);
             }
             if (obj.type == "control" && obj.state == "started"){
-                return this.emit("service-started", obj.serviceId, obj.nodeType);
+                return this.emit("service-started", obj.serviceId, obj.config);
             }
             if (obj.type == "control" && obj.state == "loaded"){
-                return this.emit("service-loaded");
+                return this.emit("service-loaded", obj.serviceId);
             }
             if (obj.type == "control" && obj.state == "connected"){
-                return this.emit("service-connected");
+                return this.emit("service-connected", obj.serviceId);
             }
         }
         this.emit("message", obj);
@@ -199,6 +197,28 @@ Inherit(ServicesManager, Service, {
 
     startServiceAsync : function(serviceId, params){
         var self = this;
+        if (!params) params = {};
+        if (!params.path){
+            params.path = serviceId;
+        }
+        if (params && params.id) {
+            params.serviceType = serviceId;
+            if (params.id == "auto") {
+                serviceId = params.id = useSystem('uuid/v4')();
+            } else {
+                serviceId = params.id;
+            }
+        } else {
+            if (serviceId) {
+                params.serviceType = serviceId;
+                params.id = serviceId;
+            }
+            else {
+                params.serviceType = 'unknown';
+                serviceId = params.id = useSystem('uuid/v4')();
+            }
+        }
+        this.params[serviceId] = params;
         var promise = new Promise((resolve, reject) =>{
             try {
                 if (this.isServiceLoaded(serviceId)){
@@ -293,7 +313,8 @@ Inherit(ServicesManager, Service, {
                 }
             }
             env.nodePath = servicePath;
-            var service = this.CreateFork(serviceId, self._getPort(), env);
+            params._internalPort = self._getPort();
+            var service = this.CreateFork(serviceId, params._internalPort, env);
             service.once("service-started", function (newServiceId, serviceType) {
                 serviceId = newServiceId;
                 service.resultId = newServiceId;
@@ -401,20 +422,20 @@ Inherit(ServicesManager, Service, {
 	},
 
     getServicesAdvancedInfo : function(){
-        var services = { "ServicesManager" : {
-            id: "ServicesManager",
+        var services = [{
+            id: this.id,
             path: Frame.nodePath,
-            serviceType: "RootServicesManager",
-            resultId : "RootServicesManager",
+            serviceType: "ServicesManager",
+            resultId : this.serviceId,
             port: this.port,
             type: "internal",
             state: Service.STATUS_WORKING,
             status: Service.States[Service.STATUS_WORKING]
-        }};
+        }];
         for (var name in this.services){
             var service = this.services[name];
             if (service){
-                services[name] = {
+                services.push({
                     id: name,
                     path: service.path,
                     serviceType: service.resultType,
@@ -423,7 +444,7 @@ Inherit(ServicesManager, Service, {
                     port: service.port,
                     type: "service",
                     state: service.code
-                }
+                });
             }
         }
         return services;

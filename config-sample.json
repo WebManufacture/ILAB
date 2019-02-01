@@ -8,12 +8,6 @@
   "FilesService":{
     "basepath": ""
   },
-  "ConfigService":{
-    "path":"ConfigService/ConfigService.js",
-    "watchConfigFile" : true,
-    "watchServicesPaths": true,
-    "filesServiceId": "FilesService"
-  },
   "ConsoleService": {
     "port": 5100
   },

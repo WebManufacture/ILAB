@@ -1,6 +1,4 @@
 var Path = require('path');
-var fs = require('fs');
-var os = require("os");
 require(Path.resolve("./Frame.js"));
 
 Frame.portsStart = 5600;
@@ -10,45 +8,14 @@ Frame.servicePort = Frame.portsStart;
 
 var ServicesManager = useRoot("System/ServicesManager");
 
-Frame._initFrame = function () {
+function initRoot() {
     console.log("Starting ILAB v3.5.3");
 	try {
 		process.setMaxListeners(100);
 
-		var wd = process.argv[2];
-
-        var servicesToStart = {};
-        for (var i = 2; i <= process.argv.length; i++){
-            var arg = process.argv[i];
-            if (!arg) continue;
-            if (arg === "--config") {
-                // используется config.json если третьим аргументом идёт флаг --config
-                if (fs.existsSync(Path.resolve("config.json"))) {
-                    var configFile = require(Path.resolve("config.json"));
-                    for (var key in configFile) {
-                        servicesToStart[key] = configFile[key];
-                    }
-                }
-            }
-            else{
-                if (arg === "--demo") {
-                    // используется config.json если третьим аргументом идёт флаг --config
-                    if (fs.existsSync(Path.resolve("config-sample.json"))) {
-                        var configFile = require(Path.resolve("config-sample.json"));
-                        for (var key in configFile) {
-                            servicesToStart[key] = configFile[key];
-                        }
-                    }
-                } else {
-                    servicesToStart[arg] = null;
-                }
-            }
-        }
-        let debugMode = false;
-        if (process.execArgv[0] && process.execArgv[0].indexOf("--inspect") >= 0){
-            debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
-        };
-        let smConfig = servicesToStart['ServicesManager'];
+		var servicesToStart = Frame.parseCmd();
+		var debugMode = Frame.debugMode;
+        var smConfig = servicesToStart['ServicesManager'];
         if (!smConfig) smConfig = servicesToStart['ServicesManager'] = {};
         if (debugMode) smConfig.debugMode = debugMode;
         var servicesManager = new ServicesManager(smConfig, function () {
@@ -62,12 +29,21 @@ Frame._initFrame = function () {
             err.handled = true;
         });
         console.log("ServicesManager started on " + Frame.servicePort);
-        console.log(servicesManager.id);
+        console.log(servicesManager.serviceId);
         delete servicesToStart['ServicesManager'];
         const services = Object.keys(servicesToStart);
         const params = [];
         services.forEach(sid => params.push(servicesToStart[sid]));
-        servicesManager.StartServices(services, params).catch((err)=>{
+        servicesManager.on("service-started", function (serviceId, port, config) {
+            if (config){
+                console.log("Service started: " + config.serviceType + "#" + serviceId + " on TCP " + port);
+            } else {
+                console.log("Service started: " + serviceId + " on TCP " + port);
+            }
+        })
+        servicesManager.StartServices(services, params).then(function (result) {
+            console.log("All started!");
+        }).catch((err)=>{
             console.error(err);
         });
 /*
@@ -90,4 +66,4 @@ Frame._initFrame = function () {
 	}
 };
 
-Frame._initFrame();
+initRoot();

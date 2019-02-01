@@ -1,0 +1,144 @@
+<div class="notify invisible" onclick="Notify.Hide();">
+	<div class='title'></div>
+	<span class="message">Load complete!</span>
+</div>
+
+<div class="notify error invisible" onclick="Notify.Hide();">
+	<span class="message">Load complete!</span>
+</div>
+
+<style type="text/css">
+	
+	.notify {
+		background-color: navy;
+		border: 1px solid black;
+		border-radius: 10px 10px 10px 10px;
+		top: 0;
+		color: white;
+		height: 300px;
+		opacity: 0.8;
+		position: fixed;
+		right: 0;
+		text-align: center;
+		width: 300px;
+		z-index: 200;
+		font-size: 16px;
+	}
+	
+	.notify.error {
+		background-color: red;
+	}
+	
+	.notify .title{
+		font-size: 24px;
+	}
+	
+	
+</style>
+
+<script type="text/javascript">
+	Notify = Notification = M.GetModuleEndsUrl("Notification.htm");
+	
+	Notify.NContainer = Notify.get(".notify");
+	Notify.NContainer.Text = Notify.NContainer.get(".message");
+	Notify.NContainer.Title = Notify.NContainer.get(".title");
+	Notify.NContainer.onclick = function(){
+	    Notify.Hide();
+	}
+	Notify.EContainer = Notify.get(".notify.error");
+	Notify.EContainer.Text = Notify.EContainer.get(".message");
+		
+	L.Info = function(operation){
+		var str = L._logItem.call(this, operation, "info", arguments);
+		Notify.Show(str);
+		if (window.console == undefined || window.console == null) return;
+		if (str){
+			console.info(str); 
+		}
+	};
+	
+	L.Error = function(operation){
+		var str = L._logItem.call(this, operation, "error", arguments);
+		Notify.Error(str);
+		if (window.console == undefined || window.console == null) return;
+		if (str){
+			console.error(str); 
+		}
+	};
+	
+	L.Log = function(operation){
+		var str = L._logItem.call(this, operation, "debug", arguments);
+		Notify.Show(str);
+		if (window.console == undefined || window.console == null) return;
+		if (str){
+			console.debug(str); 
+		}
+	};
+	
+	Notify.showError = function(errorMsg, url, lineNumber){
+		Notify.Error(errorMsg + "<br/>" + url);
+	};
+	
+	window.onerror = Notify.showError;
+	
+	//L.OnError.add(Notify.showError);
+	
+	Notify.Show = Notify.Info = function(text, title){
+	    if (Notify.NContainer.parentElement != document.body){
+	        document.body.appendChild(Notify.NContainer);
+	    }
+		if (title) {
+			Notify.NContainer.Title.html(title);
+		}
+		var Iterator = 0;
+		Notify.NContainer.style='opacity: ' + Iterator;
+		var interval = setInterval(function(){
+		    Iterator += 0.07;
+		    if (Iterator > 0.8){
+		        clearInterval(interval);
+		        return;
+		    }
+		    Notify.NContainer.style='opacity: ' + Iterator;
+		}, 10);
+		Notify.NContainer.Text.html(text);
+		window.setTimeout(Notify.Hide, 3000);
+		document.body.add(Notify.NContainer);
+		Notify.NContainer.show();
+	};
+	
+	Notify.Warn = function(text){
+		Notify.NContainer.Text.html(text);
+		Notify.NContainer.add(".warning");
+		window.setTimeout(Notify.Hide, 3000);
+		document.body.add(Notify.NContainer);
+		Notify.NContainer.show();
+	} ;   
+	
+	Notify.Error = function(text){
+		Notify.EContainer.Text.html(text);
+		window.setTimeout(Notify.Hide, 3000);
+		document.body.add(Notify.EContainer);
+		Notify.EContainer.show();
+	};
+	
+	Notify.Hide = function(text){
+		var Iterator = 0.8;
+		Notify.NContainer.style='opacity: ' + Iterator;
+		var interval = setInterval(function(){
+		    Iterator -= 0.07;
+		    if (Iterator <= 0){
+		        clearInterval(interval);
+            	Notify.NContainer.hide();
+            	Notify.EContainer.hide();
+		        return;
+		    }
+		    Notify.NContainer.style='opacity: ' + Iterator;
+		}, 10);
+	};
+	
+	WS.DOMload(function(){
+	    document.body.add(Notify.NContainer);
+	    document.body.add(Notify.EContainer);
+	});
+	
+</script>

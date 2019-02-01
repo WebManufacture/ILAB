@@ -7,7 +7,7 @@ var https = useSystem('https');
 var stream = useSystem('stream');
 var EventEmitter = useSystem('events');
 var Service = useRoot("/System/Service.js");
-var ServiceProxy = useRoot("/System/Service.js");
+var ServiceProxy = useRoot("/System/ServiceProxy.js");
 
 
 StaticContentService = function (params) {
@@ -105,7 +105,10 @@ StaticContentService.MimeTypes = {
 Inherit(StaticContentService, Service, {
     formatPath: function (path) {
         if (this.config.rootFile && path == "/") {
-            path += this.config.rootFile;
+            path = this.config.rootFile;
+        }
+        if (this.config.settingsRequest && path == "/" + this.config.settingsRequest){
+            path = '/settings';
         }
         return path;
     },
@@ -140,7 +143,6 @@ Inherit(StaticContentService, Service, {
                 }
             }
         }
-
         if (req.method == 'OPTIONS') {
             res.statusCode = 200;
             res.end("OK");
@@ -149,6 +151,37 @@ Inherit(StaticContentService, Service, {
         try {
             if (self.enabled) {
                 if (req.method == "GET") {
+                    if (fpath == "/settings"){
+                        if (serv.config.allowSettings) {
+                            var settings = {};
+                            return Promise.all([
+                                ServicesManager.GetService("ServicesWebSocketProxy").then((proxy)=>{
+                                    settings.ServicesWebSocketProxy = proxy;
+                                }),
+                                ServicesManager.GetService("ServicesHttpProxy").then((proxy)=>{
+                                    settings.ServicesHttpProxy = proxy;
+                                }),
+                                ServicesManager.GetService("StaticService").then((proxy)=>{
+                                    settings.StaticService = proxy;
+                                }),
+                                ServicesManager.GetServices().then((proxy)=>{
+                                    settings.OtherServices = proxy;
+                                })
+                            ]).then(()=>{
+                                res.setHeader("Content-Type", "application/json");
+                                res.statusCode = 200;
+                                res.end("window.LocalIlabSettings = " + JSON.stringify(settings));
+                            }).catch((err)=>{
+                                res.statusCode = 500;
+                                Frame.error(err);
+                                res.end(JSON.stringify(err));
+                            });
+                        } else {
+                            return false;
+                            res.statusCode = 403;
+                            res.end("Not allowed by config");
+                        }
+                    };
                     return this.fs.Stats(fpath).then(
                         function (stats, err) {
                             if (stats.isDirectory) {
@@ -176,23 +209,44 @@ Inherit(StaticContentService, Service, {
                                 var ext = Path.extname(fpath);
                                 ext = ext.replace(".", "");
                                 ext = serv.mime[ext];
-                                if (ext) {
-                                    res.setHeader("Content-Type", ext);
-                                }
-                                else {
-                                    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-                                }
-                                var encoding = 'binary';
-                                if (ext.indexOf("text/") >= 0) {
+                                var encoding = null;
+                                /*if (ext && ext.indexOf("text/") >= 0) {
                                     encoding = 'utf8';
-                                }
-                                serv.fs.ReadStream(fpath, encoding).then(function (stream) {
+                                }*/
+                                serv.fs.ReadStream(fpath, encoding).then((stream) => {
+                                    //stream.setEncoding('bi');
+                                    res.setHeader("request-id", stream.id);
+                                    if (ext) {
+                                        res.setHeader("Content-Type", ext);
+                                    }
+                                    else {
+                                        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+                                    }
+                                    //res.outputEncodings.push("binary");
                                     res.setHeader("Content-Length", stream.length);
-                                    stream.setEncoding(encoding);
-                                    stream.pipe(res);
+                                    const useStreams = true;
+                                    if (useStreams) {
+                                        stream.pipe(res);
+                                    } else {
+                                        var actualLength = 0;
+                                        stream.on('data', (data) => {
+                                            data = Buffer.from(data, 'binary');
+                                            res.write(data);
+                                            actualLength += data.length;
+                                        });
+                                        stream.on('end', (chunk) => {
+                                            if(chunk) {
+                                                actualLength += chunk.length;
+                                            }
+                                            //console.log("actual length " + actualLength);
+                                            res.end(chunk);
+                                        });
+                                    }
                                 }).catch(function (err) {
+                                    res.setHeader("Content-Type", "text/plain; charset=utf-8");
                                     res.statusCode = 500;
                                     res.end(err.message);
+                                    console.error(err);
                                 });
                             }
                         }
@@ -204,6 +258,34 @@ Inherit(StaticContentService, Service, {
                             res.end(err);
                         }
                     });
+                }
+                if (req.method == "POST" && self.config.allowSave) {
+                    var ext = Path.extname(fpath);
+                    ext = ext.replace(".", "");
+                    ext = serv.mime[ext];
+                    if (ext) {
+                        res.setHeader("Content-Type", ext);
+                    }
+                    else {
+                        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+                    }
+                    var encoding = null;
+                    if (ext.indexOf("text/") >= 0) {
+                        encoding = 'utf8';
+                    }
+                    return serv.fs.WriteStream(fpath, encoding).then(function (stream) {
+                                    req.on("data", (chunk)=>{
+                                        stream.write(chunk, encoding);
+                                    });
+                                    req.on("end", (chunk)=>{
+                                        stream.end(chunk);
+                                        res.statusCode = 200;
+                                        res.end("OK");
+                                    });
+                                }).catch(function (err) {
+                                    res.statusCode = 500;
+                                    res.end(err.message);
+                                });
                 }
             }
             else {

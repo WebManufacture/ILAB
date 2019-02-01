@@ -1,0 +1,66 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>Client-Side-Ilab</title>
+
+	<link href="../client/System.default.css" rel="stylesheet">
+	<link type='text/css' rel='stylesheet' href="http://Services.web-manufacture.net/Styles/System.default.css"/>
+	<script type="text/javascript" src="http://services.web-manufacture.net/Base/v1.5?join=true"></script>
+
+	<script src="../client/domjs_v1.5.js" type="text/javascript"></script>
+	<script src="../client/WebSocketProxy.js" type="text/javascript"></script>
+	<script src="../client/SharedIlab.js" type="text/javascript"></script>
+
+	<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+	<style type="text/css">
+		body{
+			font-size: 24px;
+			background: black;
+			color: white;
+		}
+
+	</style>
+
+	<script type="text/javascript">
+        WS.DOMload(function(){
+            var myWorker = new SharedWorker("../ILab-Client/ilab.js");
+
+            myWorker.port.start();
+
+
+            myWorker.port.onerror = function(err) {
+                console.error(err);
+            }
+
+            myWorker.port.onmessage = function(e) {
+                console.log('Message received from worker');
+                console.log(e);
+            };
+
+            myWorker.port.onmessageerror = function(e) {
+                console.error(e);
+            };
+        });
+	</script>
+
+
+	<style>
+		body{
+			padding-top: 100px;
+			color: #9DA;
+			background-color: #202020;
+		}
+	</style>
+
+</head>
+<body>
+    <include url="http://localhost/Client/Components/buttons.htm"></include>
+    <div id="Log">
+
+	</div>
+    <div class='btn-ira ok' onclick="AddUser()">Ok</div>
+
+</body>
+
+</html>
+</html>

@@ -12,12 +12,14 @@ Frame.nodePath = process.env.nodePath;
 Frame.servicePort = process.env.servicePort;
 
 Frame.error = function(err){
-    if (typeof(err) == "object"){
-        process.send({type: "error", message: err.message, item: err.stack});
+    if (typeof process.send == 'function'){
+        if (typeof (err) == "object") {
+            process.send({type: "error", message: err.message, item: err.stack});
+        } else {
+            process.send({type: "error", message: err, item: null});
+        }
     }
-    else {
-        process.send({type: "error", message: err, item: null});
-    }
+    console.error(err);
 };
 
 Frame.fatal = function(err){
@@ -28,14 +30,24 @@ Frame.fatal = function(err){
 };
 
 Frame.log = function(log){
-    process.send({type : "log", item: log});
+    if (typeof process.sen == 'function'){
+        process.send({type: "log", item: log});
+    }
     console.log(log);
 };
+
+Frame.send = function(arg1, arg2){
+    if (typeof process.send == 'function'){
+        return process.send(arg1, arg2);
+    } else {
+        return null;
+    }
+}
 
 process.cwd(Frame.workingPath);
 
 Frame._initFrame = function () {
-    process.send({type: "control", state: "loaded", serviceId: Frame.serviceId});
+    Frame.send({type: "control", state: "loaded", serviceId: Frame.serviceId});
     try {
         if (Frame.nodePath.indexOf("http://") == 0 || Frame.nodePath.indexOf("https://") == 0) {
             http.get(Frame.nodePath, (res) => {
@@ -54,6 +66,10 @@ Frame._initFrame = function () {
                         Frame.nodePath = Frame.nodePath.replace(/\\/ig, '-');
                         if (Frame.nodePath.indexOf(".js") != Frame.nodePath.length - 3) {
                             Frame.nodePath += ".js";
+                        }
+                        const tempPath = Path.resolve("./Temp/");
+                        if (!fs.existsSync(tempPath)){
+                            fs.mkdirSync(tempPath);
                         }
                         Frame.nodePath =  Path.resolve("./Temp/" + Frame.nodePath);
                         fs.writeFile(Frame.nodePath, rawData, function (err, result) {
@@ -103,17 +119,6 @@ Frame._startFrame = function (node) {
             var params = {};
             if (process.env.params && typeof process.env.params == "string") params = JSON.parse(process.env.params);
             if (node.hasPrototype("Service")) {
-                if (params && params.id) {
-                    Frame.serviceId = params.id;
-                    if (node.serviceId) {
-                        Frame.serviceId = node.serviceId;
-                    }
-                    else {
-                        if (!Frame.serviceId) {
-                            Frame.serviceId = node.name;
-                        }
-                    }
-                }
                 service = new node(params);
                 if (service.serviceId) {
                     Frame.serviceId = service.serviceId;
@@ -131,7 +136,7 @@ Frame._startFrame = function (node) {
                 node = node(params);
                 console.log(Frame.nodePath + " node started");
             }
-            process.send({type: "control", state: "started", serviceId: Frame.serviceId, nodeType : node.name});
+            Frame.send({type: "control", state: "started", serviceId: Frame.serviceId, config : params });
         }
         catch (err){
             Frame.error(err);
