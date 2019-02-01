@@ -226,7 +226,7 @@ function DiscoveryService(config){
                     type: "i-know",
                     id: this.serviceId,
                     serviceType: "DiscoveryService",
-                    knownNodes: Object.values(this.knownNodes)
+                    knownNodes: Object.entries(this.knownNodes).map((e)=> e[1])
                 });
             });
             server.on("i-know", (obj, rinfo)=>{
