@@ -27,7 +27,7 @@ function UdpServer(netInterface, config) {
             if (obj.id == this.serviceId) return;
             Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
             Frame.log(obj);
-            this.sendSeeyou(rinfo.address, rinfo.port, obj.thisAddress, obj.thisPort);
+            this.sendSeeyou(rinfo.address, rinfo.port, obj.localAddress, obj.localPort);
             this.emit("new-node", obj);
         }
         if (obj && obj.type == "see-you" || obj.type == "see-nat"){
@@ -66,13 +66,13 @@ Inherit(UdpServer, EventEmitter, {
     },
     sendSeeyou : function (addressTo, portTo, addressFrom, portFrom) {
         this.udpServer.send({
-            type: "see-you",
+            type: addressTo == addressFrom && portTo == portFrom ? "see-you" : "see-nat",
             id: this.serviceId,
             thisAddress: this.localAddress,
             thisPort: this.localPort,
             sentAddress: addressFrom,
             sentPort: portFrom,
-            yourAddr: addressTo,
+            yourAddress: addressTo,
             yourPort: portTo,
             tcpPort: this.port,
             serviceType: "DiscoveryService",
