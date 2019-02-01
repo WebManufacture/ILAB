@@ -1,6 +1,4 @@
 var Path = require('path');
-var fs = require('fs');
-var os = require("os");
 require(Path.resolve("./Frame.js"));
 
 Frame.portsStart = 5600;
@@ -10,69 +8,13 @@ Frame.servicePort = Frame.portsStart;
 
 var ServicesManager = useRoot("System/ServicesManager");
 
-Frame._initFrame = function () {
+function initRoot() {
     console.log("Starting ILAB v3.5.3");
 	try {
 		process.setMaxListeners(100);
 
-		var wd = process.argv[2];
-
-        var debugMode = false;
-        var servicesToStart = {};
-        if (process.execArgv[0] && (process.execArgv[0].indexOf("--inspect") >= 0 || process.execArgv[0].indexOf("--debug") >= 0)){
-            debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
-            console.log("Debug mode: " + debugMode);
-        }
-        var configFileName = "config.json";
-        for (var i = 2; i <= process.argv.length; i++){
-            var arg = process.argv[i];
-            if (!arg) continue;
-            if (arg.indexOf("--inspect") >= 0){
-                debugMode = arg.indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
-                console.log("Debug mode: " + debugMode);
-                continue;
-            }
-            if (arg === "--demo") {
-                configFileName = "config-sample.json";
-            }
-            if (arg === "--demo" || arg.indexOf("--config") === 0) {
-                // используется config.json если аргументом идёт флаг --config
-                if (arg.indexOf("=") > 0){
-                    configFileName = arg.split("=")[1];
-                }
-                if (fs.existsSync(Path.resolve(configFileName))) {
-                    var configFile = require(Path.resolve(configFileName));
-                    for (var key in configFile) {
-                        servicesToStart[key] = configFile[key];
-                    }
-                }
-                continue;
-            }
-            if (arg.indexOf("--port") >= 0){
-                Frame.servicePort = Frame._availablePort = Frame.portsStart = parseInt(arg.split("=")[1]);
-                continue;
-            }
-            if (arg.indexOf("{") == 0){
-                try{
-                    var service = eval("(function(){ return " + arg + "; })()");
-                    if (service.type || service.path || service.id){
-                        servicesToStart[service.type || service.path || service.id] = service;
-                    }
-                }
-                catch (err){
-                    console.error(err);
-                }
-                continue;
-            }
-            if (arg.indexOf(".js") < 0){
-                servicesToStart[arg] = {
-                    path: arg = "Services/" + arg + ".js"
-                }
-            } else {
-                servicesToStart[arg] = null;
-            }
-        }
-
+		var servicesToStart = Frame.parseCmd();
+		var debugMode = Frame.debugMode;
         var smConfig = servicesToStart['ServicesManager'];
         if (!smConfig) smConfig = servicesToStart['ServicesManager'] = {};
         if (debugMode) smConfig.debugMode = debugMode;
@@ -124,4 +66,4 @@ Frame._initFrame = function () {
 	}
 };
 
-Frame._initFrame();
+initRoot();

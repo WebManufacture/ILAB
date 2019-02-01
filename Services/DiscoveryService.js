@@ -19,6 +19,7 @@ function UdpServer(netInterface, config) {
     this.udpServer = new UdpJsonServer({port: this.localPort, address: this.localAddress, broadcast: true});
     this.udpServer.once("connect", ()=>{
         this.myLocalAddress = this.udpServer.address().address;
+        this.emit("ready");
         Frame.log("My local address " + this.myLocalAddress);
     });
     this.udpServer.on("json", (obj, rinfo) => {
@@ -26,7 +27,7 @@ function UdpServer(netInterface, config) {
             if (obj.id == this.serviceId) return;
             Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
             Frame.log(obj);
-            this.sendSeeyou(rinfo.address, rinfo.port, obj.thisAddress, obj.thisPort, this.localAddress);
+            this.sendSeeyou(rinfo.address, rinfo.port, obj.thisAddress, obj.thisPort);
             this.emit("new-node", obj);
         }
         if (obj && obj.type == "see-you" || obj.type == "see-nat"){
@@ -51,7 +52,7 @@ Inherit(UdpServer, EventEmitter, {
         this.sendHello(addressParts.join("."), toPort);
     },
     sendHello : function (addressTo, portTo) {
-        Frame.log("Send hello to " + addressTo + ":" + portTo);
+        Frame.log("Send hello from " + this.localAddress +  " to " + addressTo + ":" + portTo);
         this.udpServer.send({
             type: "hello",
             id: this.serviceId,
@@ -164,6 +165,9 @@ function DiscoveryService(config){
         });
         this.serverPool.push(server);
         Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
+    });
+
+    this.serverPool.forEach((server)=>{
         server.broadcastHello();
     });
 

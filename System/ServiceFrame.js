@@ -12,12 +12,14 @@ Frame.nodePath = process.env.nodePath;
 Frame.servicePort = process.env.servicePort;
 
 Frame.error = function(err){
-    if (typeof(err) == "object"){
-        process.send({type: "error", message: err.message, item: err.stack});
+    if (typeof process.send == 'function'){
+        if (typeof (err) == "object") {
+            process.send({type: "error", message: err.message, item: err.stack});
+        } else {
+            process.send({type: "error", message: err, item: null});
+        }
     }
-    else {
-        process.send({type: "error", message: err, item: null});
-    }
+    console.error(err);
 };
 
 Frame.fatal = function(err){
@@ -28,14 +30,24 @@ Frame.fatal = function(err){
 };
 
 Frame.log = function(log){
-    process.send({type : "log", item: log});
+    if (typeof process.sen == 'function'){
+        process.send({type: "log", item: log});
+    }
     console.log(log);
 };
+
+Frame.send = function(arg1, arg2){
+    if (typeof process.send == 'function'){
+        return process.send(arg1, arg2);
+    } else {
+        return null;
+    }
+}
 
 process.cwd(Frame.workingPath);
 
 Frame._initFrame = function () {
-    process.send({type: "control", state: "loaded", serviceId: Frame.serviceId});
+    Frame.send({type: "control", state: "loaded", serviceId: Frame.serviceId});
     try {
         if (Frame.nodePath.indexOf("http://") == 0 || Frame.nodePath.indexOf("https://") == 0) {
             http.get(Frame.nodePath, (res) => {
@@ -124,7 +136,7 @@ Frame._startFrame = function (node) {
                 node = node(params);
                 console.log(Frame.nodePath + " node started");
             }
-            process.send({type: "control", state: "started", serviceId: Frame.serviceId, config : params });
+            Frame.send({type: "control", state: "started", serviceId: Frame.serviceId, config : params });
         }
         catch (err){
             Frame.error(err);
