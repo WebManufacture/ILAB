@@ -221,12 +221,16 @@ function DiscoveryService(config){
                     serviceType: "DiscoveryService"
                 });
             });
-            server.on("get-known", (obj, rinfo)=>{
+            server.on("get-known", (obj, rinfo) => {
+                var nodes = [];
+                for (var item in this.knownNodes){
+                    nodes.push(this.knownNodes[item]);
+                }
                 server.send(rinfo.address, rinfo.port, {
                     type: "i-know",
                     id: this.serviceId,
                     serviceType: "DiscoveryService",
-                    knownNodes: Object.entries(this.knownNodes).map((e)=> e[1])
+                    knownNodes: nodes
                 });
             });
             server.on("i-know", (obj, rinfo)=>{
