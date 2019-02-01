@@ -106,6 +106,7 @@ Frame._startFrame = function (node) {
                 sm[item] = servicesManager[item];
             }
             sm.GetServices = ServiceProxy.GetServices;
+            sm.GetServicesInfo = ServiceProxy.instance.GetServicesInfo;
             sm.GetService = ServiceProxy.GetService;
 
             var oldLog = console.log;

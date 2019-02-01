@@ -315,13 +315,13 @@ Inherit(ServicesManager, Service, {
             env.nodePath = servicePath;
             params._internalPort = self._getPort();
             var service = this.CreateFork(serviceId, params._internalPort, env);
-            service.once("service-started", function (newServiceId, serviceType) {
+            service.once("service-started", function (newServiceId, service) {
                 serviceId = newServiceId;
                 service.resultId = newServiceId;
-                service.resultType = serviceType;
+                service.resultType = service.serviceType;
                 self.services[serviceId] = service;
                 if (typeof callback == "function"){
-                    callback.call(service, serviceId, serviceType);
+                    callback.call(service, serviceId, service);
                 }
             });
 
@@ -441,7 +441,7 @@ Inherit(ServicesManager, Service, {
                     serviceType: service.resultType,
                     resultId: service.resultId,
                     status: Service.States[service.code],
-                    port: service.port,
+                    port: service._internalPort,
                     type: "service",
                     state: service.code
                 });
