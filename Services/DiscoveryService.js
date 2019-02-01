@@ -66,7 +66,7 @@ Inherit(UdpServer, EventEmitter, {
     },
     sendSeeyou : function (addressTo, portTo, addressFrom, portFrom) {
         this.udpServer.send({
-            type: addressTo == addressFrom && portTo == portFrom ? "see-you" : "see-nat",
+            type: "see-you",
             id: this.serviceId,
             thisAddress: this.localAddress,
             thisPort: this.localPort,
