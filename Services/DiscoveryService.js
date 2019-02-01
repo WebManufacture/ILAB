@@ -135,6 +135,7 @@ function DiscoveryService(config){
             this.registerNode({
                 id: service.resultId,
                 type: "local",
+                rank: 0,
                 serviceType: service.serviceType,
                 tcpPort: service.port
             });
@@ -191,6 +192,7 @@ function DiscoveryService(config){
                 this.registerNode( {
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
+                    rank: rinfo.address == obj.myAddress ? 10: (rinfo.port == obj.myPort ? 20 : 30),
                     serviceType: obj.serviceType,
                     address: rinfo.address,
                     port: rinfo.port,
@@ -205,6 +207,7 @@ function DiscoveryService(config){
                 this.registerNode({
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
+                    rank: rinfo.address == obj.myAddress ? 10: (rinfo.port == obj.myPort ? 20 : 30),
                     serviceType: obj.serviceType,
                     address: rinfo.address,
                     port: rinfo.port,
@@ -235,11 +238,12 @@ function DiscoveryService(config){
             });
             server.on("i-know", (obj, rinfo)=>{
                 if (obj.knownNodes) {
-                    if (Array.isArray(obj)) {
+                    if (Array.isArray(obj.knownNodes)) {
                         obj.knownNodes.forEach((node) => {
                             this.registerNode({
                                 id: node.id,
                                 type: "routed",
+                                rank: node.type == 'local' ? 50: 60,
                                 serviceType: node.serviceType,
                                 tcpPort: node.tcpPort,
                                 parentId: obj.id,
@@ -252,6 +256,7 @@ function DiscoveryService(config){
                             this.registerNode({
                                 id: node.id,
                                 type: "routed",
+                                rank: node.type == 'local' ? 50: 60,
                                 serviceType: node.serviceType,
                                 tcpPort: node.tcpPort,
                                 parentId: obj.id,
@@ -273,10 +278,17 @@ DiscoveryService.serviceId = "DiscoveryService";
 Inherit(DiscoveryService, Service, {
 
     registerNode : function(nfo){
-        if (nfo && nfo.id && !this.knownNodes[nfo.id]){
-            Frame.log("registered node " + nfo.id);
-            console.log(nfo);
-            this.knownNodes[nfo.id] = nfo;
+        if (nfo && nfo.id){
+            var existing = this.knownNodes[nfo.id];
+            if (!existing) {
+                Frame.log("registered node " + nfo.id);
+                this.knownNodes[nfo.id] = nfo;
+            } else {
+                if (existing.rank > nfo.rank) {
+                    Frame.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + ":" + (nfo.parentId ? nfo.parentId : nfo.id));
+                    this.knownNodes[nfo.id] = nfo;
+                }
+            }
         }
     },
 
