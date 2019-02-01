@@ -131,10 +131,10 @@ function DiscoveryService(config){
     */
 
     this.registerNode({
-        id: this.id,
+        id: this.serviceId,
         type: "self",
         rank: 2,
-        serviceType: this.serviceType,
+        serviceType: "DiscoveryService",
         tcpPort: this.port
     });
 
@@ -249,7 +249,6 @@ function DiscoveryService(config){
                 if (obj.knownNodes) {
                     if (Array.isArray(obj.knownNodes)) {
                         obj.knownNodes.forEach((node) => {
-                            console.log(node);
                             this.registerNode({
                                 id: node.id,
                                 type: "routed",
@@ -261,7 +260,8 @@ function DiscoveryService(config){
                                 parentId: obj.id,
                                 parentType: obj.serviceType
                             });
-                            if (node.address && node.port){
+                            if (node.address && node.port && (node.id != self.serviceId)){
+                                console.log(node);
                                 server.sendHello(node.address, node.port);
                             }
                         });
