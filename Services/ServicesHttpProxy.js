@@ -16,7 +16,7 @@ HttpProxyService = function(params){
     this.router = new HttpRouter(port, 15000);
     //this.router.debugMode = "trace";
     this.router.on("/<", (context) => {
-        Frame.error("No service found " + context.path);
+        //Frame.error("No service found " + context.path);
         context.error("No service found " + context.path, 404);
     });
     this.router.on("/", (context) => {

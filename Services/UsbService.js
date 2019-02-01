@@ -45,6 +45,7 @@ function UsbService(params){
     this.Find = function(){
         return usbDetect.find();
     };
+
     return Service.call(this, params);
 }
 

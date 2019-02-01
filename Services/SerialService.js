@@ -146,7 +146,6 @@ function SerialService(params){
             });
         });
     };
-
     this.Write = function(portName, value){
         var port = self.ports[portName];
         if (!port) {
@@ -154,7 +153,7 @@ function SerialService(params){
             return false;
         }
         return new Promise(function(resolve, reject) {
-            port.write(value,function (err) {
+            port.write(Buffer.from(value), function (err) {
                 if (err) {
                     reject(err);
                     return false;
