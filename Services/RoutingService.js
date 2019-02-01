@@ -6,12 +6,11 @@ var Router = useModule('Router');
 function RoutingService(config){
     var self = this;
     var result = Service.apply(this, arguments);
-
+    this.router = new Router();
     return result;
 };
 
 Inherit(RoutingService, Service, {
-
 
 });
 

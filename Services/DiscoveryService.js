@@ -287,6 +287,10 @@ function DiscoveryService(config){
         Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
 
+    setInterval(()=>{
+        this.recheckNodes();
+    }, 60000);
+
     return result;
 }
 
@@ -309,7 +313,22 @@ Inherit(DiscoveryService, Service, {
         }
     },
 
-    recheckNodes: function (hosts) {
+    recheckNodes: function () {
+        var self = this;
+        Frame.log("rechecking nodes ");
+        this.serverPool.forEach((server)=> {
+            for (var item in this.knownNodes){
+                var node = this.knownNodes[item];
+                if (node.port && node.address && ["self", "local"].indexOf(node.type) < 0 && node.id != self.serviceId) {
+                    server.sendHello(node.address, node.port);
+                }
+            }
+        });
+        return null;
+    },
+
+
+    recheckOld: function (hosts) {
         var self = this;
         hosts.forEach((node)=>{
             self.udpServer.send("HI!", 41234, node.host);
