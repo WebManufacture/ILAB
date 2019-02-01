@@ -15,12 +15,6 @@ function UdpJsonServer(config) {
 
     const server = this.server = dgram.createSocket('udp4');
 
-    if (config.address){
-        server.bind(config.port, config.address);
-    } else {
-        server.bind(config.port);
-    }
-
     server.on('listening', () => {
         if (typeof config.broadcast == "boolean"){
             server.setBroadcast(config.broadcast);
@@ -28,6 +22,12 @@ function UdpJsonServer(config) {
         //server.addMembership('255.255.255.255');
         self.emit('connect', server);
     });
+
+    if (config.address){
+        server.bind(config.port, config.address);
+    } else {
+        server.bind(config.port);
+    }
 
     server.on('message', (data, rinfo) => {
         if (rinfo.size > 0) {
