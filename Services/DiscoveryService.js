@@ -130,15 +130,15 @@ function DiscoveryService(config){
         }
     */
 
-    ServicesManager.GetServices().then((services)=>{
-        for (var serviceId in services){
+    ServicesManager.GetServicesInfo().then((services)=>{
+        services.forEach((service)=> {
             this.registerNode({
-                id: serviceId,
+                id: service.resultId,
                 type: "local",
-                serviceType: services[serviceId].serviceType,
-                tcpPort: services[serviceId].port
+                serviceType: service.serviceType,
+                tcpPort: service.port
             });
-        };
+        });
     });
 
     ServicesManager.on("service-started", (serviceId, servicePort, config) => {
@@ -185,8 +185,8 @@ function DiscoveryService(config){
 
             server.on("hello", (obj, rinfo) => {
                 if (obj.id == this.serviceId) return;
-                Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
-                Frame.log(obj);
+                //Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
+                //Frame.log(obj);
                 server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 this.registerNode( {
                     id: obj.id,
@@ -200,8 +200,8 @@ function DiscoveryService(config){
                 });
             });
             server.on("see-you", (obj, rinfo) => {
-                Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
-                Frame.log(obj);
+                //Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
+                //Frame.log(obj);
                 this.registerNode({
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
@@ -215,11 +215,34 @@ function DiscoveryService(config){
                 /*if (rinfo.address != obj.myAddress || rinfo.port != obj.myPort){
                     server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 }*/
+                server.send(rinfo.address, rinfo.port, {
+                    type: "get-known",
+                    id: this.serviceId,
+                    serviceType: "DiscoveryService"
+                });
             });
             server.on("get-known", (obj, rinfo)=>{
-                server.send(rinfo.address, rinfo.port, this.knownNodes);
+                server.send(rinfo.address, rinfo.port, {
+                    type: "i-know",
+                    id: this.serviceId,
+                    serviceType: "DiscoveryService",
+                    knowNodes: this.knownNodes
+                });
             });
-
+            server.on("i-know", (obj, rinfo)=>{
+                if (obj.knownNodes && obj.knownNodes.length) {
+                    obj.knownNodes.forEach((node)=>{
+                        this.registerNode({
+                            id: node.id,
+                            type: "routed",
+                            serviceType: node.serviceType,
+                            tcpPort: node.tcpPort,
+                            parentId: obj.id,
+                            parentType: obj.serviceType
+                        });
+                    });
+                }
+            });
         });
         Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
@@ -233,6 +256,8 @@ Inherit(DiscoveryService, Service, {
 
     registerNode : function(nfo){
         if (nfo && nfo.id && !this.knownNodes[nfo.id]){
+            Frame.log("registered node " + nfo.id);
+            console.log(nfo);
             this.knownNodes[nfo.id] = nfo;
         }
     },
