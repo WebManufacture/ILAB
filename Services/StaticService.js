@@ -39,6 +39,7 @@ StaticContentService = function (params) {
         self.enabled = true;
         console.log("connected to FS: " + params.filesServiceId);
     }).catch(function (err) {
+        console.error(err);
         console.error("can't connect to FS service " + params.filesServiceId)
     });
 
