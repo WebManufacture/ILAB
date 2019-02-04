@@ -321,7 +321,7 @@ Inherit(ServicesManager, Service, {
                 service.resultType = service.serviceType;
                 self.services[serviceId] = service;
                 if (typeof callback == "function"){
-                    callback.call(service, serviceId, service);
+                    callback.call(service, serviceId, service.id);
                 }
             });
 
@@ -415,7 +415,7 @@ Inherit(ServicesManager, Service, {
         var services = { "ServicesManager" : this.port };
         for (var name in this.services){
             if (this.services[name] != null){
-                services[name] = this.services[name].port;
+                services[name] = this.services[name]._internalPort;
             }
         }
         return services;
