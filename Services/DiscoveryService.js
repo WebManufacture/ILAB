@@ -243,7 +243,7 @@ function DiscoveryService(config){
                 if (obj.knownNodes) {
                     if (Array.isArray(obj.knownNodes)) {
                         obj.knownNodes.forEach((node) => {
-                            this.registerNode({
+                            var result = this.registerNode({
                                 id: node.id,
                                 type: "routed",
                                 rank: node.type == 'local' ? 50: 60,
@@ -254,15 +254,15 @@ function DiscoveryService(config){
                                 parentId: obj.id,
                                 parentType: obj.serviceType
                             });
-                            if (node.address && node.port && (node.id != self.serviceId)){
-                                console.log(node);
+                            if (result && node.address && node.port && (node.id != self.serviceId)){
+                                //console.log(node);
                                 server.sendHello(node.address, node.port);
                             }
                         });
                     } else {
                         for (var item in obj.knownNodes){
                             var node = obj.knownNodes[item];
-                            this.registerNode({
+                            var result = this.registerNode({
                                 id: node.id,
                                 type: "routed",
                                 rank: node.type == 'local' ? 50: 60,
@@ -333,13 +333,16 @@ Inherit(DiscoveryService, Service, {
             if (!existing) {
                 Frame.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
                 this.knownNodes[nfo.id] = nfo;
+                return true;
             } else {
                 if (existing.rank > nfo.rank) {
                     Frame.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
                     this.knownNodes[nfo.id] = nfo;
+                    return true;
                 }
             }
         }
+        return false;
     },
 
     recheckConfiguredServers: function () {
