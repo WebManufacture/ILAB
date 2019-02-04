@@ -186,13 +186,6 @@ function DiscoveryService(config){
         });
         this.serverPool.push(server);
         server.once("ready", ()=>{
-            server.broadcastHello();
-            if (config.hosts && Array.isArray(config.hosts)) {
-                config.hosts.forEach((remotePoint) => {
-                    server.sendHello(remotePoint.address, remotePoint.port);
-                });
-            }
-
             server.on("hello", (obj, rinfo) => {
                 if (obj.id == this.serviceId) return;
                 //Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
@@ -245,6 +238,7 @@ function DiscoveryService(config){
                     knownNodes: nodes
                 });
             });
+            //eval("console.log('eval')");
             server.on("i-know", (obj, rinfo)=>{
                 if (obj.knownNodes) {
                     if (Array.isArray(obj.knownNodes)) {
@@ -283,13 +277,48 @@ function DiscoveryService(config){
                     }
                 }
             });
+
+            server.on("proxy", (obj, rinfo) => {
+                var destination = obj.destinationId;
+                var node = this.knownNodes.find(n => n.id == destinationId);
+                if (node){
+                    if (node.type == "local"){
+                            try {
+                                var socket = net.createConnection(node.tcpPort, "127.0.0.1", function () {
+                                    Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
+                                    socket.write(obj.data);
+                                    socket.end();
+                                });
+                                socket.on('error', (err)=>{
+                                    Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                                });
+                            }
+                            catch (err) {
+                                Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                            }
+                    }
+                }
+            });
+
+            server.broadcastHello();
+            if (config.hosts && Array.isArray(config.hosts)) {
+                config.hosts.forEach((remotePoint) => {
+                    server.sendHello(remotePoint.address, remotePoint.port);
+                });
+            }
         });
         Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
 
+    this.configuredHosts = config.hosts;
+
     setInterval(()=>{
-        this.recheckNodes();
+        this.recheckConfiguredServers();
     }, 60000);
+
+    setInterval(()=>{
+        this.recheckKnownNodes();
+    }, 120000);
 
     return result;
 }
@@ -313,11 +342,25 @@ Inherit(DiscoveryService, Service, {
         }
     },
 
-    recheckNodes: function () {
+    recheckConfiguredServers: function () {
         var self = this;
-        Frame.log("rechecking nodes ");
+        this.serverPool.forEach((server)=> {
+            Frame.log("rechecking server " + server.localAddress);
+            server.broadcastHello();
+            if (this.configuredHosts && Array.isArray(this.configuredHosts)) {
+                this.configuredHosts.forEach((remotePoint) => {
+                    server.sendHello(remotePoint.address, remotePoint.port);
+                });
+            }
+        });
+        return null;
+    },
+
+    recheckKnownNodes: function () {
+        var self = this;
         this.serverPool.forEach((server)=> {
             for (var item in this.knownNodes){
+                Frame.log("rechecking known node " + item + " from " + server.localAddress);
                 var node = this.knownNodes[item];
                 if (node.port && node.address && ["self", "local"].indexOf(node.type) < 0 && node.id != self.serviceId) {
                     server.sendHello(node.address, node.port);
