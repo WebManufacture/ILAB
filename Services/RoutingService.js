@@ -7,26 +7,47 @@ function RoutingService(config){
     var self = this;
     // это публичная функция:
 
-    this.knownNodes = {};
+    this.knownNodes = [];
 
     this.GetKnownNodes = function() {
-        var nodes = [];
-        for (var item in this.knownNodes){
-            nodes.push(this.knownNodes[item]);
-        }
-        return nodes;
+        return this.knownNodes;
     };
+
     this.RegisterNode = function(info){
         return this.registerNode(info);
     };
+
+    this.RoutePacket = function(info){
+        return this.registerNode(info);
+    };
+
+    /*
+    Node should have next fields:
+     id, type
+     rank (like metric)
+     providerId (like channel, like default gateway)
+
+    Types:
+     1. self -- Link to the self service
+     2. local -- addressed by IPC
+     3. direct -- can be pointed directly from this node
+     4. routed -- should be redirected to another node
+
+
+    Node may have another fields:
+      tags - a tags string
+      classes - a classes array
+      serviceType - a service type for filtering
+      data -- object which can be used for storing additional info (like address, port)
+     */
 
     var result = Service.apply(this, arguments);
 
     this.registerNode({
         id: this.serviceId,
         type: "self",
-        rank: 2,
-        serviceType: "DiscoveryService",
+        rank: 10,
+        serviceType: "RoutingService",
         tcpPort: this.port
     });
 
