@@ -106,9 +106,7 @@ function DiscoveryService(config){
            }
         });
     };
-    this.RegisterNode = function(info){
-        return this.registerNode(info);
-    };
+
     this.GetInterfaces = function() {
         return os.networkInterfaces();
     };
