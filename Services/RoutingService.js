@@ -93,15 +93,15 @@ Inherit(RoutingService, Service, {
     registerNode : function(nfo){
         if (nfo && nfo.id){
             var existing = this.knownNodes.find(n => n.id == nfo.id);
-            this.knownNodes.indexOf(n => n.id == nfo.id);
+            var index = this.knownNodes.indexOf(n => n.id == nfo.id);
             if (!existing) {
                 Frame.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
-                this.knownNodes[] = nfo;
+                this.knownNodes.push(nfo);
                 return true;
             } else {
                 if (existing.rank > nfo.rank) {
                     Frame.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
-                    this.knownNodes[nfo.id] = nfo;
+                    this.knownNodes[index] = nfo;
                     return true;
                 }
             }
@@ -119,7 +119,8 @@ Inherit(RoutingService, Service, {
                         this.routeInternal(packet);
                     }
                     case "local": {
-                        var socket = new JsonSocket(node.data.tcpPort, "127.0.0.1", function (err) {
+                        //var socket = new JsonSocket(node.data.tcpPort, "127.0.0.1", function (err) {
+                        var socket = new JsonSocket(Frame.getPipe(node.parentId), function (err) {
                             //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
                             try {
                                 socket.write(packet);

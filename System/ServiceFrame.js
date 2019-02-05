@@ -13,6 +13,10 @@ Frame.nodePath = process.env.nodePath;
 Frame.servicePort = process.env.servicePort;
 Frame.pipeId = os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + Frame.serviceId : '/tmp/' + Frame.serviceId;
 
+Frame.getPipe = function(serviceId){
+      return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + serviceId : '/tmp/' + serviceId;
+};
+
 Frame.error = function(err){
     if (typeof process.send == 'function'){
         if (typeof (err) == "object") {

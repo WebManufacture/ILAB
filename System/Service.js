@@ -155,6 +155,20 @@ Inherit(Service, EventEmitter, {
         return ServiceProxy.connect(serviceId);
     },
 
+    routeLocal: function(serviceId, packet){
+        //var socket = new JsonSocket(node.data.tcpPort, "127.0.0.1", function (err) {
+        var socket = new JsonSocket(Frame.getPipe(serviceId), function (err) {
+            //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
+            try {
+                socket.write(packet);
+                socket.end();
+            }
+            catch(err){
+                console.error(err);
+            }
+        });
+    },
+
     routeInternal: function(message){
         if (message.type == "method"){
             try {

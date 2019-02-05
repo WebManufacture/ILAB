@@ -136,8 +136,13 @@ function DiscoveryService(config){
         tcpPort: this.port
     });
 
+    this.routerId == "";
+
     ServicesManager.GetServicesInfo().then((services)=>{
         services.forEach((service)=> {
+            if (service.serviceType == "RoutingService"){
+                this.routerId = service.id;
+            }
             this.registerNode({
                 id: service.resultId,
                 type: "local",
@@ -149,6 +154,9 @@ function DiscoveryService(config){
     });
 
     ServicesManager.on("service-started", (serviceId, servicePort, config) => {
+        if (service.serviceType == "RoutingService"){
+            this.routerId = serviceId;
+        }
         this.registerNode({
             id: serviceId,
             type: "local",
@@ -328,6 +336,20 @@ Inherit(DiscoveryService, Service, {
     registerNode : function(nfo){
         if (nfo && nfo.id){
             var existing = this.knownNodes[nfo.id];
+            if (this.routerId) {
+                this.routeLocal(this.routerId, {
+                    type: "method",
+                    name: "RegisterNode",
+                    args: [{
+                        id: nfo.id,
+                        rank: 60,
+                        type: "routed",
+                        providerId: this.serviceId,
+                        serviceType: nfo.serviceType,
+                        data: nfo
+                    }]
+                });
+            }
             if (!existing) {
                 Frame.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
                 this.knownNodes[nfo.id] = nfo;
