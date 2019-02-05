@@ -284,15 +284,61 @@ function DiscoveryService(config){
                 }
             });
 
+            server.on("local", (obj, rinfo) => {
+                var destination = obj.destinationId;
+                var node = this.knownNodes.find(n => n.id == destinationId);
+                if (node){
+                    if (node.type == "local"){
+                        try {
+                            var socket = new JsonSocket(Frame.getPipe(obj.to), function () {
+                                Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
+                                socket.write(obj);
+                                socket.end();
+                            });
+                            socket.on('error', (err) => {
+                                Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                            });
+                        }
+                        catch (err) {
+                            Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                        }
+                    }
+                }
+            });
+
             server.on("proxy", (obj, rinfo) => {
                 var destination = obj.destinationId;
                 var node = this.knownNodes.find(n => n.id == destinationId);
                 if (node){
                     if (node.type == "local"){
-                            try {
-                                var socket = net.createConnection(node.tcpPort, "127.0.0.1", function () {
+                        try {
+                            if (this.routerId) {
+                                var socket = new JsonSocket(Frame.getPipe(this.routerId), function () {
                                     Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
-                                    socket.write(obj.data);
+                                    socket.write(obj);
+                                    socket.end();
+                                });
+                                socket.on('error', (err) => {
+                                    Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                                });
+                            }
+                        }
+                        catch (err) {
+                            Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                        }
+                    }
+                }
+            });
+
+            server.on("tcp-proxy", (obj, rinfo) => {
+                var destination = obj.destinationId;
+                var node = this.knownNodes.find(n => n.id == destinationId);
+                if (node){
+                    if (node.type == "local"){
+                            try {
+                                var socket = new JsonSocket(node.tcpPort, obj.host, function () {
+                                    Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
+                                    socket.write(obj);
                                     socket.end();
                                 });
                                 socket.on('error', (err)=>{
