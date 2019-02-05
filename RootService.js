@@ -9,7 +9,7 @@ Frame.servicePort = Frame.portsStart;
 var ServicesManager = useRoot("System/ServicesManager");
 
 function initRoot() {
-    console.log("Starting ILAB v3.5.3");
+    console.log("Starting ILAB v3.5.32");
 	try {
 		process.setMaxListeners(100);
 
