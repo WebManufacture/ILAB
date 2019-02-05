@@ -126,6 +126,48 @@ Inherit(Service, EventEmitter, {
         return ServiceProxy.connect(serviceId);
     },
 
+    routeInternal: function(message){
+        if (message.type == "method"){
+            try {
+                this._calleeFunctionMessage = message;
+                var result = self._callMethod(message.name, message.args);
+                this._calleeFunctionMessage = null;
+            }
+            catch (err){
+                if (message.id) {
+                    return ({"type": "error", id: message.id, result: err, message: err.message, stack: err.stack});
+                }
+                return;
+            }
+            if (result instanceof Promise){
+                result.then(function (result) {
+                    try {
+                        return ({"type": "result", id: message.id, result: result});
+                    }
+                    catch (error){
+                        throw error;
+                    }
+                }).catch(function (error) {
+                    if (typeof error == "string") {
+                        return ({"type": "error", id: message.id, result: error, message: error});
+                    }
+                    else {
+                        return ({"type": "error", id: message.id, result: error.message, message: error.message, stack: error.stack});
+                    }
+                });
+            }
+            else {
+                return {"type": "result", id: message.id, result: result};
+            }
+        }
+        if (message.type == "startup") {
+            return Service.CreateProxyObject(self);
+        }
+        if (message.type == "subscribe") {
+            //self.on("internal-event", internalEventHandler);
+        }
+    },
+
     createStreamMethod : function (func) {
         func.isStreamMethod = true;
         return func;

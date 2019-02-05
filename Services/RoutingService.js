@@ -17,8 +17,8 @@ function RoutingService(config){
         return this.registerNode(info);
     };
 
-    this.RoutePacket = function(info){
-        return this.registerNode(info);
+    this.RoutePacket = function(packet){
+        this.route(packet)
     };
 
     /*
@@ -48,23 +48,27 @@ function RoutingService(config){
         type: "self",
         rank: 10,
         serviceType: "RoutingService",
-        tcpPort: this.port
+        data: {
+            tcpPort: this.port
+        }
     });
 
     ServicesManager.GetServicesInfo().then((services)=>{
         services.forEach((service)=> {
-            this.registerNode({
+            self.registerNode({
                 id: service.resultId,
                 type: "local",
                 rank: 6,
                 serviceType: service.serviceType,
-                tcpPort: service.port
+                data: {
+                    tcpPort: service.port
+                }
             });
         });
     });
 
     ServicesManager.on("service-started", (serviceId, servicePort, config) => {
-        this.registerNode({
+        self.registerNode({
             id: serviceId,
             type: "local",
             rank: 5,
@@ -74,22 +78,23 @@ function RoutingService(config){
     });
 
     ServicesManager.on("service-exited",(serviceId, servicePort) => {
-        delete this.knownNodes[serviceId];
+        var node = this.knownNodes.find(n => n.id == serviceId);
+        if (node){
+            node.rank = 100;
+        }
     });
 
     return result;
-}
-
-RoutingService.serviceId = "DiscoveryService";
+}r 
 
 Inherit(RoutingService, Service, {
-
     registerNode : function(nfo){
         if (nfo && nfo.id){
-            var existing = this.knownNodes[nfo.id];
+            var existing = this.knownNodes.find(n => n.id == nfo.id);
+            this.knownNodes.indexOf(n => n.id == nfo.id);
             if (!existing) {
                 Frame.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
-                this.knownNodes[nfo.id] = nfo;
+                this.knownNodes[] = nfo;
                 return true;
             } else {
                 if (existing.rank > nfo.rank) {
@@ -101,6 +106,47 @@ Inherit(RoutingService, Service, {
         }
         return false;
     },
+
+    route: function (packet, id) {
+        if (!id) id = packet.to;
+        if (packet && packet.to) {
+            var node = this.knownNodes.sort((a,b) => a.rank - b.rank).indexOf(n => n.id == id);
+            if (node){
+                switch (node.type){
+                    case "self" : {
+                        this.routeInternal(packet);
+                    }
+                    case "local": {
+                        var socket = new JsonSocket(node.data.tcpPort, "127.0.0.1", function (err) {
+                            //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
+                            try {
+                                socket.write(packet);
+                                socket.end();
+                            }
+                            catch(err){
+                                console.error(err);
+                            }
+                        });
+                    }
+                    case "direct": {
+                        var socket = new JsonSocket(node.data.tcpPort, node.data.address, function (err) {
+                            //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
+                            try {
+                                socket.write(packet);
+                                socket.end();
+                            }
+                            catch(err){
+                                console.error(err);
+                            }
+                        });
+                    }
+                    case "routed": {
+                        this.route(packet, node.providerId);
+                    }
+                }
+            }
+        }
+    }
 });
 
 module.exports = RoutingService;
