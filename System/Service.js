@@ -34,6 +34,11 @@ Service = function(params){
             }
         }
     }
+    //console.log(process.channel);
+    this._pipesServerForBaseInteraction = net.createServer({
+        allowHalfOpen: false,
+        pauseOnConnect: false
+    }, this._onConnection.bind(this));
     this.port = Frame.servicePort;
     this._netServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,
@@ -50,6 +55,11 @@ Service = function(params){
         }
     });
     try {
+        var pipeId = Frame.pipeId;
+        this._pipesServerForBaseInteraction.listen(pipeId, function () {
+            Frame.log("Listening pipe " + pipeId);
+        });
+
         this._netServerForBaseInteraction.listen(this.port, function () {
             //console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
         });
@@ -62,15 +72,34 @@ Service = function(params){
         args: []
     });
     var wasExiting = false;
+    process.once("SIGTERM", () =>{
+        if (!wasExiting){
+            console.log("SIGTERM:closing " + Frame.pipeId);
+            self._closeServer();
+            wasExiting = true;
+        };
+        process.exit();
+    });
+    process.once("SIGINT", () =>{
+        if (!wasExiting){
+            console.log("SIGINT:closing " + Frame.pipeId);
+            self._closeServer();
+            wasExiting = true;
+        };
+        process.exit();
+    });
     process.once("exiting", () =>{
+        console.log("exiting:closing " + Frame.pipeId);
         self.emit("exiting");
         self._closeServer();
         wasExiting = true;
     });
     process.once("exit", () =>{
         if (!wasExiting){
+            console.log("exit:closing " + Frame.pipeId);
             self.emit("exiting");
             self._closeServer();
+            wasExiting = true;
         }
     });
     this.GetDescription = function () {
@@ -308,6 +337,7 @@ Inherit(Service, EventEmitter, {
 
     _closeServer : function(){
         this._netServerForBaseInteraction.close();
+        this._pipesServerForBaseInteraction.close();
         this.emit("closing-server");
     },
 

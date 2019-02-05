@@ -19,6 +19,29 @@ Frame.Nodes = {};
 Frame.Modules = [];
 Frame.Services = {};
 
+process.once("SIGTERM", ()=>{
+    process.emit("exiting");
+    var date = (new Date());
+    //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+    var tm = setTimeout(function(){
+        process.exit(1);
+    }, 10);
+    process.once("exit", function(){
+        clearTimeout(tm);
+    });
+});
+process.once("SIGINT", ()=>{
+    process.emit("exiting");
+    var date = (new Date());
+    //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+    var tm = setTimeout(function(){
+        process.exit(1);
+    }, 10);
+    process.once("exit", function(){
+        clearTimeout(tm);
+    });
+});
+
 global.useModule = Frame.useModule = function(path){
     if (path.indexOf(".js") != path.length - 3){
         path += ".js";
@@ -48,6 +71,9 @@ global.useSystem = Frame.useSystem = function(path){
     //return require(Path.resolve(Frame.NodeModulesPath + path));
 };
 
+Frame.log = function(){
+    console.log.apply(console, arguments);
+}
 
 Frame.parseCmd = function () {
     var debugMode = false;

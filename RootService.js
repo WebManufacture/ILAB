@@ -1,12 +1,12 @@
 var Path = require('path');
 require(Path.resolve("./Frame.js"));
+var os = require("os");
 
 Frame.portsStart = 5600;
 Frame._availablePort = Frame.portsStart;
 Frame.serviceId = "ServicesManager";
 Frame.servicePort = Frame.portsStart;
-
-var ServicesManager = useRoot("System/ServicesManager");
+Frame.servicesManagerPort = Frame.servicePort;
 
 function initRoot() {
     console.log("Starting ILAB v3.6.0");
@@ -18,6 +18,11 @@ function initRoot() {
         var smConfig = servicesToStart['ServicesManager'];
         if (!smConfig) smConfig = servicesToStart['ServicesManager'] = {};
         if (debugMode) smConfig.debugMode = debugMode;
+        if (smConfig.id) {
+            Frame.serviceId = smConfig.id;
+        }
+        Frame.pipeId = os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + Frame.serviceId : '/tmp/' + Frame.serviceId;
+        var ServicesManager = useRoot("System/ServicesManager");
         var servicesManager = new ServicesManager(smConfig, function () {
             return Frame._availablePort += 5;
         });

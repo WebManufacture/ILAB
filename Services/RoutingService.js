@@ -46,7 +46,7 @@ function RoutingService(config){
     this.registerNode({
         id: this.serviceId,
         type: "self",
-        rank: 10,
+        rank: 1,
         serviceType: "RoutingService",
         data: {
             tcpPort: this.port
@@ -73,7 +73,9 @@ function RoutingService(config){
             type: "local",
             rank: 5,
             serviceType: config.serviceType,
-            tcpPort: servicePort
+            data: {
+                tcpPort: servicePort
+            }
         });
     });
 
@@ -85,7 +87,7 @@ function RoutingService(config){
     });
 
     return result;
-}r 
+}
 
 Inherit(RoutingService, Service, {
     registerNode : function(nfo){

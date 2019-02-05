@@ -1,6 +1,7 @@
 var Path = require('path');
 var fs = require('fs');
 var http = require('http');
+var os = require('os');
 require(Path.resolve("./Frame.js"));
 var ServiceProxy = useRoot('/System/ServiceProxy');
 var Service = useRoot('/System/Service');
@@ -10,6 +11,7 @@ Frame.serviceId = process.env.serviceId;
 Frame.node = process.env.nodeName;
 Frame.nodePath = process.env.nodePath;
 Frame.servicePort = process.env.servicePort;
+Frame.pipeId = os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + Frame.serviceId : '/tmp/' + Frame.serviceId;
 
 Frame.error = function(err){
     if (typeof process.send == 'function'){
@@ -151,7 +153,7 @@ Frame._startFrame = function (node) {
 
 process.once("exit", function(){
     var date = (new Date());
-    console.log(Frame.serviceId + ":" + Frame.servicePort + " exited:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+    //console.log(Frame.serviceId + ":" + Frame.servicePort + " exited:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
 });
 
 process.on('unhandledRejection', (reason, p) => {
@@ -163,7 +165,7 @@ process.on("message", function(pmessage){
     if (pmessage == 'EXIT-REQUEST'){
         process.emit("exiting");
         var date = (new Date());
-        console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+        //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
         var tm = setTimeout(function(){
             process.exit();
         }, 10);

@@ -20,6 +20,9 @@ function ForkMon(path, args, env){
     this.on("stop", function(message){
         fork.stop();
     });
+    process.once("exit", ()=>{
+        this.exit();
+    })
 };
 
 ForkMon.Statuses = ["new", "killed", "exited", "paused", "error", "reserved", "stopping", "working"];
@@ -84,9 +87,12 @@ Inherit(ForkMon, EventEmitter, {
         if (global.Frame){
             if (!global.Frame.childProcesses) global.Frame.childProcesses = [];
             global.Frame.childProcesses.push(cp);
-            process.on('exit', function () {
-                cp.kill();
-            });
+            /*process.once('exit', function () {
+                if (!cp.killed){
+                    console.log("process-exit:killing cp");
+                    cp.kill();
+                }
+            });*/
         }
         return cp;
     },
@@ -138,13 +144,15 @@ Inherit(ForkMon, EventEmitter, {
     },
 
     exit : function(){
-        if (this.process){
+        if (this.process && this.process.connected){
             var self = this;
             var proc = this.process;
             var exited = false;
             this.process.send("EXIT-REQUEST");
+            //console.log("process-exit:EXIT-REQUEST");
             var exitTimeout = setTimeout(function(){
                 if (!exited){
+                    console.log("process-exit:SIGINT");
                     self.emit("killing", "ForkMon: " + self.id + " KILLED BY TIMEOUT!");
                     proc.kill('SIGINT');
                     self.emit("exited", ForkMon.STATUS_KILLED);
