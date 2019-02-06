@@ -105,6 +105,9 @@ Frame.parseCmd = function () {
                     var configFile = require(Path.resolve(configFileName));
                     for (var key in configFile) {
                         servicesToStart[key] = configFile[key];
+                        if (servicesToStart[key].id == "auto") {
+                            servicesToStart[key].id = useSystem('uuid/v4')();
+                        }
                     }
                 }
                 continue;
@@ -133,6 +136,7 @@ Frame.parseCmd = function () {
             }
         }
         Frame.debugMode = debugMode;
+        console.log('Frame: servicesToStart ', servicesToStart)
         return servicesToStart;
     }
     catch (err) {
