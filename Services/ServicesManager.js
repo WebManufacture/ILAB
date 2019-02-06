@@ -22,17 +22,19 @@ function ServicesManager(config, portCountingFunc){
         }
     }
     this._getPort = portCountingFunc;
-    this.StartService = function (serviceId, params) {
-        return self.startServiceAsync(serviceId, params).then(function () {
+    this.StartService = function (service) {
+        if (!service) return null;
+        return self.startServiceAsync(service.id, service).then(function () {
             return serviceId + " started";
         });
     };
-    this.StartServices = function (services, params) {
+    this.StartServices = function (services) {
+        if (!services) return null;
         var index = 0;
         function startNext(resolve, reject) {
-            var key = services[index];
-            if (key && index < services.length){
-                self.startServiceAsync(key, params[index]).then(()=>{
+            var service = services[index];
+            if (service && index < services.length){
+                self.startServiceAsync(service.id, service).then(()=>{
                     startNext(resolve, reject);
                 }).catch((error)=>{
                     reject(error);

@@ -75,9 +75,62 @@ Frame.log = function(){
     console.log.apply(console, arguments);
 }
 
+Frame.newId = function(){
+    return useSystem('uuid/v4')();
+}
+
 Frame.parseCmd = function () {
     var debugMode = false;
-    var servicesToStart = {};
+    var servicesToStart = [];
+    function findServiceIndex(selectorObj) {
+        if (selectorObj.id){
+            return servicesToStart.indexOf(s => s.id == selectorObj.id);
+        }
+        if (selectorObj.path){
+            return servicesToStart.indexOf(s => s.path == selectorObj.path);
+        }
+        return servicesToStart.indexOf(s => s.type == selectorObj.type);
+    }
+    function copyConfig(to, from, replace){
+        if (to && from){
+            for (var item in from){
+                if (from.hasOwnProperty(item) && (to[item] === undefined || replace)){
+                    to[item] = from[item];
+                }
+            }
+        }
+    }
+    function parseConfig(config, key) {
+        if (!config) return null;
+        if (!config.type){
+            config.type = key;
+        }
+        if (config.id) {
+            if (config.id == "auto") {
+                config.id = Frame.newId();
+            }
+        } else {
+            if (key) {
+                config.id = key;
+            }
+            else {
+                config.id = Frame.newId();
+            }
+        }
+        if (!config.path){
+            config.path = config.type;
+        }
+        return config;
+    }
+    function mergeConfig(config) {
+        var index = findServiceIndex(config);
+        if (index >= 0){
+            copyConfig(servicesToStart[index], config, true);
+        } else {
+            servicesToStart.push(config);
+        }
+        return config;
+    }
     try{
         var wd = process.argv[2];
         if (process.execArgv[0] && (process.execArgv[0].indexOf("--inspect") >= 0 || process.execArgv[0].indexOf("--debug") >= 0)){
@@ -103,12 +156,24 @@ Frame.parseCmd = function () {
                 }
                 if (fs.existsSync(Path.resolve(configFileName))) {
                     var configFile = require(Path.resolve(configFileName));
-                    for (var key in configFile) {
-                        servicesToStart[key] = configFile[key];
-                        if (servicesToStart[key].id == "auto") {
-                            servicesToStart[key].id = useSystem('uuid/v4')();
+                    if (Array.isArray(configFile)){
+                        configFile.forEach((config)=>{
+                            config = parseConfig(config, key);
+                            if (config){
+                                mergeConfig(config);
+                            }
+                        });
+                    } else {
+                        if (typeof configFile == "object") {
+                            for (var key in configFile) {
+                                var config = parseConfig(configFile[key], key);
+                                if (config){
+                                    mergeConfig(config);
+                                }
+                            }
                         }
                     }
+
                 }
                 continue;
             }
@@ -120,7 +185,7 @@ Frame.parseCmd = function () {
                 try {
                     var service = eval("(function(){ return " + arg + "; })()");
                     if (service.type || service.path || service.id) {
-                        servicesToStart[service.type || service.path || service.id] = service;
+                       mergeConfig(service);
                     }
                 } catch (err) {
                     console.error(err);
@@ -128,15 +193,17 @@ Frame.parseCmd = function () {
                 continue;
             }
             if (arg.indexOf(".js") < 0) {
-                servicesToStart[arg] = {
-                    path: arg = "Services/" + arg + ".js"
-                }
+                mergeConfig(parseConfig({
+                    path: "Services/" + arg + ".js"
+                }));
             } else {
-                servicesToStart[arg] = null;
+                mergeConfig(parseConfig({
+                    path: arg
+                }));
             }
         }
         Frame.debugMode = debugMode;
-        console.log('Frame: servicesToStart ', servicesToStart)
+       // console.log('Frame: servicesToStart ', servicesToStart)
         return servicesToStart;
     }
     catch (err) {

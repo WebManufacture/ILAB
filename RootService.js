@@ -15,42 +15,56 @@ function initRoot() {
 
 		var servicesToStart = Frame.parseCmd();
 		var debugMode = Frame.debugMode;
-        var smConfig = servicesToStart['ServicesManager'];
-        if (!smConfig) smConfig = servicesToStart['ServicesManager'] = {};
+
+        var smConfig = servicesToStart.find(s => s.type == 'ServicesManager');
+        if (!smConfig) {
+            smConfig = {
+                type: "ServicesManager",
+                id: Frame.newId(),
+                path: "/Services/ServicesManager.js"
+            }
+        } else {
+            if (smConfig.path.indexOf("/") != 0){
+                smConfig.path = "/Services/" + smConfig.path;
+            }
+        };
         if (debugMode) smConfig.debugMode = debugMode;
-        if (smConfig.id) {
-            Frame.serviceId = smConfig.id;
-        }
+        Frame.serviceId = smConfig.id;
         Frame.pipeId = os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + Frame.serviceId : '/tmp/' + Frame.serviceId;
-        var ServicesManager = useRoot("System/ServicesManager");
-        var servicesManager = new ServicesManager(smConfig, function () {
-            return Frame._availablePort += 5;
-        });
-        servicesManager.on("error", function (err) {
-            if (err.serviceId) {
-                console.log("Service error: "  + err.serviceId);
-            }
-            console.error(err);
-            err.handled = true;
-        });
-        console.log("ServicesManager started on " + Frame.servicePort);
-        console.log(servicesManager.serviceId);
-        delete servicesToStart['ServicesManager'];
-        const services = Object.keys(servicesToStart);
-        const params = [];
-        services.forEach(sid => params.push(servicesToStart[sid]));
-        servicesManager.on("service-started", function (serviceId, port, config) {
-            if (config){
-                console.log("Service started: " + config.serviceType + "#" + serviceId + " on TCP " + port);
-            } else {
-                console.log("Service started: " + serviceId + " on TCP " + port);
-            }
-        })
-        servicesManager.StartServices(services, params).then(function (result) {
-            console.log("All started!");
-        }).catch((err)=>{
-            console.error(err);
-        });
+
+        var ServicesManager = useRoot(smConfig.path);
+        if (ServicesManager) {
+            var servicesManager = new ServicesManager(smConfig, function () {
+                return Frame._availablePort += 5;
+            });
+            servicesManager.on("error", function (err) {
+                if (err.serviceId) {
+                    console.log("Service error: " + err.serviceId);
+                }
+                console.error(err);
+                err.handled = true;
+            });
+            console.log("ServicesManager started on " + Frame.servicePort);
+            console.log(servicesManager.serviceId);
+            const params = [];
+            servicesToStart.forEach((service) => {
+                if (service.type != 'ServicesManager') {
+                    params.push(service);
+                }
+            });
+            servicesManager.on("service-started", function (serviceId, port, config) {
+                if (config) {
+                    console.log("Service started: " + config.serviceType + "#" + serviceId + " on TCP " + port);
+                } else {
+                    console.log("Service started: " + serviceId + " on TCP " + port);
+                }
+            })
+            servicesManager.StartServices(params).then(function (result) {
+                console.log("All started!");
+            }).catch((err) => {
+                console.error(err);
+            });
+        }
 /*
 		var allSection = [];
 		for (var key in servicesToStart){

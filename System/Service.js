@@ -19,6 +19,9 @@ Service = function(params){
             }
         ],
     });
+    if (params.type){
+        this.serviceType = params.type;
+    }
     if (!this.serviceId) {
         if (params && params.id) {
             if (params.id == "auto") {
