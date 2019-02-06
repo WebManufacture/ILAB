@@ -25,7 +25,7 @@ function ConfigService(params) {
         return this.store;
     };
 
-    this.SaveConfig = function (serviceId, data, restartService) {
+    this.SaveConfig = function (serviceName, data, restartService) {
         this.store[serviceName] = data;
         var promise = this.Save(data);
         if (restartService) {
@@ -79,7 +79,23 @@ function ConfigService(params) {
     }).catch(function (err) {
         console.error("ConfigService: Can't get service " + self.filesServiceId);
     });
-};
+
+    ServicesManager.GetServicesInfo().then((services)=>{
+        services.forEach((service)=> {
+            let serviceName;
+            if (service.serviceType === 'ServicesManager'){
+                serviceName = service.serviceType
+            }else{
+                serviceName = service.path;
+            }
+            let serviceId = service.resultId;
+            if (self.store[serviceName] && self.store[serviceName].id !== serviceId){
+                self.store[serviceName].id = serviceId;
+                self.SaveConfig(serviceName, self.store[serviceName]).then(()=>{}).catch(()=>{})
+            }
+        });
+    }).catch(()=>{});
+}
 
 global.serviceId = "ConfigService";
 
