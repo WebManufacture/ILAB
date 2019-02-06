@@ -5,9 +5,7 @@ var os = require('os');
 var vm = require('vm');
 require('child-process-debug');
 
-if (!global.Frame) {
-    Frame = {isChild: true};
-}
+Frame = { isChild : false };
 
 function prepareArgAspect(func){
     return function (path) {
@@ -52,6 +50,7 @@ Frame.newId = function(){
     return require('uuid/v4')();
 }
 
+/*
 Frame.setId = function(id){
     if (Frame.serviceId != id){
         console.log("Node id changing from " + Frame.serviceId + " to " + id);
@@ -59,7 +58,7 @@ Frame.setId = function(id){
     Frame.serviceId = id;
     Frame.pipeId = Frame.getPipe(id);
 }
-
+*/
 
 Frame.getPipe = function(serviceId){
     return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + serviceId : '/tmp/' + serviceId;
@@ -105,11 +104,21 @@ Frame.error = function(err){
     console.error(err);
 };
 
+Frame.portRanges = [];
+
+var port = getEnvParam("port", '');
+if (port){
+    Frame.portRanges.push(port);
+}
+var ports = getEnvParam("ports", []);
+if (port){
+    Frame.portRanges = Frame.portRanges.concat(ports);
+}
+
 Frame.node = getEnvParam("nodeName", '');
 Frame.nodePath = getEnvParam("nodePath", '');
 
-
-Frame._parseCmd = function() {
+Frame._parseCmd = function () {
     var debugMode = false;
     var servicesToStart = [];
     function findServiceIndex(selectorObj) {
@@ -175,6 +184,66 @@ Frame._parseCmd = function() {
                 console.log("Debug mode: " + debugMode);
                 continue;
             }
+            if (arg === "--basic") {
+                servicesToStart.push({
+                    type: "FilesService",
+                    id: "auto"
+                });
+                servicesToStart.push({
+                    type: "ConfigService",
+                    id: "auto"
+                });
+                servicesToStart.push({
+                    type: "ServicesManager",
+                    id: "auto"
+                });
+            }
+            if (arg === "--demo") {
+                configFileName = "config-sample.json";
+            }
+            if (arg === "--demo" || arg.indexOf("--config") === 0) {
+                // используется config.json если аргументом идёт флаг --config
+                if (arg.indexOf("=") > 0) {
+                    configFileName = arg.split("=")[1];
+                }
+                if (fs.existsSync(Path.resolve(configFileName))) {
+                    var configFile = require(Path.resolve(configFileName));
+                    if (Array.isArray(configFile)){
+                        configFile.forEach((config)=>{
+                            config = parseConfig(config, key);
+                            if (config){
+                                mergeConfig(config);
+                            }
+                        });
+                    } else {
+                        if (typeof configFile == "object") {
+                            for (var key in configFile) {
+                                if (key == "id"){
+                                    if (configFile.id && configFile.id.length != 'auto') //Frame.serviceId = configFile.id;
+                                    continue;
+                                }
+                                if (key == "port"){
+                                    Frame.portRanges.push(configFile.port);
+                                    continue;
+                                }
+                                if (key == "ports"){
+                                    Frame.portRanges = Frame.portRanges.concat(configFile.ports);
+                                    continue;
+                                }
+                                var config = parseConfig(configFile[key], key);
+                                if (config){
+                                    mergeConfig(config);
+                                }
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
+            if (arg.indexOf("--port") >= 0) {
+                Frame.portRanges.push(parseInt(arg.split("=")[1]));
+                continue;
+            }
             if (arg.indexOf("{") == 0) {
                 try {
                     var service = eval("(function(){ return " + arg + "; })()");
@@ -188,7 +257,7 @@ Frame._parseCmd = function() {
             }
             if (arg.indexOf(".js") < 0) {
                 mergeConfig(parseConfig({
-                    path: Frame.ServicesPath + arg + ".js"
+                    path: "Services/" + arg + ".js"
                 }));
             } else {
                 mergeConfig(parseConfig({
@@ -275,13 +344,10 @@ Frame._startFrame = function (node) {
             node = node.runInThisContext();
             console.log(Frame.nodePath + " node started");
         }
-        Frame.serviceType = typeof node;
         if (node) {
             if (typeof node == "function") {
-                Frame.serviceType = node.name;
                 var service = new node(params);
                 if (node.hasPrototype("Service")) {
-                    Frame.serviceType = service.serviceType;
                     if (service.serviceId) {
                         var oldLog = console.log;
                         console.log = function () {
@@ -290,6 +356,8 @@ Frame._startFrame = function (node) {
                             }
                             oldLog.apply(this, arguments);
                         };
+                        Frame.send({type: "control", state: "started", serviceId: Frame.serviceId, config : params });
+                        return;
                     }
                     service.on("error", function (err) {
                         // console.error(err);
@@ -301,188 +369,12 @@ Frame._startFrame = function (node) {
                 });
             }
         }
-        Frame.send({type: "control", state: "started",serviceId: Frame.serviceId, serviceType: Frame.serviceType, pipe: Frame.pipeId, config : params });
+        Frame.send({type: "control", state: "started", config : params });
     }
     catch (err){
         Frame.error(err);
     }
 };
-
-Frame.Statuses = ["new", "killed", "exited", "paused", "reserved", "stopping", "error", "loaded", "started", "working"];
-Frame.STATUS_NEW = 0;
-Frame.STATUS_KILLED = 1;
-Frame.STATUS_EXITED = 2;
-Frame.STATUS_PAUSED = 3;
-Frame.STATUS_STOPPING = 5;
-Frame.STATUS_ERROR = 6;
-Frame.STATUS_LOADED = 7;
-Frame.STATUS_STARTED = 8;
-Frame.STATUS_WORKING = 9;
-
-Frame.childs = [];
-
-Frame.startChild = function(params){
-    if (typeof params != 'object' || !params || !params.id || !params.path) return null;
-    var self = this;
-    var servicePath = params.path;
-    if (servicePath) {
-        if (servicePath.indexOf("http://") != 0 && servicePath.indexOf("https://") != 0) {
-            if (servicePath.indexOf(".js") != servicePath.length - 3) {
-                servicePath += ".js";
-            }
-            if (servicePath.indexOf("/") < 0 && servicePath.indexOf("\\") < 0) {
-                servicePath = Path.resolve(Frame.ServicesPath + servicePath);
-            } else {
-                servicePath = Path.resolve(servicePath);
-            }
-        }
-    }
-
-    var cpIndex = Frame.childs.indexOf(c => c.id == params.id);
-    if (cpIndex >= 0){
-        var cp = Frame.childs[cpIndex];
-        if (cp.code > Frames.STATUS_STOPPING) return cp;
-        if (cp.code == Frames.STATUS_STOPPING){
-            cp.once("exit", ()=>{
-                Frame.startChild(params);
-            });
-            return cp;
-        }
-        if (cp.code == Frame.STATUS_PAUSED){
-            cp.send("RESUME");
-            return cp;
-        };
-        Frame.childs.splice(cp, 1);
-    }
-
-    var args = [];
-    //if (servicePath) args.push(servicePath);
-    var options = {
-        silent: false,
-        cwd : Frame.workingPath,
-        env : {
-            nodePath: servicePath,
-            params: JSON.stringify(params)
-        }
-    };
-    if (params && params.workingPath){
-        options.cwd = params.workingPath;
-    };
-    /*if (Frame.debugPort){
-        const key = Frame.debugMode == 'debug' ? "--inspect-brk" : "--inspect";
-        options.execArgv = [key + "=" + (Frame.debugPort + 1)];
-    }*/
-    var cp = ChildProcess.fork(Frame.ilabPath + "Frame.js", args, options);
-    cp.id = params.id;
-    cp.path = params.path;
-    cp.code = ForkMon.STATUS_NEW;
-    process.emit("child-started", cp);
-    cp.once("exit", function(){
-        cp.code = Frame.STATUS_EXITED;
-        process.emit('child-exited', cp);
-    });
-    cp.on("error", function(err){
-        cp.code = Frame.STATUS_ERROR;
-        process.emit('child-error', cp, err);
-    });
-    cp.on("message", (obj) => {
-        if (typeof obj == "object"){
-            if (obj.type == "error"){
-                if (obj.item) {
-                    return process.emit("child-error", new Error(obj.item + ""));
-                } else {
-                    return process.emit("child-error", new Error(obj.message));
-                }
-            }
-            if (obj.type == "log"){
-                return process.emit("child-log", obj.item);
-            }
-            if (obj.type == "control") {
-                cp.serviceType = obj.serviceType;
-                if (obj.serviceId && cp.id && cp.id != obj.serviceId){
-                    var oldId = cp.id;
-                    process.emit("child-renaming", cp, obj.serviceId);
-                    process.emit("child-renaming-" + cp.id, cp, obj.serviceId);
-                    cp.id = obj.serviceId;
-                    process.emit("child-renamed", cp, oldId)
-                    return;
-                }
-                if (obj.state == "started") {
-                    cp.code = Frame.STATUS_STARTED;
-                    process.emit("child-started-" + cp.id, cp, obj);
-                    process.emit("child-started", cp, obj);
-                    return;
-                }
-                if (obj.state == "loaded") {
-                    cp.code = Frame.STATUS_LOADED;
-                    process.emit("child-loaded-" + cp.id, cp, obj);
-                    process.emit("child-loaded", cp, obj);
-                    return;
-                }
-                if (obj.state == "connected") {
-                    cp.code = Frame.STATUS_WORKING;
-                    process.emit("child-connected-" + cp.id, cp, obj);
-                    process.emit("child-connected", cp, obj);
-                    return;
-                }
-            }
-        }
-        process.emit("child-message", cp, obj);
-    });
-    cp.info = function(){
-        return {code : cp.code, pid: cp.pid, status: ForkMon.Statuses[cp.code], path: cp.path, args: cp.args};
-    };
-    cp.exit  = function(){
-        var self = this;
-        var exited = false;
-        cp.code = Frame.STATUS_STOPPING;
-        cp.send("EXIT-REQUEST");
-        //console.log("process-exit:EXIT-REQUEST");
-        var exitTimeout = setTimeout(function(){
-            if (!exited){
-                Frame.log("killing: " + cp.id + " KILLED BY TIMEOUT!");
-                cp.kill('SIGINT');
-                self.emit("child-exited", ForkMon.STATUS_KILLED);
-            }
-        }, self.killTimeout);
-        cp.once("exit", function(){
-            exited = true;
-            clearTimeout(exitTimeout);
-        });
-    };
-    process.once('exiting', ()=>{
-        cp.exit();
-    });
-    Frame.childs.push(cp);
-    return cp;
-}
-
-Frame.getChild = function(childId){
-    return Frame.childs.find(c => c.id == childId);
-}
-
-Frame.stopChild = function(childId){
-    if (childId){
-        var cp = Frame.getChild(childId);
-        if (cp){
-            cp.exit();
-            return cp;
-        }
-    }
-    return null;
-},
-
-Frame.exit = function(){
-    process.emit("exiting");
-    var date = (new Date());
-    //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
-    var tm = setTimeout(function(){
-        process.exit();
-    }, 10);
-    process.once("exit", function(){
-        clearTimeout(tm);
-    });
-}
 
 process.once("exit", function(){
     // var date = (new Date());
@@ -496,29 +388,55 @@ process.on('unhandledRejection', (reason, p) => {
 
 process.on("message", function(pmessage){
     if (pmessage == 'EXIT-REQUEST'){
-       Frame.exit();
+        process.emit("exiting");
+        var date = (new Date());
+        //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+        var tm = setTimeout(function(){
+            process.exit();
+        }, 10);
+        process.once("exit", function(){
+            clearTimeout(tm);
+        });
     }
 });
 
-process.once("SIGTERM", Frame.exit);
-process.once("SIGINT", Frame.exit);
+process.once("SIGTERM", ()=>{
+    process.emit("exiting");
+    var date = (new Date());
+    //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+    var tm = setTimeout(function(){
+        process.exit(1);
+    }, 10);
+    process.once("exit", function(){
+        clearTimeout(tm);
+    });
+});
+process.once("SIGINT", ()=>{
+    process.emit("exiting");
+    var date = (new Date());
+    //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+    var tm = setTimeout(function(){
+        process.exit(1);
+    }, 10);
+    process.once("exit", function(){
+        clearTimeout(tm);
+    });
+});
 
-if (Frame.isChild) {
-    Frame.serviceId = getEnvParam("serviceId", Frame.newId());
-    var nodesConfig = Frame._parseCmd();
-    Frame.setId(Frame.serviceId);
-    Frame.send({type: "control", state: "loaded",serviceId: Frame.serviceId, pipe: Frame.pipeId, config : nodesConfig });
-    if (nodesConfig && nodesConfig.length) {
-        if (!Frame.nodePath) {
-            Frame.nodePath = nodesConfig[0].path;
-            Frame.node = nodesConfig[0].id;
-        }
-        Frame._initFrame();
-    } else {
-        if (!Frame.nodePath) {
-            Frame.nodePath = Frame.ilabPath + "RootService.js";
-            Frame.node = "RootService";
-        }
-        Frame._initFrame();
+//Frame.serviceId = getEnvParam("serviceId", Frame.newId());
+var nodesConfig = Frame._parseCmd();
+//Frame.setId(Frame.serviceId);
+
+if (nodesConfig && nodesConfig.length){
+    if (!Frame.nodePath){
+        Frame.nodePath = Frame.ilabPath + "RootService.js";
+        Frame.node = "RootService";
     }
+    Frame._initFrame();
+} else {
+    if (!Frame.nodePath){
+        Frame.nodePath = Frame.ilabPath + "RootService.js";
+        Frame.node = "RootService";
+    }
+    Frame._initFrame();
 }

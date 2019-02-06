@@ -60,7 +60,7 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
 
 Для того чтобы написать свой сервис, надо унаследовать его от Service. Как-то так:
 
-    var Service = useRoot("/System/Service.js")
+    var Service = useSystem("Service.js")
     
     function myService(params){
         //Тут params это всегда объект, который передается в метод StartService, при старте вашего сервиса
@@ -232,7 +232,7 @@ https://github.com/AlfLearn/ILAB-3.0  (Это его форк)
 
 Для того чтобы написать свой сервис, надо унаследовать его от Service. Как-то так:
 
-    var Service = useRoot("/System/Service.js")
+    var Service = useSystem("Service.js")
     
     function myService(params){
         //Тут params это всегда объект, который передается в метод StartService, при старте вашего сервиса

@@ -2,7 +2,7 @@ var http = require('http');
 var Url = require('url');
 var fs = require('fs');
 var Path = require('path');
-var Service = useRoot("/System/Service.js");
+var Service = useSystem("Service.js");
 useModule("utils.js");
 
 function FilesService(config){

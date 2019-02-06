@@ -1,7 +1,7 @@
 useModule("utils.js");
-var EventEmitter = useSystem('events');
-var Service = useRoot("/System/Service.js");
-var ServiceProxy = useRoot("/System/ServiceProxy.js");
+var EventEmitter = require('events');
+var Service = useSystem("Service.js");
+var ServiceProxy = useSystem("ServiceProxy.js");
 
 function AutoSyncService(params){
     var self = this;

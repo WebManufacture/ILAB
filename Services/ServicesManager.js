@@ -1,9 +1,9 @@
-var fs = useSystem('fs');
-var Path = useSystem('path');
-var stream = useSystem('stream');
-var EventEmitter = useSystem('events');
-var os = useSystem("os");
-var ChildProcess = useSystem('child_process');
+var fs = require('fs');
+var Path = require('path');
+var stream = require('stream');
+var EventEmitter = require('events');
+var os = require("os");
+var ChildProcess = require('child_process');
 var util = useModule('utils');
 var ForkMon = useModule("forkmon");
 var Service = useRoot("System/Service");
@@ -128,7 +128,7 @@ function ServicesManager(config, portCountingFunc){
             }
             //console.log("Debugger activated on " + options.debugPort);
         }
-        var mon = new ForkMon(Frame.ilabPath + "/System/ServiceFrame.js", [], options);
+        var mon = new ForkMon(Frame.ilabPath + "/Frame.js", [], options);
         self.forksCount++;
         mon.serviceId = id;
         mon.port = port;
@@ -206,7 +206,7 @@ Inherit(ServicesManager, Service, {
         if (params && params.id) {
             params.serviceType = serviceId;
             if (params.id == "auto") {
-                serviceId = params.id = useSystem('uuid/v4')();
+                serviceId = params.id = require('uuid/v4')();
             } else {
                 serviceId = params.id;
             }
@@ -217,7 +217,7 @@ Inherit(ServicesManager, Service, {
             }
             else {
                 params.serviceType = 'unknown';
-                serviceId = params.id = useSystem('uuid/v4')();
+                serviceId = params.id = require('uuid/v4')();
             }
         }
         this.params[serviceId] = params;

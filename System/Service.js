@@ -1,16 +1,17 @@
-var fs = useSystem('fs');
+var fs = require('fs');
 var JsonSocket = useModule('jsonsocket');
-var net = useSystem('net');
-var Path = useSystem('path');
-var EventEmitter = useSystem('events');
+var net = require('net');
+var Path = require('path');
+var EventEmitter = require('events');
 var util = useModule('utils');
 const stream = require('stream');
-var ServiceProxy = useRoot('System/ServiceProxy');
+var ServiceProxy = useSystem('ServiceProxy');
 
 Service = function(params){
     var self = this;
     this._config = {};
     this._eventsDescriptions = {};
+
     this.register("error", {
         args: [
             {
@@ -26,7 +27,7 @@ Service = function(params){
     if (!this.serviceId) {
         if (params && params.id) {
             if (params.id == "auto") {
-                this.serviceId = useSystem('uuid/v4')();
+                this.serviceId = require('uuid/v4')();
             } else {
                 this.serviceId = params.id;
             }
@@ -34,7 +35,7 @@ Service = function(params){
             if (Frame.serviceId) {
                 this.serviceId = Frame.serviceId;
             } else {
-                this.serviceId = useSystem('uuid/v4')();
+                this.serviceId = require('uuid/v4')();
             }
         }
     }

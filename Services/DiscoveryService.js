@@ -1,9 +1,9 @@
-var Service = useRoot("/System/Service.js");
+var Service = useSystem("Service.js");
 useModule("utils.js");
 var child = require("child_process");
 var net = require("net");
 var os = require("os");
-var EventEmitter = useSystem('events');
+var EventEmitter = require('events');
 var JsonSocket = useModule('jsonsocket');
 var UdpJsonServer = useModule('UdpJsonServer');
 

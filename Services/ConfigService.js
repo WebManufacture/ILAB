@@ -1,11 +1,11 @@
 /**
  * Created by osemch on 16.09.16.
  */
-var fs = useSystem('fs');
-var Path = useSystem('path');
-var http = useSystem('http');
-var EventEmitter = useSystem('events');
-var Service = useRoot("/System/Service.js");
+var fs = require('fs');
+var Path = require('path');
+var http = require('http');
+var EventEmitter = require('events');
+var Service = useSystem("Service.js");
 
 function ConfigService(params) {
     if (!params) params = {};
