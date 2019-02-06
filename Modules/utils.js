@@ -2,6 +2,8 @@ var util = require("util");
 var Path = require("path");
 
 //для совместимости!
+// 05.02.2019 - A.Semchenkov --- С чем совместимости, Саша !!!???
+// 06.02.2019 - Саша -- О господи, я разговариваю сам с собой в собственном коде!
 if (!global.Frame){
 	function _regOlds(){
 		console.error("USING OBSOLETE ENVIRONMENT!");
@@ -75,7 +77,7 @@ if (!global.Inherit) {
     Function.prototype.hasPrototype = function(protoName){
         if (this.name == protoName) return true;
         if (this.name == "Function") return false;
-        if (this.base.constructor && typeof this.base.constructor == "function") return this.base.constructor.hasPrototype(protoName);
+        if (this.base && this.base.constructor && typeof this.base.constructor == "function") return this.base.constructor.hasPrototype(protoName);
         return false;
     };
 }

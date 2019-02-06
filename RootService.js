@@ -1,19 +1,14 @@
 var Path = require('path');
-require(Path.resolve("./Frame.js"));
 var os = require("os");
 
-Frame.portsStart = 5600;
-Frame._availablePort = Frame.portsStart;
-Frame.serviceId = "ServicesManager";
-Frame.servicePort = Frame.portsStart;
-Frame.servicesManagerPort = Frame.servicePort;
+if (!global.Frame){
+    require(Path.resolve("./Frame.js"));
+}
 
 function initRoot() {
     console.log("Starting ILAB v3.6.0");
 	try {
-		process.setMaxListeners(100);
-
-		var servicesToStart = Frame.parseCmd();
+		var servicesToStart = Frame._parseCmd();
 		var debugMode = Frame.debugMode;
 
         var smConfig = servicesToStart.find(s => s.type == 'ServicesManager');
@@ -21,21 +16,25 @@ function initRoot() {
             smConfig = {
                 type: "ServicesManager",
                 id: Frame.newId(),
-                path: "/Services/ServicesManager.js"
+                path: "ServicesManager.js"
             }
         } else {
-            if (smConfig.path.indexOf("/") != 0){
-                smConfig.path = "/Services/" + smConfig.path;
+            if (!smConfig.path){
+                smConfig.path = "ServicesManager.js";
             }
         };
         if (debugMode) smConfig.debugMode = debugMode;
-        Frame.serviceId = smConfig.id;
-        Frame.pipeId = os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + Frame.serviceId : '/tmp/' + Frame.serviceId;
-
-        var ServicesManager = useRoot(smConfig.path);
+        Frame.pipeId = Frame.getPipe(smConfig.id);
+        var incrementalPort = Frame.portRanges && typeof Frame.portRanges[0] == 'number' ? Frame.portRanges[0] : 5600;
+        var currentPortIndex = 0;
+        var currentRangeIndex = 0;
+        var ServicesManager = useService(smConfig.path);
         if (ServicesManager) {
             var servicesManager = new ServicesManager(smConfig, function () {
-                return Frame._availablePort += 5;
+                /*if (Frame.portRanges){
+
+                }*/
+                return incrementalPort += 5;
             });
             servicesManager.on("error", function (err) {
                 if (err.serviceId) {
@@ -44,13 +43,13 @@ function initRoot() {
                 console.error(err);
                 err.handled = true;
             });
-            console.log("ServicesManager started on " + Frame.servicePort);
-            console.log(servicesManager.serviceId);
+            console.log(servicesManager.serviceId + ": ServicesManager started on " + incrementalPort);
             const params = [];
             servicesToStart.forEach((service) => {
-                if (service.type != 'ServicesManager') {
-                    params.push(service);
-                }
+                if (!service.type) return;
+                if (service.type == 'ServicesManager') return;
+                if (service.type == 'RootService') return;
+                params.push(service);
             });
             servicesManager.on("service-started", function (serviceId, port, config) {
                 if (config) {
@@ -85,4 +84,10 @@ function initRoot() {
 	}
 };
 
-initRoot();
+if (!global.Frame){
+    initRoot();
+} else {
+    module.exports = initRoot;
+}
+
+

@@ -1,8 +1,8 @@
-var fs = useSystem('fs');
-var http = useSystem('http');
+var fs = require('fs');
+var http = require('http');
 var util = useModule('utils');
 var WebSocketServer = useModule('WebSocket/WebSocketServer');
-var Service = useRoot("/System/Service.js");
+var Service = useSystem("Service.js");
 var JsonSocket = useModule('jsonsocket');
 
 function WebSocketProxyService(param1){
@@ -189,7 +189,7 @@ Inherit(WebSocketProxyService, Service, {
             //console.dir(proxyObj);//debug
             self.serviceId = proxyObj.serviceId;
             //if (self.serviceId != "ServicesManager")
-            console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
+            console.log("Service proxy connected to " + self.serviceId);
             for (var item in proxyObj){
                 if (proxyObj[item] == "method") {
                     self._createFakeMethod(item, proxyObj[item]);

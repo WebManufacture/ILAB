@@ -1,8 +1,8 @@
-var fs = useSystem('fs');
-var Path = useSystem('path');
-var EventEmitter = useSystem('events');
-var os = useSystem("os");
-var ChildProcess = useSystem('child_process');
+var fs = require('fs');
+var Path = require('path');
+var EventEmitter = require('events');
+var os = require("os");
+var ChildProcess = require('child_process');
 var util = useModule('utils');
 
 function ForkMon(path, args, env){

@@ -1,6 +1,6 @@
 var JsonSocket = useModule('jsonsocket');
-var EventEmitter = useSystem('events');
-var net = useSystem('net');
+var EventEmitter = require('events');
+var net = require('net');
 var util = useModule('utils');
 
 ServiceProxy = function(serviceName){

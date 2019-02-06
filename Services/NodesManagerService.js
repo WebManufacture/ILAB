@@ -1,11 +1,11 @@
-var fs = useSystem('fs');
-var Path = useSystem('path');
-var EventEmitter = useSystem('events');
-var os = useSystem("os");
-var ChildProcess = useSystem('child_process');
+var fs = require('fs');
+var Path = require('path');
+var EventEmitter = require('events');
+var os = require("os");
+var ChildProcess = require('child_process');
 var util = useModule('utils');
 var ForkMon = useModule("forkmon");
-var Service = useRoot("/System/Service.js");
+var Service = useSystem("Service.js");
 
 function NodesManagerService(port){
     this.nodes = {};
@@ -42,7 +42,7 @@ Inherit(NodesManagerService, Service, {
             }
             nodePath = Path.resolve(nodePath);
             var env = { workDir : workingDir, nodeName : nodeId, nodePath : nodePath, managerPort : Frame.servicesManagerPort};
-            var fork = new ForkMon(Frame.ilabPath + "/System/ServiceFrame.js", null, env);
+            var fork = new ForkMon(Frame.ilabPath + "/Frame.js", null, env);
             fork._messageEvent = function(obj, msg){
                 if (typeof obj == "object" && obj.type == "error"){
                     return this.emit("error", new Error(obj.item + ""));

@@ -1,9 +1,9 @@
-var fs = useSystem('fs');
-var http = useSystem('http');
-var stream = useSystem('stream');
-var EventEmitter = useSystem('events');
+var fs = require('fs');
+var http = require('http');
+var stream = require('stream');
+var EventEmitter = require('events');
 var HttpRouter = useModule('Router');
-var Service = useRoot("/System/Service.js");
+var Service = useSystem("Service.js");
 
 UdpProxyService = function(params){
     var result = Service.apply(this, arguments);
