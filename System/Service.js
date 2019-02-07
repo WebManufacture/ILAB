@@ -19,8 +19,9 @@ Service = function(params){
             }
         ],
     });
-    if (params.type){
-        this.serviceType = params.type;
+    if (!this.serviceType){
+        this.serviceType = params.type ? params.type : this.constructor.name;
+        console.log("This class is " + this.constructor.name);
     }
     if (!this.serviceId) {
         if (params && params.id) {
@@ -42,13 +43,8 @@ Service = function(params){
         allowHalfOpen: false,
         pauseOnConnect: false
     }, this._onConnection.bind(this));
-    this.port = Frame.servicePort;
-    this._netServerForBaseInteraction = net.createServer({
-        allowHalfOpen: false,
-        pauseOnConnect: false
-    }, this._onConnection.bind(this));
     self.setMaxListeners(100);
-    this._netServerForBaseInteraction.on("error", function (err) {
+    this._pipesServerForBaseInteraction.on("error", function (err) {
         try {
             self.emit('error', err);
         }
@@ -62,13 +58,9 @@ Service = function(params){
         this._pipesServerForBaseInteraction.listen(pipeId, function () {
             Frame.log("Listening pipe " + pipeId);
         });
-
-        this._netServerForBaseInteraction.listen(this.port, function () {
-            //console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
-        });
     }
     catch (error){
-        throw ("Cannot start " + this.serviceId + " on " + this.port + "\n" + error.message);
+        throw ("Cannot start " + this.serviceId + " on " + Frame.pipeId + "\n" + error.message);
     }
     this.register("exiting", {
         description: "occurs when service process like to exit",
@@ -353,7 +345,6 @@ Inherit(Service, EventEmitter, {
     },
 
     _closeServer : function(){
-        this._netServerForBaseInteraction.close();
         this._pipesServerForBaseInteraction.close();
         this.emit("closing-server");
     },
@@ -393,7 +384,9 @@ Inherit(Service, EventEmitter, {
             if (!this._config) this._config = {};
             this._config[key] = description;
         }
-    }
+    },
+
+
 });
 
 module.exports = Service;
