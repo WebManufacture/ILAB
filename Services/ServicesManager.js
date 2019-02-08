@@ -176,9 +176,9 @@ Inherit(ServicesManager, Service, {
         if (typeof obj == "object"){
             if (obj.type == "error"){
                 if (obj.item) {
-                    //return this.emit("error", new Error(obj.item + ""));
+                    return this.emit("error", new Error(obj.item + ""));
                 } else {
-                    //return this.emit("error", new Error(obj.message));
+                    return this.emit("error", new Error(obj.message));
                 }
             }
             if (obj.type == "log"){
@@ -204,7 +204,6 @@ Inherit(ServicesManager, Service, {
             params.path = serviceId;
         }
         if (params && params.id) {
-            params.serviceType = serviceId;
             if (params.id == "auto") {
                 serviceId = params.id = require('uuid/v4')();
             } else {
@@ -212,15 +211,17 @@ Inherit(ServicesManager, Service, {
             }
         } else {
             if (serviceId) {
-                params.serviceType = serviceId;
                 params.id = serviceId;
             }
             else {
-                params.serviceType = 'unknown';
-                serviceId = params.id = require('uuid/v4')();
+                if (!params.id || params.id == "auto") {
+                    params.id = require('uuid/v4')();
+                }
+                serviceId = params.id;
             }
         }
         this.params[serviceId] = params;
+        //console.log("Starting " + serviceId);
         var promise = new Promise((resolve, reject) =>{
             try {
                 if (this.isServiceLoaded(serviceId)){
@@ -317,10 +318,14 @@ Inherit(ServicesManager, Service, {
             env.nodePath = servicePath;
             params._internalPort = self._getPort();
             var service = this.CreateFork(serviceId, params._internalPort, env);
-            service.once("service-started", function (newServiceId, service) {
+            service.once("service-started", function (newServiceId, serviceParam) {
                 serviceId = newServiceId;
                 service.resultId = newServiceId;
-                service.resultType = service.serviceType;
+                if (serviceParam.type) {
+                    service.serviceType = serviceParam.type;
+                }
+                service.port = serviceParam._internalPort;
+                service.resultType = serviceParam.serviceType;
                 self.services[serviceId] = service;
                 if (typeof callback == "function"){
                     callback.call(service, serviceId, service.id);

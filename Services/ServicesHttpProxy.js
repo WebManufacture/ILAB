@@ -29,7 +29,7 @@ HttpProxyService = function(params){
         }
         return false;
     });
-    ServicesManager.on("service-started", function (serviceId, servicePort) {
+    ServicesManager.on("service-started", function (serviceId, servicePort, config) {
         //console.log("HttpProxy catch service start: " + serviceId + ":" + servicePort);
         self.services[serviceId] = servicePort;
         self.addServiceHandler(serviceId, servicePort);

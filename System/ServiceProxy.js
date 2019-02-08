@@ -63,23 +63,9 @@ ServiceProxy.connect = function (pointer) {
     return instance.attach(port, host);
 };
 
-ServiceProxy.GetService = function (serviceName) {
-    var callFunc = function (services) {
-        if (services && services[serviceName]){
-            var proxy = new ServiceProxy(serviceName);
-            return proxy.attach(services[serviceName], ServiceProxy.instance.host);
-        }
-        else{
-            return new Promise((resolve, reject) => {
-                reject("service " + serviceName + " not found");
-            });
-        }
-    };
-    if (!ServiceProxy.instance) {
-        return ServiceProxy.init().then(function(instance) {return instance.GetServices() }).then(callFunc);
-    }
-    if (!ServiceProxy.connected) return null;
-    return ServiceProxy.GetServices().then(callFunc);
+ServiceProxy.GetService = function (serviceId) {
+    var proxy = new ServiceProxy(serviceId);
+    return proxy.attach(Frame.getPipe(serviceId));
 };
 
 ServiceProxy.GetServices = function () {
@@ -140,7 +126,9 @@ Inherit(ServiceProxy, EventEmitter, {
                     reject(err);
                 }
 
-                var socket = new JsonSocket(self.port, self.host, function () {
+                var socket = typeof port == "number" ? new JsonSocket(self.port, self.host) : new JsonSocket(self.port);
+
+                socket.once("connect", function () {
                     try {
                         socket.send(obj);
                     }
@@ -148,6 +136,7 @@ Inherit(ServiceProxy, EventEmitter, {
                         raiseError(err);
                     }
                 });
+
                 socket.on('error', raiseError);
                 socket.once("close", function (err) {
                     if (err) {

@@ -165,7 +165,7 @@ function _init() {
                     }));
                 }
             }
-            Frame.debugMode = debugMode;
+            Frame.debugMode = typeof v8debug === 'object' || debugMode;
             // console.log('Frame: servicesToStart ', servicesToStart)
             return servicesToStart;
         }
@@ -177,14 +177,15 @@ function _init() {
     };
 
     global.RootService = function RootService() {
-        console.log("RootService for ILAB v4.0");
+        console.log("RootService for ILAB v3.6.1");
         this.serviceType = "RootService";
         try {
             var servicesToStart = _parseCmd();
             if (servicesToStart.id){
                 Frame.setId(servicesToStart.id);
             }
-            var debugMode = Frame.debugMode;
+            //console.log("Detected " + servicesToStart.length + " services to start");
+            var debugMode =  Frame.debugMode;
             Frame.pipeId = Frame.getPipe(Frame.serviceId);
             startOldMethod = ()=> {
                 var smConfig = servicesToStart.find(s => s.type == 'ServicesManager');
@@ -224,9 +225,10 @@ function _init() {
                         if (service.type == 'RootService') return;
                         params.push(service);
                     });
+                    console.log("Detected " + params.length + " services to start");
                     servicesManager.on("service-started", function (serviceId, port, config) {
                         if (config) {
-                            console.log("Service started: " + config.serviceType + "#" + serviceId + " on TCP " + port);
+                            console.log("Service started: " + config.type + "#" + serviceId + " on TCP " + port);
                         } else {
                             console.log("Service started: " + serviceId + " on TCP " + port);
                         }

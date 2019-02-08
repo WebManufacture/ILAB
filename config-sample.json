@@ -8,13 +8,10 @@
   "FilesService":{
     "basepath": ""
   },
-  "ConsoleService": {
-    "port": 5100
-  },
   "StaticService":{
     "filesServiceId": "FilesService",
     "rootFile":"klab/fs.html",
-    "port": 80,
+    "port": 8070,
     "keyFile": "./localhost.key",
     "certFile": "./localhost.cert",
     "useSecureProtocol": false,

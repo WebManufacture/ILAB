@@ -51,11 +51,9 @@ function WebSocketProxyService(param1){
             autoAcceptConnections: true
         });
         wss.on('connect', this._onSocketConnection.bind(this));
-        process.on('exiting', () => {
-            wss.close();
-        });
-        process.on('exit', () => {
-            wss.close();
+        process.once('exiting', () => {
+            wss.unmount();
+            server.close();
         });
         return true;
     };

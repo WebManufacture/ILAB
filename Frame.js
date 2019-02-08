@@ -69,7 +69,7 @@ Frame.setId = function(id){
 
 
 Frame.getPipe = function(serviceId){
-    return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + serviceId : '/tmp/' + serviceId;
+    return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + serviceId : '/tmp/ilab-3-' + serviceId;
 };
 
 function getEnvParam(name, defaultValue){
@@ -312,7 +312,8 @@ Frame._startFrame = function (node) {
                                 // console.error(err);
                                 Frame.error(err);
                             });
-                            process.on('uncaughtException', function () {
+                            process.on('uncaughtException', function (err) {
+                                Frame.error(err);
                                 process.exit();
                             });
                         }
@@ -535,19 +536,24 @@ Frame.stopChild = function(childId){
     return null;
 },
 
+Frame.exitingInteval = null;
+
 Frame.exit = function(){
-    process.emit("exiting");
-    var date = (new Date());
-    //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
-    var tm = setTimeout(function(){
-        process.exit();
-    }, 10);
-    process.once("exit", function(){
-        clearTimeout(tm);
-    });
+    if (Frame.exitingInteval == null) {
+        process.emit("exiting");
+        var date = (new Date());
+        //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+        Frame.exitingInteval = setTimeout(function () {
+            process.exit();
+        }, 10);
+        process.once("exit", function () {
+            clearTimeout(Frame.exitingInteval);
+        });
+    }
 }
 
 process.once("exit", function(){
+    Frame.exit();
     // var date = (new Date());
     //console.log(Frame.serviceId + ":" + Frame.servicePort + " exited:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
 });
@@ -565,6 +571,8 @@ process.on("message", function(pmessage){
 
 process.once("SIGTERM", Frame.exit);
 process.once("SIGINT", Frame.exit);
+
+//console.log(Frame.isChild ? "CHILD " : "" + "FRAME: " + Frame.id + "");
 
 if (Frame.isChild) {
     Frame.serviceId = getEnvParam("serviceId", Frame.newId());

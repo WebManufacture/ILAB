@@ -42,12 +42,18 @@ Service = function(params){
     this._pipesServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,
         pauseOnConnect: false
-    }, this._onConnection.bind(this));
+    });
+    this._pipesServerForBaseInteraction.on("connection", (socket) => {
+        self._onConnection(socket);
+    });
     this.port = Frame.servicePort;
     this._netServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,
         pauseOnConnect: false
-    }, this._onConnection.bind(this));
+    });
+    this._netServerForBaseInteraction.on("connection", (socket) => {
+        self._onConnection(socket);
+    });
     self.setMaxListeners(100);
     this._netServerForBaseInteraction.on("error", function (err) {
         try {
