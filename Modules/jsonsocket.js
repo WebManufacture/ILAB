@@ -13,10 +13,11 @@ function JsonSocket() {
     var id = (Math.random() + '').replace("0.", "");
     var isStream = false;
     var streamLength = 0;
-
-    if (arguments[0] instanceof net.Socket) {
+    var address = null;
+    if (typeof arguments[0] == "object") {
         socket = arguments[0];
     } else {
+        address = arguments[0];
         socket = net.connect.apply(net, arguments);
     }
 

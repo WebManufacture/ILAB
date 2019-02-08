@@ -24,18 +24,16 @@ ServiceProxy.connected = false;
 ServiceProxy._connectingPromise = null;
 
 ServiceProxy.init = function (port, host) {
-    if (!ServiceProxy.instance && (!Frame || !Frame.servicesManagerPort)) return null;
+    if (!ServiceProxy.instance && (!Frame || !Frame.rootId)) return null;
     if (ServiceProxy.instance){
         if (!ServiceProxy.connected) return ServiceProxy._connectingPromise;
         else return new Promise(function(resolve, reject) {
             return resolve(ServiceProxy.instance);
         });
     };
-    if (!port) port = Frame.servicesManagerPort;
-    if (!host) host = 'localhost';
-    ServiceProxy.instance = new ServiceProxy("ServicesManager");
+    ServiceProxy.instance = new ServiceProxy(Frame.rootId);
     var self = this;
-    ServiceProxy._connectingPromise = ServiceProxy.instance.attach(port, host).then(function () {
+    ServiceProxy._connectingPromise = ServiceProxy.instance.attach(Frame.getPipe(Frame.rootId)).then(function () {
         ServiceProxy.connected = true;
         ServiceProxy._connectingPromise = null;
         return ServiceProxy.instance
@@ -65,23 +63,9 @@ ServiceProxy.connect = function (pointer) {
     return instance.attach(port, host);
 };
 
-ServiceProxy.GetService = function (serviceName) {
-    var callFunc = function (services) {
-        if (services && services[serviceName]){
-            var proxy = new ServiceProxy(serviceName);
-            return proxy.attach(services[serviceName], ServiceProxy.instance.host);
-        }
-        else{
-            return new Promise((resolve, reject) => {
-                reject("service " + serviceName + " not found");
-            });
-        }
-    };
-    if (!ServiceProxy.instance) {
-        return ServiceProxy.init().then(function(instance) {return instance.GetServices() }).then(callFunc);
-    }
-    if (!ServiceProxy.connected) return null;
-    return ServiceProxy.GetServices().then(callFunc);
+ServiceProxy.GetService = function (serviceId) {
+    var proxy = new ServiceProxy(serviceId);
+    return proxy.attach(Frame.getPipe(serviceId));
 };
 
 ServiceProxy.GetServices = function () {
@@ -142,7 +126,9 @@ Inherit(ServiceProxy, EventEmitter, {
                     reject(err);
                 }
 
-                var socket = new JsonSocket(self.port, self.host, function () {
+                var socket = typeof port == "number" ? new JsonSocket(self.port, self.host) : new JsonSocket(self.port);
+
+                socket.once("connect", function () {
                     try {
                         socket.send(obj);
                     }
@@ -150,6 +136,7 @@ Inherit(ServiceProxy, EventEmitter, {
                         raiseError(err);
                     }
                 });
+
                 socket.on('error', raiseError);
                 socket.once("close", function (err) {
                     if (err) {
@@ -238,15 +225,23 @@ Inherit(ServiceProxy, EventEmitter, {
     },
 
     attach : function (port, host, callback) {
+        if (typeof port == "string"){
+            if (!isNaN(parseInt(port))){
+                port = parseInt(port);
+            }
+        }
         this.port = port;
         if (!port) throw new Error("Unknown port to attach in " + this.serviceId);
-        if (!host) host = "127.0.0.1";
-        this.host = host;
         var self = this;
         var promise = new Promise(
             function (resolve, reject) {
                 try {
-                    var socket = new JsonSocket(port, host, function (err) {
+                    if (typeof port == "number") {
+                        if (!host) host = "127.0.0.1";
+                        this.host = host;
+                    }
+                    var socket = typeof port == "number" ? new JsonSocket(port, host) : new JsonSocket(port);
+                    socket.once("connect",function (err) {
                         //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
                         try {
                             socket.write({"type": "startup", args: self.startParams});

@@ -153,7 +153,7 @@ function DiscoveryService(config){
         });
     });
 
-    ServicesManager.on("service-started", (serviceId, servicePort, config) => {
+    ServicesManager.on("service-started", (serviceId, config) => {
         if (service.serviceType == "RoutingService"){
             this.routerId = serviceId;
         }

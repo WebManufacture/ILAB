@@ -37,7 +37,7 @@ ForkMon.STATUS_WORKING = 7;
 Inherit(ForkMon, EventEmitter, {
     start : function(params){
         if (this.code >= ForkMon.STATUS_WORKING){
-            return;
+            throw "trying to start working node";
         }
         if (typeof (params) == 'function'){
             var callback = params;
@@ -48,6 +48,8 @@ Inherit(ForkMon, EventEmitter, {
             silent: false,
             cwd : process.cwd(),
             env : {
+                parentId: Frame.serviceId,
+                rootId: Frame.rootId,
                 params: JSON.stringify(params)
             }
         };
@@ -61,9 +63,8 @@ Inherit(ForkMon, EventEmitter, {
         if (params && params.cwd){
             options.cwd = params.cwd;
         };
-        if (this.env.debugPort){
-            const key = this.env.debugMode == 'debug' ? "--inspect-brk" : "--inspect";
-            options.execArgv = [key + "=" + this.env.debugPort];
+        if (Frame.debugMode && process.debugPort){
+            options.execArgv = ["--inspect-brk=" + (parseInt(process.debugPort) + Math.floor(Math.random()*1000))];
         }
         var cp = this.process = ChildProcess.fork(this.path, this.args, options);
         this.code = ForkMon.STATUS_WORKING;

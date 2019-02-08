@@ -3,7 +3,7 @@ var fs = require('fs');
 var http = require('http');
 var os = require('os');
 var vm = require('vm');
-require('child-process-debug');
+var ChildProcess = require('child_process');
 
 if (!global.Frame) {
     Frame = {isChild: true};
@@ -31,6 +31,8 @@ global.useSystem = Frame.useSystem = prepareArgAspect(function(path){
     return require(Path.resolve(Frame.SystemPath + path));
 });
 
+Frame.parentId = getEnvParam("parentId", null);
+Frame.rootId = getEnvParam("rootId", null);
 Frame.basePath = process.cwd();
 Frame.ilabPath = Frame.basePath;
 if (Frame.ilabPath.indexOf("/") != Frame.ilabPath.length - 1) Frame.ilabPath += "/";
@@ -53,16 +55,20 @@ Frame.newId = function(){
 }
 
 Frame.setId = function(id){
-    if (Frame.serviceId != id){
+    if (Frame.serviceId && Frame.serviceId != id){
         console.log("Node id changing from " + Frame.serviceId + " to " + id);
     }
+    if (!Frame.isChild){
+        Frame.rootId = id;
+    }
+    Frame.id = id;
     Frame.serviceId = id;
     Frame.pipeId = Frame.getPipe(id);
 }
 
 
 Frame.getPipe = function(serviceId){
-    return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + serviceId : '/tmp/' + serviceId;
+    return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + serviceId : '/tmp/ilab-3-' + serviceId;
 };
 
 function getEnvParam(name, defaultValue){
@@ -278,10 +284,60 @@ Frame._startFrame = function (node) {
         Frame.serviceType = typeof node;
         if (node) {
             if (typeof node == "function") {
+                var ServiceProxy = useSystem("ServiceProxy");
+                ServiceProxy.init().then(function (servicesManager) {
+                    try {
+                        var sm = global.ServicesManager = {};
+                        for (var item in servicesManager) {
+                            sm[item] = servicesManager[item];
+                        }
+                        sm.GetServices = ServiceProxy.GetServices;
+                        sm.GetServicesInfo = ServiceProxy.instance.GetServicesInfo;
+                        sm.GetService = ServiceProxy.GetService;
+
+                        var oldLog = console.log;
+                        console.log = function () {
+                            if (typeof arguments[0] == "string" && arguments[0].indexOf(Frame.serviceId) != 0) {
+                                arguments[0] = Frame.serviceId + ": " + arguments[0];
+                            }
+                            oldLog.apply(this, arguments);
+                        };
+                        if (node.hasPrototype("Service")) {
+                            service = new node(params);
+                            if (service.serviceId) {
+                                Frame.serviceId = service.serviceId;
+                            }
+                            service.on("error", function (err) {
+                                // console.error(err);
+                                Frame.error(err);
+                            });
+                            process.on('uncaughtException', function (err) {
+                                Frame.error(err);
+                                process.exit();
+                            });
+                        }
+                        else {
+                            console.log(Frame.node + " node starting...");
+                            node = node(params);
+                            console.log(Frame.nodePath + " node started");
+                        }
+                        Frame.send({type: "control", state: "started", serviceId: Frame.serviceId, config : params });
+                    }
+                    catch (err){
+                        Frame.error(err);
+                    }
+                }).catch(function (err) {
+                    Frame.error(err);
+                    //console.log("Fork error in " + Frame.serviceId + " " + Frame.nodePath);
+                    //console.error(err.stack);
+                });
+                /*
                 Frame.serviceType = node.name;
                 var service = new node(params);
                 if (node.hasPrototype("Service")) {
-                    Frame.serviceType = service.serviceType;
+                    if (service.serviceType) {
+                        Frame.serviceType = service.serviceType;
+                    }
                     if (service.serviceId) {
                         var oldLog = console.log;
                         console.log = function () {
@@ -298,7 +354,7 @@ Frame._startFrame = function (node) {
                 }
                 process.on('uncaughtException', function () {
                     process.exit();
-                });
+                });*/
             }
         }
         Frame.send({type: "control", state: "started",serviceId: Frame.serviceId, serviceType: Frame.serviceType, pipe: Frame.pipeId, config : params });
@@ -361,6 +417,8 @@ Frame.startChild = function(params){
         silent: false,
         cwd : Frame.workingPath,
         env : {
+            parentId: Frame.serviceId,
+            rootId: Frame.rootId,
             nodePath: servicePath,
             params: JSON.stringify(params)
         }
@@ -375,7 +433,7 @@ Frame.startChild = function(params){
     var cp = ChildProcess.fork(Frame.ilabPath + "Frame.js", args, options);
     cp.id = params.id;
     cp.path = params.path;
-    cp.code = ForkMon.STATUS_NEW;
+    cp.code = Frame.STATUS_NEW;
     process.emit("child-started", cp);
     cp.once("exit", function(){
         cp.code = Frame.STATUS_EXITED;
@@ -395,12 +453,14 @@ Frame.startChild = function(params){
                 }
             }
             if (obj.type == "log"){
+                cp.emit('log', cp, obj);
                 return process.emit("child-log", obj.item);
             }
             if (obj.type == "control") {
                 cp.serviceType = obj.serviceType;
                 if (obj.serviceId && cp.id && cp.id != obj.serviceId){
                     var oldId = cp.id;
+                    cp.emit('renamed', cp, obj);
                     process.emit("child-renaming", cp, obj.serviceId);
                     process.emit("child-renaming-" + cp.id, cp, obj.serviceId);
                     cp.id = obj.serviceId;
@@ -409,18 +469,21 @@ Frame.startChild = function(params){
                 }
                 if (obj.state == "started") {
                     cp.code = Frame.STATUS_STARTED;
+                    cp.emit('started', cp, obj);
                     process.emit("child-started-" + cp.id, cp, obj);
                     process.emit("child-started", cp, obj);
                     return;
                 }
                 if (obj.state == "loaded") {
                     cp.code = Frame.STATUS_LOADED;
+                    cp.emit('loaded', cp, obj);
                     process.emit("child-loaded-" + cp.id, cp, obj);
                     process.emit("child-loaded", cp, obj);
                     return;
                 }
                 if (obj.state == "connected") {
                     cp.code = Frame.STATUS_WORKING;
+                    cp.emit('connected', cp, obj);
                     process.emit("child-connected-" + cp.id, cp, obj);
                     process.emit("child-connected", cp, obj);
                     return;
@@ -472,19 +535,24 @@ Frame.stopChild = function(childId){
     return null;
 },
 
+Frame.exitingInteval = null;
+
 Frame.exit = function(){
-    process.emit("exiting");
-    var date = (new Date());
-    //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
-    var tm = setTimeout(function(){
-        process.exit();
-    }, 10);
-    process.once("exit", function(){
-        clearTimeout(tm);
-    });
+    if (Frame.exitingInteval == null) {
+        process.emit("exiting");
+        var date = (new Date());
+        //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+        Frame.exitingInteval = setTimeout(function () {
+            process.exit();
+        }, 10);
+        process.once("exit", function () {
+            clearTimeout(Frame.exitingInteval);
+        });
+    }
 }
 
 process.once("exit", function(){
+    Frame.exit();
     // var date = (new Date());
     //console.log(Frame.serviceId + ":" + Frame.servicePort + " exited:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
 });
@@ -502,6 +570,8 @@ process.on("message", function(pmessage){
 
 process.once("SIGTERM", Frame.exit);
 process.once("SIGINT", Frame.exit);
+
+//console.log(Frame.isChild ? "CHILD " : "" + "FRAME: " + Frame.id + "");
 
 if (Frame.isChild) {
     Frame.serviceId = getEnvParam("serviceId", Frame.newId());
