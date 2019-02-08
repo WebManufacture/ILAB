@@ -3,8 +3,8 @@ var os = require("os");
 
 function _init() {
     useModule('utils.js');
-    //var ForkingService = useSystem('ForkingService');
-    var Service = useSystem('Service');
+    var ForkingService = useSystem('ForkingService');
+    //var Service = useSystem('Service');
 
 
     function _parseCmd () {
@@ -62,7 +62,6 @@ function _init() {
         try{
             if (process.execArgv[0] && (process.execArgv[0].indexOf("--inspect") >= 0 || process.execArgv[0].indexOf("--debug") >= 0)){
                 debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
-                console.log("Debug mode: " + debugMode);
             }
             var configFileName = "config.json";
             for (var i = 2; i <= process.argv.length; i++) {
@@ -70,11 +69,10 @@ function _init() {
                 if (!arg) continue;
                 if (arg.indexOf("--inspect") >= 0) {
                     debugMode = arg.indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
-                    console.log("Debug mode: " + debugMode);
                     continue;
                 }
-                if (arg === "--new") {
-                    servicesToStart.useNewStart = true;
+                if (arg === "--old") {
+                    servicesToStart.useOldStart = true;
                     continue;
                 }
                 if (arg === "--port") {
@@ -177,8 +175,8 @@ function _init() {
     };
 
     global.RootService = function RootService() {
-        console.log("RootService for ILAB v3.6.1");
-        this.serviceType = "RootService";
+        console.log("RootService for ILAB v4");
+        Frame.serviceType = this.serviceType = "RootService";
         try {
             var servicesToStart = _parseCmd();
             if (servicesToStart.id){
@@ -241,7 +239,7 @@ function _init() {
                 }
             }
             startNewMethod = () => {
-                var result = Service.call(this, { id: Frame.serviceId });
+                var result = ForkingService.call(this, { id: Frame.serviceId });
                 this.on("error", function (err) {
                     if (err.serviceId) {
                         console.log("Service error: " + err.serviceId);
@@ -262,8 +260,8 @@ function _init() {
                     var frame = Frame.startChild(service);
                     if (frame) {
                         frames.push(new Promise((resolve, reject) => {
-                            frame.once("started", () => {
-                                console.log(frame.id + " started");
+                            frame.once("started", (cp) => {
+                                Frame.log("Started: " + cp.id);
                                 resolve();
                             });
                         }));
@@ -273,10 +271,10 @@ function _init() {
                     console.log("All started!");
                 });
             }
-            if (servicesToStart.useNewStart){
-                startNewMethod();
-            } else {
+            if (servicesToStart.useOldStart){
                 startOldMethod();
+            } else {
+                startNewMethod();
             }
         } catch (err) {
             console.log("RootError: ");
@@ -284,7 +282,7 @@ function _init() {
         }
     };
 
-    Inherit(RootService, Service, {
+    Inherit(RootService, ForkingService, {
 
     });
 }
@@ -293,8 +291,7 @@ if (!global.Frame){
     Frame = { isChild: false }
     require(Path.resolve("./Frame.js"));
     _init();
-    RootService();
-    //Frame._startFrame(RootService);
+    Frame._startFrame(RootService);
 } else {
     _init();
     module.exports = RootService;

@@ -37,10 +37,10 @@ Frame.basePath = process.cwd();
 Frame.ilabPath = Frame.basePath;
 if (Frame.ilabPath.indexOf("/") != Frame.ilabPath.length - 1) Frame.ilabPath += "/";
 Frame.workingPath =  process.env.workDir == 'string' ? Path.resolve(process.env.workDir) : process.cwd();
-Frame.NodesPath =  Frame.ilabPath + "/Nodes/";
-Frame.ModulesPath = Frame.ilabPath + "/Modules/";
-Frame.ServicesPath = Frame.ilabPath + "/Services/";
-Frame.SystemPath = Frame.ilabPath + "/System/";
+Frame.NodesPath =  Frame.ilabPath + "Nodes/";
+Frame.ModulesPath = Frame.ilabPath + "Modules/";
+Frame.ServicesPath = Frame.ilabPath + "Services/";
+Frame.SystemPath = Frame.ilabPath + "System/";
 Frame.NodeModulesPath = process.execPath.replace("node.exe", "") + "node_modules/";
 Frame.Nodes = {};
 Frame.Modules = [];
@@ -92,10 +92,8 @@ Frame.log = function(log){
 };
 
 Frame.send = function(arg1, arg2){
-    if (process.connected){
-        return process.send(arg1, arg2);
-    } else {
-        console.log(arg1);
+    if (Frame.isChild && process.connected){
+       return process.send(arg1, arg2);
     }
 };
 
@@ -170,7 +168,6 @@ Frame._parseCmd = function() {
     try{
         if (process.execArgv[0] && (process.execArgv[0].indexOf("--inspect") >= 0 || process.execArgv[0].indexOf("--debug") >= 0)){
             debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
-            console.log("Debug mode: " + debugMode);
         }
         var configFileName = "config.json";
         for (var i = 2; i <= process.argv.length; i++) {
@@ -178,7 +175,6 @@ Frame._parseCmd = function() {
             if (!arg) continue;
             if (arg.indexOf("--inspect") >= 0) {
                 debugMode = arg.indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
-                console.log("Debug mode: " + debugMode);
                 continue;
             }
             if (arg.indexOf("{") == 0) {
@@ -192,6 +188,7 @@ Frame._parseCmd = function() {
                 }
                 continue;
             }
+            if (arg.indexOf("--") == 0) continue;
             if (arg.indexOf(".js") < 0) {
                 mergeConfig(parseConfig({
                     path: Frame.ServicesPath + arg + ".js"
@@ -284,54 +281,6 @@ Frame._startFrame = function (node) {
         Frame.serviceType = typeof node;
         if (node) {
             if (typeof node == "function") {
-                var ServiceProxy = useSystem("ServiceProxy");
-                ServiceProxy.init().then(function (servicesManager) {
-                    try {
-                        var sm = global.ServicesManager = {};
-                        for (var item in servicesManager) {
-                            sm[item] = servicesManager[item];
-                        }
-                        sm.GetServices = ServiceProxy.GetServices;
-                        sm.GetServicesInfo = ServiceProxy.instance.GetServicesInfo;
-                        sm.GetService = ServiceProxy.GetService;
-
-                        var oldLog = console.log;
-                        console.log = function () {
-                            if (typeof arguments[0] == "string" && arguments[0].indexOf(Frame.serviceId) != 0) {
-                                arguments[0] = Frame.serviceId + ": " + arguments[0];
-                            }
-                            oldLog.apply(this, arguments);
-                        };
-                        if (node.hasPrototype("Service")) {
-                            service = new node(params);
-                            if (service.serviceId) {
-                                Frame.serviceId = service.serviceId;
-                            }
-                            service.on("error", function (err) {
-                                // console.error(err);
-                                Frame.error(err);
-                            });
-                            process.on('uncaughtException', function (err) {
-                                Frame.error(err);
-                                process.exit();
-                            });
-                        }
-                        else {
-                            console.log(Frame.node + " node starting...");
-                            node = node(params);
-                            console.log(Frame.nodePath + " node started");
-                        }
-                        Frame.send({type: "control", state: "started", serviceId: Frame.serviceId, config : params });
-                    }
-                    catch (err){
-                        Frame.error(err);
-                    }
-                }).catch(function (err) {
-                    Frame.error(err);
-                    //console.log("Fork error in " + Frame.serviceId + " " + Frame.nodePath);
-                    //console.error(err.stack);
-                });
-                /*
                 Frame.serviceType = node.name;
                 var service = new node(params);
                 if (node.hasPrototype("Service")) {
@@ -352,9 +301,10 @@ Frame._startFrame = function (node) {
                         Frame.error(err);
                     });
                 }
-                process.on('uncaughtException', function () {
+                process.on('uncaughtException', function (err) {
+                    Frame.error(err);
                     process.exit();
-                });*/
+                });
             }
         }
         Frame.send({type: "control", state: "started",serviceId: Frame.serviceId, serviceType: Frame.serviceType, pipe: Frame.pipeId, config : params });
@@ -426,10 +376,9 @@ Frame.startChild = function(params){
     if (params && params.workingPath){
         options.cwd = params.workingPath;
     };
-    /*if (Frame.debugPort){
-        const key = Frame.debugMode == 'debug' ? "--inspect-brk" : "--inspect";
-        options.execArgv = [key + "=" + (Frame.debugPort + 1)];
-    }*/
+    if (Frame.debugMode && process.debugPort){
+        options.execArgv = ["--inspect-brk=" + (parseInt(process.debugPort) + Math.floor(Math.random()*1000))];
+    }
     var cp = ChildProcess.fork(Frame.ilabPath + "Frame.js", args, options);
     cp.id = params.id;
     cp.path = params.path;

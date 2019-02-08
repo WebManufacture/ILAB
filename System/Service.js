@@ -22,7 +22,7 @@ Service = function(params){
     });
     if (!this.serviceType){
         this.serviceType = params.type ? params.type : this.constructor.name;
-        console.log("This class is " + this.constructor.name);
+        //console.log("This class is " + this.constructor.name);
     }
     if (!this.serviceId) {
         if (params && params.id) {
