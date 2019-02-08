@@ -78,32 +78,34 @@ Service = function(params){
     var wasExiting = false;
     process.once("SIGTERM", () =>{
         if (!wasExiting){
+            wasExiting = true;
             console.log("SIGTERM:closing " + Frame.pipeId);
             self._closeServer();
-            wasExiting = true;
         };
         process.exit();
     });
     process.once("SIGINT", () =>{
         if (!wasExiting){
+            wasExiting = true;
             console.log("SIGINT:closing " + Frame.pipeId);
             self._closeServer();
-            wasExiting = true;
         };
         process.exit();
     });
     process.once("exiting", () =>{
-        console.log("exiting:closing " + Frame.pipeId);
-        self.emit("exiting");
-        self._closeServer();
-        wasExiting = true;
+        if (!wasExiting) {
+            wasExiting = true;
+            console.log("exiting:closing " + Frame.pipeId);
+            self.emit("exiting");
+            self._closeServer();
+        }
     });
     process.once("exit", () =>{
         if (!wasExiting){
+            wasExiting = true;
             console.log("exit:closing " + Frame.pipeId);
             self.emit("exiting");
             self._closeServer();
-            wasExiting = true;
         }
     });
     this.GetDescription = function () {

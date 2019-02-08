@@ -176,9 +176,9 @@ Inherit(ServicesManager, Service, {
         if (typeof obj == "object"){
             if (obj.type == "error"){
                 if (obj.item) {
-                    return this.emit("error", new Error(obj.item + ""));
+                    //return this.emit("error", new Error(obj.item + ""));
                 } else {
-                    return this.emit("error", new Error(obj.message));
+                    //return this.emit("error", new Error(obj.message));
                 }
             }
             if (obj.type == "log"){
