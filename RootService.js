@@ -12,12 +12,12 @@ function _init() {
         var servicesToStart = [];
         function findServiceIndex(selectorObj) {
             if (selectorObj.id){
-                return servicesToStart.indexOf(s => s.id == selectorObj.id);
+                return servicesToStart.findIndex(s => s.id == selectorObj.id);
             }
             if (selectorObj.path){
-                return servicesToStart.indexOf(s => s.path == selectorObj.path);
+                return servicesToStart.findIndex(s => s.path == selectorObj.path);
             }
-            return servicesToStart.indexOf(s => s.type == selectorObj.type);
+            return servicesToStart.findIndex(s => s.type == selectorObj.type);
         }
         function copyConfig(to, from, replace){
             if (to && from){
@@ -239,7 +239,7 @@ function _init() {
                 }
             }
             startNewMethod = () => {
-                var result = ForkingService.call(this, { id: Frame.serviceId });
+                var result = Service.call(this, { id: Frame.serviceId });
                 this.on("error", function (err) {
                     if (err.serviceId) {
                         console.log("Service error: " + err.serviceId);
@@ -247,25 +247,23 @@ function _init() {
                     console.error(err);
                     err.handled = true;
                 });
-                this.on("child-started", function (serviceId, port, config) {
-                    if (config) {
-                        console.log("Service started: " + config.serviceType + "#" + serviceId + " on TCP " + port);
-                    } else {
-                        console.log("Service started: " + serviceId + " on TCP " + port);
-                    }
-                });
                 var frames = [];
                 for (var i = 0; i <= servicesToStart.length; i++) {
-                    var service = servicesToStart[i];
-                    var frame = Frame.startChild(service);
-                    if (frame) {
-                        frames.push(new Promise((resolve, reject) => {
-                            frame.once("started", (cp) => {
-                                Frame.log("Started: " + cp.id);
-                                resolve();
-                            });
-                        }));
-                    }
+                    ((service)=> {
+                        var frame = Frame.startChild(service);
+                        if (frame) {
+                            frames.push(new Promise((resolve, reject) => {
+                                frame.once("started", (cp) => {
+                                    if (cp.serviceType) {
+                                        Frame.log("Started: " + cp.serviceType + "#" + cp.id);
+                                    } else {
+                                        Frame.log("Started: " + cp.id);
+                                    }
+                                    resolve();
+                                });
+                            }));
+                        }
+                    })(servicesToStart[i]);
                 }
                 Promise.all(frames).then(() => {
                     console.log("All started!");
@@ -282,7 +280,7 @@ function _init() {
         }
     };
 
-    Inherit(RootService, ForkingService, {
+    Inherit(RootService, Service, {
 
     });
 }

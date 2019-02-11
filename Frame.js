@@ -92,6 +92,9 @@ Frame.log = function(log){
     if (process.connected){
         process.send({type: "log", item: log});
     }
+    if (typeof log == "string" && log.indexOf(Frame.serviceId) != 0) {
+        log = Frame.serviceId + ": " + log;
+    }
     console.log(log);
 };
 
@@ -122,12 +125,12 @@ Frame._parseCmd = function() {
     var servicesToStart = [];
     function findServiceIndex(selectorObj) {
         if (selectorObj.id){
-            return servicesToStart.indexOf(s => s.id == selectorObj.id);
+            return servicesToStart.findIndex(s => s.id == selectorObj.id);
         }
         if (selectorObj.path){
-            return servicesToStart.indexOf(s => s.path == selectorObj.path);
+            return servicesToStart.findIndex(s => s.path == selectorObj.path);
         }
-        return servicesToStart.indexOf(s => s.type == selectorObj.type);
+        return servicesToStart.findIndex(s => s.type == selectorObj.type);
     }
     function copyConfig(to, from, replace){
         if (to && from){
@@ -215,7 +218,7 @@ Frame._parseCmd = function() {
 };
 
 Frame._initFrame = function () {
-    Frame.send({type: "control", state: "loaded"});
+//    Frame.send({type: "control", state: "loaded"});
     try {
         if (Frame.nodePath.indexOf("http://") == 0 || Frame.nodePath.indexOf("https://") == 0) {
             http.get(Frame.nodePath, (res) => {
@@ -290,8 +293,13 @@ Frame._startFrame = function (node) {
                 if (node.hasPrototype("Service")) {
                     if (service.serviceType) {
                         Frame.serviceType = service.serviceType;
+                    } else {
+                        Frame.serviceType = service.name;
                     }
                     if (service.serviceId) {
+                        if (Frame.serviceId != service.serviceId){
+                            Frame.serviceId = service.serviceId;
+                        }
                         var oldLog = console.log;
                         console.log = function () {
                             if (typeof arguments[0] == "string" && arguments[0].indexOf(service.serviceId) != 0) {

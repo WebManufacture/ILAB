@@ -40,6 +40,7 @@ Service = function(params){
         }
     }
     //console.log(process.channel);
+    /*
     this._pipesServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,
         pauseOnConnect: false
@@ -73,7 +74,7 @@ Service = function(params){
     }
     catch (error){
         throw ("Cannot start " + this.serviceId + " on " + Frame.pipeId + "\n" + error.message);
-    }
+    }*/
     this.register("exiting", {
         description: "occurs when service process like to exit",
         args: []
@@ -82,7 +83,6 @@ Service = function(params){
     process.once("SIGTERM", () =>{
         if (!wasExiting){
             wasExiting = true;
-            console.log("SIGTERM:closing " + Frame.pipeId);
             self._closeServer();
         };
         process.exit();
@@ -90,7 +90,6 @@ Service = function(params){
     process.once("SIGINT", () =>{
         if (!wasExiting){
             wasExiting = true;
-            console.log("SIGINT:closing " + Frame.pipeId);
             self._closeServer();
         };
         process.exit();
@@ -98,7 +97,6 @@ Service = function(params){
     process.once("exiting", () =>{
         if (!wasExiting) {
             wasExiting = true;
-            console.log("exiting:closing " + Frame.pipeId);
             self.emit("exiting");
             self._closeServer();
         }
@@ -106,7 +104,6 @@ Service = function(params){
     process.once("exit", () =>{
         if (!wasExiting){
             wasExiting = true;
-            console.log("exit:closing " + Frame.pipeId);
             self.emit("exiting");
             self._closeServer();
         }
@@ -166,7 +163,7 @@ Inherit(Service, EventEmitter, {
 
     routeLocal: function(serviceId, packet){
         //var socket = new JsonSocket(node.data.tcpPort, "127.0.0.1", function (err) {
-        var socket = new JsonSocket(Frame.getPipe(serviceId), function (err) {
+        /*var socket = new JsonSocket(Frame.getPipe(serviceId), function (err) {
             //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
             try {
                 socket.write(packet);
@@ -175,7 +172,13 @@ Inherit(Service, EventEmitter, {
             catch(err){
                 console.error(err);
             }
-        });
+        });*/
+        Frame.routeMessage({
+            to: serviceId,
+            from: this.serviceId,
+            source: this.serviceType + "#" + this.serviceId,
+            content: packet
+        })
     },
 
     routeInternal: function(message){
@@ -359,8 +362,9 @@ Inherit(Service, EventEmitter, {
     },
 
     _closeServer : function(){
-        this._pipesServerForBaseInteraction.close();
-        this.emit("closing-server");
+        //this._pipesServerForBaseInteraction.close();
+        //console.log("exiting:closing " + Frame.pipeId);
+        //this.emit("closing-server");
     },
 
     emit: function (eventName) {
@@ -399,8 +403,6 @@ Inherit(Service, EventEmitter, {
             this._config[key] = description;
         }
     },
-
-
 });
 
 module.exports = Service;

@@ -46,10 +46,8 @@ Inherit(UdpServer, EventEmitter, {
             id: this.serviceId,
             myAddress: this.localAddress,
             myPort: this.localPort,
-            tcpPort: this.tcpPort,
             serviceType: "DiscoveryService",
-            parentId: ServicesManager.serviceId,
-            parentPort: Frame.servicesManagerPort
+            parentId: Frame.rootId,
         }, portTo, addressTo);
     },
     sendSeeyou : function (addressTo, portTo, addressFrom, portFrom) {
@@ -64,8 +62,7 @@ Inherit(UdpServer, EventEmitter, {
             yourPort: portTo,
             tcpPort: this.tcpPort,
             serviceType: "DiscoveryService",
-            parentId: ServicesManager.serviceId,
-            parentPort: Frame.servicesManagerPort
+            parentId: Frame.rootId,
         }, portTo, addressTo);
     }
 });
@@ -127,7 +124,7 @@ function DiscoveryService(config){
             cidr:"fe80::d969:68fc:938:ca1b/64",
         }
     */
-
+    /*
     this.registerNode({
         id: this.serviceId,
         type: "self",
@@ -135,9 +132,9 @@ function DiscoveryService(config){
         serviceType: "DiscoveryService",
         tcpPort: this.port
     });
-
-    this.routerId == "";
-
+    */
+    this.routerId = "";
+/*
     ServicesManager.GetServicesInfo().then((services)=>{
         services.forEach((service)=> {
             if (service.serviceType == "RoutingService"){
@@ -168,7 +165,36 @@ function DiscoveryService(config){
 
     ServicesManager.on("service-exited",(serviceId, servicePort) => {
         delete this.knownNodes[serviceId];
+    });*/
+
+
+    process.on("created-route", (route)=>{
+        this.registerNode({
+            id: route.id,
+            type: "local",
+            rank: 6,
+            serviceType: route.serviceType
+        });
     });
+
+    process.on("removed-route", (route)=>{
+        this.unRegisterNode({
+            id: route.id,
+            type: "local",
+            rank: 6,
+            serviceType: route.serviceType
+        });
+    });
+
+    Frame.routeTable.forEach((route)=> {
+        this.registerNode({
+            id: route.id,
+            type: "local",
+            rank: 6,
+            serviceType: route.serviceType
+        });
+    });
+
 
     var interfaces = os.networkInterfaces();
     for (var item in interfaces){
@@ -382,7 +408,7 @@ Inherit(DiscoveryService, Service, {
     registerNode : function(nfo){
         if (nfo && nfo.id){
             var existing = this.knownNodes[nfo.id];
-            if (this.routerId) {
+            if (this.routerId && nfo.rank >= 10) {
                 this.routeLocal(this.routerId, {
                     type: "method",
                     name: "RegisterNode",
@@ -406,6 +432,16 @@ Inherit(DiscoveryService, Service, {
                     this.knownNodes[nfo.id] = nfo;
                     return true;
                 }
+            }
+        }
+        return false;
+    },
+
+    unRegisterNode : function(nfo){
+        if (nfo && nfo.id){
+            delete this.knownNodes[nfo.id];
+            if (nfo.rank >= 10) {
+                Frame.removeNode(nfo.id);
             }
         }
         return false;

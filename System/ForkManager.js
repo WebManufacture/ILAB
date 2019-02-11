@@ -58,6 +58,7 @@ Frame.startChild = function(params){
         silent: false,
         cwd : Frame.workingPath,
         env : {
+            serviceId: params.id,
             parentId: Frame.serviceId,
             rootId: Frame.rootId,
             nodePath: servicePath,
@@ -74,7 +75,7 @@ Frame.startChild = function(params){
     cp.id = params.id;
     cp.path = params.path;
     cp.code = Frame.STATUS_NEW;
-    process.emit("child-started", cp);
+    process.emit("child-starting", cp);
     cp.once("exit", function(){
         cp.code = Frame.STATUS_EXITED;
         process.emit('child-exited', cp);
@@ -85,6 +86,7 @@ Frame.startChild = function(params){
     });
     cp.on("message", (obj) => {
         if (typeof obj == "object"){
+            Frame.send(obj);
             if (obj.type == "error"){
                 if (obj.item) {
                     return process.emit("child-error", new Error(obj.item + ""));
@@ -97,10 +99,13 @@ Frame.startChild = function(params){
                 return process.emit("child-log", obj.item);
             }
             if (obj.type == "control") {
-                cp.serviceType = obj.serviceType;
+                if (obj.serviceType) {
+                    cp.serviceType = obj.serviceType;
+                }
                 if (obj.serviceId && cp.id && cp.id != obj.serviceId){
                     var oldId = cp.id;
                     cp.emit('renamed', cp, obj);
+                    console.log("renamed from " + cp.id + " to " + obj.serviceId);
                     process.emit("child-renaming", cp, obj.serviceId);
                     process.emit("child-renaming-" + cp.id, cp, obj.serviceId);
                     cp.id = obj.serviceId;
@@ -173,4 +178,4 @@ Frame.stopChild = function(childId){
         }
     }
     return null;
-}
+};
