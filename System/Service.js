@@ -266,7 +266,7 @@ Inherit(Service, EventEmitter, {
             };
             socket.on('json', messageHandlerFunction);
 
-        }
+        };
 
         var messageHandlerFunction = function (message) {
             if (message.type == "method"){

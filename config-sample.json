@@ -11,7 +11,7 @@
   "StaticService":{
     "filesServiceId": "FilesService",
     "rootFile":"klab/fs.html",
-    "port": 8070,
+    "port": 80,
     "keyFile": "./localhost.key",
     "certFile": "./localhost.cert",
     "useSecureProtocol": false,
