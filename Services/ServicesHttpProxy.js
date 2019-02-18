@@ -33,6 +33,9 @@ HttpProxyService = function(params){
         //console.log("HttpProxy catch service start: " + serviceId + ":" + servicePort);
         self.services[serviceId] = servicePort;
         self.addServiceHandler(serviceId, servicePort);
+        if (serviceId != config.type){
+            self.addServiceHandler(config.type, servicePort);
+        }
     });
     ServicesManager.on("service-exited", function (serviceId, servicePort) {
         console.log("HttpProxy catch service exited: " + serviceId + ":" + servicePort);

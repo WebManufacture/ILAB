@@ -201,6 +201,7 @@ function _init() {
                     }
                 };
                 var incrementalPort = servicesToStart.port ? parseInt(servicesToStart.port) : 5600;
+                if (!Frame.servicePort) Frame.servicePort = incrementalPort;
                 var ServicesManager = useService(smConfig.path);
                 if (ServicesManager) {
                     if (smConfig.id) Frame.setId(smConfig.id);

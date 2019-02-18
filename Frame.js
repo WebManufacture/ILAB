@@ -34,6 +34,8 @@ global.useSystem = Frame.useSystem = prepareArgAspect(function(path){
 
 Frame.parentId = getEnvParam("parentId", null);
 Frame.rootId = getEnvParam("rootId", null);
+Frame.managerPort = getEnvParam("managerPort", null);
+Frame.servicePort = getEnvParam("servicePort", null);
 Frame.basePath = process.cwd();
 Frame.ilabPath = Frame.basePath;
 if (Frame.ilabPath.indexOf("/") != Frame.ilabPath.length - 1) Frame.ilabPath += "/";

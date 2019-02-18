@@ -22,6 +22,7 @@ function ServicesManager(config, portCountingFunc){
         }
     }
     this._getPort = portCountingFunc;
+
     this.StartService = function (service) {
         if (!service) return null;
         return self.startServiceAsync(service.id, service).then(function () {
@@ -118,6 +119,7 @@ function ServicesManager(config, portCountingFunc){
         if (typeof options != "object") options = {};
         options.serviceId = id;
         options.servicePort = port;
+        options.managerPort = self.port;
         if (!options.debugMode){
             options.debugMode = self.debugMode;
         }
@@ -422,7 +424,7 @@ Inherit(ServicesManager, Service, {
         var services = { "ServicesManager" : this.port };
         for (var name in this.services){
             if (this.services[name] != null){
-                services[name] = this.services[name]._internalPort;
+                services[name] = this.services[name].port;
             }
         }
         return services;
@@ -445,10 +447,10 @@ Inherit(ServicesManager, Service, {
                 services.push({
                     id: name,
                     path: service.path,
-                    serviceType: service.resultType,
+                    serviceType: service.resultType ? service.resultType : service.serviceType,
                     resultId: service.resultId,
                     status: Service.States[service.code],
-                    port: service._internalPort,
+                    port: service.port,
                     type: "service",
                     state: service.code
                 });

@@ -5017,9 +5017,9 @@ window.eval(scripts[i].innerHTML);
             return "unknown";
         };
 
-        M.prepareUrl = function (url) {
+        M.prepareUrl = function (url, doNotConvert) {
             if (!url) return null;
-            url = url.toLowerCase();
+            if (!doNotConvert) url = url.toLowerCase();
             url = url.replace("%modules%", M.ModulesUrl);
             for (var ns in M.Namespaces) {
                 var namespace = M.Namespaces[ns];
@@ -5187,8 +5187,8 @@ WS.Header._add(scripts[i]);
 
         M.CreateScript = function (ourl, cache) {
             var url = M.prepareUrl(ourl);
-            var surl = url;
-            if (window.AX && AX.CrossDomain) surl = AX.SystemRoot + url;
+            var surl = M.prepareUrl(ourl, true);
+            if (window.AX && AX.CrossDomain) surl = AX.SystemRoot + surl;
             if (Request.Params.cache == "nocache") {
                 cache = true;
             }
@@ -5278,6 +5278,7 @@ WS.Header._add(scripts[i]);
         M.LoadModule = function (ourl, module, cmod, cache) {
             if (ourl == undefined || ourl == null) return;
             var url = M.prepareUrl(ourl);
+            var requestUrl = M.prepareUrl(ourl, true);
             if (module == undefined || module == null) {
                 module = M.GetModuleByUrl(url);
                 if (module != null) {
@@ -5299,11 +5300,11 @@ WS.Header._add(scripts[i]);
             M.info("load-module", url, " from ", cmod);
             M.OnModuleLoad.fire(module.url.toLowerCase(), module);
             if (window.SysAjax) {
-                SysAjax.LoadModule(url, module, cache, M.moduleLoaded);
+                SysAjax.LoadModule(requestUrl, module, cache, M.moduleLoaded);
             }
             else {
                 var rq = new XMLHttpRequest();
-                rq.open("GET", url + "", true);
+                rq.open("GET", requestUrl + "", true);
                 rq.onload = function () {
                     M.moduleLoaded.call(this, this.responseText);
                 };
