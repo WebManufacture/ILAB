@@ -5,10 +5,6 @@ var os = require('os');
 var vm = require('vm');
 var ChildProcess = require('child_process');
 
-if (!global.Frame) {
-    Frame = {isChild: true};
-}
-
 function prepareArgAspect(func){
     return function (path) {
         if (path.indexOf(".js") != path.length - 3){
@@ -18,58 +14,60 @@ function prepareArgAspect(func){
     }
 }
 
-global.useModule = Frame.useModule = prepareArgAspect(function(path){
-    return require(Path.resolve(Frame.ModulesPath + path));
+process.isChild = process.connected;
+
+global.useModule = process.useModule = prepareArgAspect(function(path){
+    return require(Path.resolve(process.ModulesPath + path));
 });
-global.useService = Frame.useService = prepareArgAspect(function(path){
-    return require(Path.resolve(Frame.ServicesPath + path));
+global.useService = process.useService = prepareArgAspect(function(path){
+    return require(Path.resolve(process.ServicesPath + path));
 });
-global.useRoot = Frame.useRoot = prepareArgAspect(function(path){
-    return require(Path.resolve(Frame.ilabPath + path));
+global.useRoot = process.useRoot = prepareArgAspect(function(path){
+    return require(Path.resolve(process.ilabPath + path));
 });
-global.useSystem = Frame.useSystem = prepareArgAspect(function(path){
-    return require(Path.resolve(Frame.SystemPath + path));
+global.useSystem = process.useSystem = prepareArgAspect(function(path){
+    return require(Path.resolve(process.SystemPath + path));
 });
 
-Frame.parentId = getEnvParam("parentId", null);
-Frame.rootId = getEnvParam("rootId", null);
-Frame.basePath = process.cwd();
-Frame.ilabPath = Frame.basePath;
-if (Frame.ilabPath.indexOf("/") != Frame.ilabPath.length - 1) Frame.ilabPath += "/";
-Frame.workingPath =  process.env.workDir == 'string' ? Path.resolve(process.env.workDir) : process.cwd();
-Frame.NodesPath =  Frame.ilabPath + "Nodes/";
-Frame.ModulesPath = Frame.ilabPath + "Modules/";
-Frame.ServicesPath = Frame.ilabPath + "Services/";
-Frame.SystemPath = Frame.ilabPath + "System/";
-Frame.NodeModulesPath = process.execPath.replace("node.exe", "") + "node_modules/";
-Frame.Nodes = {};
-Frame.Modules = [];
-Frame.Services = {};
+process.parentId = getEnvParam("parentId", null);
+process.rootId = getEnvParam("rootId", null);
+process.basePath = process.cwd();
+process.ilabPath = process.basePath;
+if (process.ilabPath.indexOf("/") != process.ilabPath.length - 1) process.ilabPath += "/";
+process.workingPath =  process.env.workDir == 'string' ? Path.resolve(process.env.workDir) : process.cwd();
+process.NodesPath =  process.ilabPath + "Nodes/";
+process.ModulesPath = process.ilabPath + "Modules/";
+process.ServicesPath = process.ilabPath + "Services/";
+process.SystemPath = process.ilabPath + "System/";
+process.NodeModulesPath = process.execPath.replace("node.exe", "") + "node_modules/";
+process.Nodes = {};
+process.Modules = [];
+process.Services = {};
 
 useSystem("FrameRouter");
 
-Frame.log = function(){
+process.log = function(){
     console.log.apply(console, arguments);
 }
 
-Frame.newId = function(){
+process.newId = function(){
     return require('uuid/v4')();
 }
 
-Frame.setId = function(id){
-    if (Frame.serviceId && Frame.serviceId != id){
-        console.log("Node id changing from " + Frame.serviceId + " to " + id);
+process.setId = function(id){
+    if (process.serviceId && process.serviceId != id){
+        console.log("Node id changing from " + process.serviceId + " to " + id);
     }
-    if (!Frame.isChild){
-        Frame.rootId = id;
+    if (!process.isChild){
+        process.rootId = id;
     }
-    Frame.id = id;
-    Frame.serviceId = id;
-    Frame.pipeId = Frame.getPipe(id);
+    process.id = id;
+    process.serviceId = id;
+    process.pipeId = process.getPipe(id);
 }
 
 
-Frame.getPipe = function(serviceId){
+process.getPipe = function(serviceId){
     return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + serviceId : '/tmp/ilab-3-' + serviceId;
 };
 
@@ -79,31 +77,31 @@ function getEnvParam(name, defaultValue){
     )
 };
 
-Frame.fatal = function(err){
-    Frame.error(err);
+process.fatal = function(err){
+    process.error(err);
     setImmediate(function () {
         process.exit();
     });
 };
 
-Frame.log = function(log){
+process.log = function(log){
     if (process.connected){
         process.send({type: "log", item: log});
     }
-    if (typeof log == "string" && log.indexOf(Frame.serviceId) != 0) {
-        log = Frame.serviceId + ": " + log;
+    if (typeof log == "string" && log.indexOf(process.serviceId) != 0) {
+        log = process.serviceId + ": " + log;
     }
     console.log(log);
 };
 
-Frame.send = function(arg1, arg2){
-    if (Frame.isChild && process.connected){
+process.send = function(arg1, arg2){
+    if (process.isChild && process.connected){
        return process.send(arg1, arg2);
     }
 };
 
 
-Frame.error = function(err){
+process.error = function(err){
     if (process.connected){
         if (typeof (err) == "object") {
             process.send({type: "error", message: err.message, item: err.stack});
@@ -114,11 +112,11 @@ Frame.error = function(err){
     console.error(err);
 };
 
-Frame.node = getEnvParam("nodeName", '');
-Frame.nodePath = getEnvParam("nodePath", '');
+process.node = getEnvParam("nodeName", '');
+process.nodePath = getEnvParam("nodePath", '');
 
 
-Frame._parseCmd = function() {
+process._parseCmd = function() {
     var debugMode = false;
     var servicesToStart = [];
     function findServiceIndex(selectorObj) {
@@ -146,14 +144,14 @@ Frame._parseCmd = function() {
         }
         if (config.id) {
             if (config.id == "auto") {
-                config.id = Frame.newId();
+                config.id = process.newId();
             }
         } else {
             if (key) {
                 config.id = key;
             }
             else {
-                config.id = Frame.newId();
+                config.id = process.newId();
             }
         }
         if (!config.path){
@@ -196,7 +194,7 @@ Frame._parseCmd = function() {
             if (arg.indexOf("--") == 0) continue;
             if (arg.indexOf(".js") < 0) {
                 mergeConfig(parseConfig({
-                    path: Frame.ServicesPath + arg + ".js"
+                    path: process.ServicesPath + arg + ".js"
                 }));
             } else {
                 mergeConfig(parseConfig({
@@ -204,7 +202,7 @@ Frame._parseCmd = function() {
                 }));
             }
         }
-        Frame.debugMode = debugMode;
+        process.debugMode = debugMode;
         // console.log('Frame: servicesToStart ', servicesToStart)
         return servicesToStart;
     }
@@ -215,14 +213,14 @@ Frame._parseCmd = function() {
     }
 };
 
-Frame._initFrame = function () {
-//    Frame.send({type: "control", state: "loaded"});
+process._initFrame = function (path) {
+//    process.send({type: "control", state: "loaded"});
     try {
-        if (Frame.nodePath.indexOf("http://") == 0 || Frame.nodePath.indexOf("https://") == 0) {
-            http.get(Frame.nodePath, (res) => {
+        if (path.indexOf("http://") == 0 || path.indexOf("https://") == 0) {
+            http.get(path, (res) => {
                 var statusCode = res.statusCode;
                 if (statusCode !== 200) {
-                    Frame.fatal("Can't get node: " + res.statusCode + " : " + Frame.nodePath);
+                    process.fatal("Can't get node: " + res.statusCode + " : " + path);
                     return;
                 }
                 res.setEncoding('utf8');
@@ -230,73 +228,73 @@ Frame._initFrame = function () {
                 res.on('data', (chunk) => rawData += chunk);
                 res.on('end', () => {
                     try {/*
-                        Frame.nodePath = Frame.serviceId ? Frame.serviceId : "UnknownTempService" + Math.random() + ".js";
-                        Frame.nodePath = Frame.nodePath.replace(/\//ig, '-');
-                        Frame.nodePath = Frame.nodePath.replace(/\\/ig, '-');
-                        if (Frame.nodePath.indexOf(".js") != Frame.nodePath.length - 3) {
-                            Frame.nodePath += ".js";
+                        process.nodePath = process.serviceId ? process.serviceId : "UnknownTempService" + Math.random() + ".js";
+                        process.nodePath = process.nodePath.replace(/\//ig, '-');
+                        process.nodePath = process.nodePath.replace(/\\/ig, '-');
+                        if (process.nodePath.indexOf(".js") != process.nodePath.length - 3) {
+                            process.nodePath += ".js";
                         }
                         const tempPath = Path.resolve("./Temp/");
                         if (!fs.existsSync(tempPath)){
                             fs.mkdirSync(tempPath);
                         }
-                        Frame.nodePath =  Path.resolve("./Temp/" + Frame.nodePath);
-                        fs.writeFile(Frame.nodePath, rawData, function (err, result) {
+                        process.nodePath =  Path.resolve("./Temp/" + process.nodePath);
+                        fs.writeFile(process.nodePath, rawData, function (err, result) {
                             if (err){
-                                Frame.fatal(err);
+                                process.fatal(err);
                                 return;
                             }
-                            Frame._initFrame();
+                            process._initFrame();
                         });
                         */
-                        Frame._startFrame(rawData);
+                        process._startFrame(rawData);
                     } catch (e) {
-                        Frame.fatal(e);
+                        process.fatal(e);
                     }
                 });
             }).on('error', function(e){
-                Frame.fatal(e);
+                process.fatal(e);
             });
             return;
         }
         else {
-            var node = require(Frame.nodePath);
-            Frame._startFrame(node);
+            var node = require(path);
+            process._startFrame(node);
         }
     }
     catch (err) {
-        Frame.fatal(err);
+        process.fatal(err);
     }
 };
 
-Frame._startFrame = function (node) {
+process._startFrame = function (node) {
     try{
         var params = getEnvParam("params", {});
         if (params && typeof params == "string") params = JSON.parse(params);
 
         if (typeof node == "string") {
-            console.log(Frame.nodePath + " node starting...");
+            console.log(process.nodePath + " node starting...");
             process.on('uncaughtException', function () {
                 process.exit();
             });
-            node = vm.Script(node, { filename: Frame.nodePath || Frame.node || "tempNode.vm" });
+            node = vm.Script(node, { filename: process.nodePath || process.node || "tempNode.vm" });
             node = node.runInThisContext();
-            console.log(Frame.nodePath + " node started");
+            console.log(process.nodePath + " node started");
         }
-        Frame.serviceType = typeof node;
+        process.serviceType = typeof node;
         if (node) {
             if (typeof node == "function") {
-                Frame.serviceType = node.name;
+                process.serviceType = node.name;
                 var service = new node(params);
                 if (node.hasPrototype("Service")) {
                     if (service.serviceType) {
-                        Frame.serviceType = service.serviceType;
+                        process.serviceType = service.serviceType;
                     } else {
-                        Frame.serviceType = service.name;
+                        process.serviceType = service.name;
                     }
                     if (service.serviceId) {
-                        if (Frame.serviceId != service.serviceId){
-                            Frame.serviceId = service.serviceId;
+                        if (process.serviceId != service.serviceId){
+                            process.serviceId = service.serviceId;
                         }
                         var oldLog = console.log;
                         console.log = function () {
@@ -308,44 +306,42 @@ Frame._startFrame = function (node) {
                     }
                     service.on("error", function (err) {
                         // console.error(err);
-                        Frame.error(err);
+                        process.error(err);
                     });
                 }
                 process.on('uncaughtException', function (err) {
-                    Frame.error(err);
+                    process.error(err);
                     process.exit();
                 });
             }
         }
-        Frame.send({type: "control", state: "started",serviceId: Frame.serviceId, serviceType: Frame.serviceType, pipe: Frame.pipeId, config : params });
+        process.send({type: "control", state: "started",serviceId: process.serviceId, serviceType: process.serviceType, pipe: process.pipeId, config : params });
     }
     catch (err){
-        Frame.error(err);
+        process.error(err);
     }
 };
 
+process.exitingInteval = null;
 
-
-Frame.exitingInteval = null;
-
-Frame.exit = function(){
-    if (Frame.exitingInteval == null) {
+process.exit = function(){
+    if (process.exitingInteval == null) {
         process.emit("exiting");
         var date = (new Date());
-        //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
-        Frame.exitingInteval = setTimeout(function () {
+        //console.log(process.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+        process.exitingInteval = setTimeout(function () {
             process.exit();
         }, 10);
         process.once("exit", function () {
-            clearTimeout(Frame.exitingInteval);
+            clearTimeout(process.exitingInteval);
         });
     }
 }
 
 process.once("exit", function(){
-    Frame.exit();
+    process.exit();
     // var date = (new Date());
-    //console.log(Frame.serviceId + ":" + Frame.servicePort + " exited:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+    //console.log(process.serviceId + ":" + process.servicePort + " exited:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
 });
 
 process.on('unhandledRejection', (reason, p) => {
@@ -355,31 +351,31 @@ process.on('unhandledRejection', (reason, p) => {
 
 process.on("message", function(pmessage){
     if (pmessage == 'EXIT-REQUEST'){
-       Frame.exit();
+       process.exit();
     }
 });
 
-process.once("SIGTERM", Frame.exit);
-process.once("SIGINT", Frame.exit);
+process.once("SIGTERM", process.exit);
+process.once("SIGINT", process.exit);
 
-//console.log(Frame.isChild ? "CHILD " : "" + "FRAME: " + Frame.id + "");
+//console.log(process.isChild ? "CHILD " : "" + "FRAME: " + process.id + "");
 
-if (Frame.isChild) {
-    Frame.serviceId = getEnvParam("serviceId", Frame.newId());
-    var nodesConfig = Frame._parseCmd();
-    Frame.setId(Frame.serviceId);
-    Frame.send({type: "control", state: "loaded",serviceId: Frame.serviceId, pipe: Frame.pipeId, config : nodesConfig });
+if (process.isChild) {
+    process.serviceId = getEnvParam("serviceId", process.newId());
+    var nodesConfig = process._parseCmd();
+    process.setId(process.serviceId);
+    process.send({type: "control", state: "loaded",serviceId: process.serviceId, pipe: process.pipeId, config : nodesConfig });
     if (nodesConfig && nodesConfig.length) {
-        if (!Frame.nodePath) {
-            Frame.nodePath = nodesConfig[0].path;
-            Frame.node = nodesConfig[0].id;
+        if (!process.nodePath) {
+            process.nodePath = nodesConfig[0].path;
+            process.node = nodesConfig[0].id;
         }
-        Frame._initFrame();
+        process._initFrame();
     } else {
-        if (!Frame.nodePath) {
-            Frame.nodePath = Frame.ilabPath + "RootService.js";
-            Frame.node = "RootService";
+        if (!process.nodePath) {
+            process.nodePath = process.ilabPath + "RootService.js";
+            process.node = "RootService";
         }
-        Frame._initFrame();
+        process._initFrame();
     }
 }
