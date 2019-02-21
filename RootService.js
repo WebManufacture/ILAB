@@ -185,102 +185,42 @@ function _init() {
             //console.log("Detected " + servicesToStart.length + " services to start");
             var debugMode =  Frame.debugMode;
             Frame.pipeId = Frame.getPipe(Frame.serviceId);
-            startOldMethod = ()=> {
-                var smConfig = servicesToStart.find(s => s.type == 'ServicesManager');
-                if (!smConfig) {
-                    smConfig = {
-                        type: "ServicesManager",
-                        id: Frame.newId(),
-                        path: "ServicesManager.js"
-                    }
-                } else {
-                    if (!smConfig.path){
-                        smConfig.path = "ServicesManager.js";
-                    }
-                };
-                var incrementalPort = servicesToStart.port ? parseInt(servicesToStart.port) : 5600;
-                var ServicesManager = useService(smConfig.path);
-                if (ServicesManager) {
-                    if (smConfig.id) Frame.setId(smConfig.id);
-                    var servicesManager = new ServicesManager(smConfig, function () {
-                        /*if (Frame.portRanges){
-                        }*/
-                        return incrementalPort += 5;
-                    });
-                    if (servicesManager.id && Frame.serviceId != servicesManager.id) Frame.setId(servicesManager.id);
-                    servicesManager.on("error", function (err) {
-                        if (err.serviceId) {
-                            console.log("Service error: " + err.serviceId);
-                        }
-                        console.error(err);
-                        err.handled = true;
-                    });
-                    console.log(servicesManager.serviceId + ": ServicesManager started on " + incrementalPort);
-                    const params = [];
-                    servicesToStart.forEach((service) => {
-                        if (!service.type) return;
-                        if (service.type == 'ServicesManager') return;
-                        if (service.type == 'RootService') return;
-                        params.push(service);
-                    });
-                    console.log("Detected " + params.length + " services to start");
-                    servicesManager.on("service-started", function (serviceId, port, config) {
-                        if (config) {
-                            console.log("Service started: " + config.type + "#" + serviceId + " on TCP " + port);
-                        } else {
-                            console.log("Service started: " + serviceId + " on TCP " + port);
-                        }
-                    })
-                    servicesManager.StartServices(params).then(function (result) {
-                        console.log("All started!");
-                    }).catch((err) => {
-                        console.error(err);
-                    });
+            var result = Service.call(this, { id: Frame.serviceId });
+            this.on("error", function (err) {
+                if (err.serviceId) {
+                    console.log("Service error: " + err.serviceId);
                 }
-            }
-            startNewMethod = () => {
-                var result = Service.call(this, { id: Frame.serviceId });
-                this.on("error", function (err) {
-                    if (err.serviceId) {
-                        console.log("Service error: " + err.serviceId);
+                console.error(err);
+                err.handled = true;
+            });
+            var frames = [];
+            for (var i = 0; i <= servicesToStart.length; i++) {
+                ((service)=> {
+                    var frame = Frame.startChild(service);
+                    if (frame) {
+                        frames.push(new Promise((resolve, reject) => {
+                            frame.once("started", (cp) => {
+                                if (cp.serviceType) {
+                                    Frame.log("Started: " + cp.serviceType + "#" + cp.id);
+                                } else {
+                                    Frame.log("Started: " + cp.id);
+                                }
+                                resolve();
+                            });
+                        }));
                     }
-                    console.error(err);
-                    err.handled = true;
-                });
-                var frames = [];
-                for (var i = 0; i <= servicesToStart.length; i++) {
-                    ((service)=> {
-                        var frame = Frame.startChild(service);
-                        if (frame) {
-                            frames.push(new Promise((resolve, reject) => {
-                                frame.once("started", (cp) => {
-                                    if (cp.serviceType) {
-                                        Frame.log("Started: " + cp.serviceType + "#" + cp.id);
-                                    } else {
-                                        Frame.log("Started: " + cp.id);
-                                    }
-                                    resolve();
-                                });
-                            }));
-                        }
-                    })(servicesToStart[i]);
-                }
-                Promise.all(frames).then(() => {
-                    console.log("All started!");
-                });
+                })(servicesToStart[i]);
             }
-            if (servicesToStart.useOldStart){
-                startOldMethod();
-            } else {
-                startNewMethod();
-            }
+            Promise.all(frames).then(() => {
+                console.log("All started!");
+            });
         } catch (err) {
             console.log("RootError: ");
             console.error(err);
         }
     };
 
-    Inherit(RootService, Service, {
+    Inherit(RootService, ForkingService, {
 
     });
 }

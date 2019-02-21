@@ -46,8 +46,6 @@ Frame.Nodes = {};
 Frame.Modules = [];
 Frame.Services = {};
 
-
-useSystem("ForkManager");
 useSystem("FrameRouter");
 
 Frame.log = function(){

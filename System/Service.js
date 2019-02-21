@@ -4,8 +4,10 @@ var net = require('net');
 var Path = require('path');
 var EventEmitter = require('events');
 var util = useModule('utils');
+var Selector = useModule('selectors');
 const stream = require('stream');
 var ServiceProxy = useSystem('ServiceProxy');
+
 
 Service = function(params){
     var self = this;
@@ -75,6 +77,9 @@ Service = function(params){
     catch (error){
         throw ("Cannot start " + this.serviceId + " on " + Frame.pipeId + "\n" + error.message);
     }*/
+
+    process.on("self-message", this.routeInternal.bind(this));
+
     this.register("exiting", {
         description: "occurs when service process like to exit",
         args: []
@@ -157,8 +162,23 @@ Service.CreateProxyObject = function (service) {
 };
 
 Inherit(Service, EventEmitter, {
-    connect: function (serviceId) {
-        return ServiceProxy.connect(serviceId);
+    connect: function (serviceSelector) {
+        if (!serviceSelector) return null;
+        if (typeof serviceSelector == 'string') {
+            serviceSelector = new Selector(serviceSelector);
+        }
+        return new Promise((resolve, reject)=>{
+            Frame.routeMessage({
+                to: serviceSelector.id,
+                from: this.serviceId,
+                source: this.serviceType + "#" + this.serviceId,
+                destination: serviceSelector,
+                content: { type: "startup" }
+            });
+            this.on("message-result", ()=>{
+
+            });
+        });
     },
 
     routeLocal: function(serviceId, packet){
@@ -220,6 +240,9 @@ Inherit(Service, EventEmitter, {
         }
         if (message.type == "subscribe") {
             //self.on("internal-event", internalEventHandler);
+        }
+        if (message.type == "result"){
+            self.emit("message-result", message);
         }
     },
 
