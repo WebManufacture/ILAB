@@ -392,6 +392,7 @@ if (window && window.Using === undefined) {
             return false;
         }
     };
+
     UsingDOM = usingDOM = function (name, sname) {
         var lname = name.toLowerCase();
         var obj = document.querySelector("." + lname + ".provider");
@@ -629,6 +630,8 @@ if (window && window.Using === undefined) {
         return parseInt(h, 16);
     }
 
+    if ((window.Selector == undefined || window.Selector == null)) {
+
     Selector = function (str) {
         this.source = "";
         if (str && typeof str == "string") {
@@ -810,30 +813,31 @@ if (window && window.Using === undefined) {
         }
     }
 
-    Selector.Parse = function (txt) {
-        if (txt) {
-            var item;
-            var items = [];
-            var lines = txt.split('\n');
-            for (var i = 0; i < lines.length; i++) {
-                var parts = lines[i].split(',');
-                for (var j = 0; j < parts.length; j++) {
-                    items.push(new Selector(parts[j]));
+        Selector.Parse = function (txt) {
+            if (txt) {
+                var item;
+                var items = [];
+                var lines = txt.split('\n');
+                for (var i = 0; i < lines.length; i++) {
+                    var parts = lines[i].split(',');
+                    for (var j = 0; j < parts.length; j++) {
+                        items.push(new Selector(parts[j]));
+                    }
                 }
+                return items;
             }
-            return items;
         }
-    }
 
-    Selector.InternalProperties = "_intID,_parentID,childs,follow,next,id,type,tags,classes";
+        Selector.InternalProperties = "_intID,_parentID,childs,follow,next,id,type,tags,classes";
 
-    Selector._rootNode = new Selector("root");
+        Selector._rootNode = new Selector("root");
 
-    Selector._rootNode.isRoot = true;
+        Selector._rootNode.isRoot = true;
 
-    Selector.first = Selector.single = function (txt) {
-        if (txt) {
-            return new Selector(txt);
+        Selector.first = Selector.single = function (txt) {
+            if (txt) {
+                return new Selector(txt);
+            }
         }
     }
 
@@ -843,183 +847,186 @@ if (window && window.Using === undefined) {
         }
     }
 
-    Async = {
-        Sync: function () {
-            this.counter = 0;
-            this.methods = 0;
-        },
+    if ((window.Async == undefined || window.Async == null)) {
 
-        Waterfall: function (callback) {
-            this.counter = 0;
-            this.handlers = [];
-            this._doneMethod = callback;
-        },
+        Async = {
+            Sync: function () {
+                this.counter = 0;
+                this.methods = 0;
+            },
 
-
-        Collector: function (immediatly) {
-            var count = 0;
-            if (typeof (count) == 'boolean') {
-                this.immediatly = count;
-                if (typeof (immediatly) == 'number') count = immediatly;
-            }
-            else {
-                if (typeof (immediatly) == 'boolean') {
-                    this.immediatly = immediatly;
-                }
-            }
-            this.methods = [];
-            if (count > 0) {
-                this.handlers = new Array(count);
-                this.results = new Array(count);
-                this.count = count;
-            }
-            else {
+            Waterfall: function (callback) {
+                this.counter = 0;
                 this.handlers = [];
-                this.results = [];
-                this.count = 0;
-            }
-        },
-    };
+                this._doneMethod = callback;
+            },
 
-    Async.Sync.prototype = {
-        callThere: function (callback) {
-            callback.ready = true;
-            this.handlers.push(callback);
-            return callback;
-        },
 
-        check: function () {
-            var syncProto = this;
-            var i = this.handlers.length;
-            var func = function () {
-                syncProto.handlers[i] = {};
-                syncProto.handlers[i].ready = true;
-                syncProto._checkHandlers();
-            }
-            func.ready = false;
-            this.handlers[i] = func;
-            return func;
-        },
-
-        add: function (callback) {
-            var self = this;
-            var i = this.handlers.length;
-            var func = function () {
-                if (callback) {
-                    callback();
+            Collector: function (immediatly) {
+                var count = 0;
+                if (typeof (count) == 'boolean') {
+                    this.immediatly = count;
+                    if (typeof (immediatly) == 'number') count = immediatly;
+                } else {
+                    if (typeof (immediatly) == 'boolean') {
+                        this.immediatly = immediatly;
+                    }
                 }
-                self.handlers[i] = "done";
-                self._checkHandlers();
-            };
-            this.handlers.push(func);
-            return func;
-        },
+                this.methods = [];
+                if (count > 0) {
+                    this.handlers = new Array(count);
+                    this.results = new Array(count);
+                    this.count = count;
+                } else {
+                    this.handlers = [];
+                    this.results = [];
+                    this.count = 0;
+                }
+            },
+        };
 
-        _checkHandlers: function () {
-            var handlersReady = true;
-            for (var j = 0; j < this.handlers.length; j++) {
-                handlersReady = handlersReady && (this.handlers[j].ready);
-            }
-            if (handlersReady) {
+        Async.Sync.prototype = {
+            callThere: function (callback) {
+                callback.ready = true;
+                this.handlers.push(callback);
+                return callback;
+            },
+
+            check: function () {
+                var syncProto = this;
+                var i = this.handlers.length;
+                var func = function () {
+                    syncProto.handlers[i] = {};
+                    syncProto.handlers[i].ready = true;
+                    syncProto._checkHandlers();
+                }
+                func.ready = false;
+                this.handlers[i] = func;
+                return func;
+            },
+
+            add: function (callback) {
+                var self = this;
+                var i = this.handlers.length;
+                var func = function () {
+                    if (callback) {
+                        callback();
+                    }
+                    self.handlers[i] = "done";
+                    self._checkHandlers();
+                };
+                this.handlers.push(func);
+                return func;
+            },
+
+            _checkHandlers: function () {
+                var handlersReady = true;
                 for (var j = 0; j < this.handlers.length; j++) {
-                    var hCall = this.handlers[j];
-                    if (typeof(hCall) == 'function') {
-                        hCall.apply(hCall.thisParam, hCall.args);
+                    handlersReady = handlersReady && (this.handlers[j].ready);
+                }
+                if (handlersReady) {
+                    for (var j = 0; j < this.handlers.length; j++) {
+                        var hCall = this.handlers[j];
+                        if (typeof (hCall) == 'function') {
+                            hCall.apply(hCall.thisParam, hCall.args);
+                        }
                     }
                 }
             }
-        }
-    };
+        };
 
-    Async.Collector.prototype = {
-        add: function (callback) {
-            var cb = this.getResultCallback();
-            var func = function () {
-                callback(cb);
-            };
-            this.methods.push(func);
-            if (this.immediatly) setImmediate(func);
-            return func;
-        },
+        Async.Collector.prototype = {
+            add: function (callback) {
+                var cb = this.getResultCallback();
+                var func = function () {
+                    callback(cb);
+                };
+                this.methods.push(func);
+                if (this.immediatly) setImmediate(func);
+                return func;
+            },
 
-        createParametrizedCallback: function (param, thisParam, callback) {
-            if (typeof (thisParam) == 'function') {
-                callback = thisParam;
-                thisParam = this;
-            }
-            if (!thisParam) thisParam = this;
-            var cb = this.getResultCallback();
-            if (!param) param = cb;
-            var func = function () {
-                callback.call(thisParam, param, cb);
-            };
-            this.methods.push(func);
-            if (this.immediatly) setImmediate(func);
-            return func;
-        },
-
-        run: function (callback) {
-            for (var i = 0; i < this.methods.length; i++) {
-                setImmediate(this.methods[i]);
-            }
-            this.emit('start');
-        },
-
-        getResultCallback: function () {
-            var syncProto = this;
-            this.count++;
-            var i = this.count - 1;
-            var func = function (result) {
-                syncProto.handlers[i] = true;
-                syncProto.results[i] = result;
-                syncProto.emit('handler', result, i);
-                syncProto._checkDone();
-            };
-            return func;
-        },
-
-        _checkDone: function () {
-            var handlersReady = true;
-            for (var j = 0; j < this.count; j++) {
-                handlersReady = handlersReady && this.handlers[j];
-            }
-            if (handlersReady) {
-                this.done();
-            }
-        },
-
-        done: function () {
-            this.emit('done', this.results);
-        }
-    };
-
-    Async.Waterfall.prototype = {
-        addClosure: function () {
-            return this.add(CreateClosure.apply(this, arguments));
-        },
-
-        add: function (callback) {
-            var self = this;
-            var func = function () {
-                if (callback) {
-                    callback.apply(self, arguments);
+            createParametrizedCallback: function (param, thisParam, callback) {
+                if (typeof (thisParam) == 'function') {
+                    callback = thisParam;
+                    thisParam = this;
                 }
-                self.counter--;
-                self._checkDone();
-            };
-            this.counter++;
-            return func;
-        },
+                if (!thisParam) thisParam = this;
+                var cb = this.getResultCallback();
+                if (!param) param = cb;
+                var func = function () {
+                    callback.call(thisParam, param, cb);
+                };
+                this.methods.push(func);
+                if (this.immediatly) setImmediate(func);
+                return func;
+            },
 
-        _checkDone: function () {
-            if (this.counter == 0 && typeof(this._doneMethod) == 'function') {
-                var self = this;
-                setTimeout(function () {
-                    self._doneMethod();
-                }, 1);
+            run: function (callback) {
+                for (var i = 0; i < this.methods.length; i++) {
+                    setImmediate(this.methods[i]);
+                }
+                this.emit('start');
+            },
+
+            getResultCallback: function () {
+                var syncProto = this;
+                this.count++;
+                var i = this.count - 1;
+                var func = function (result) {
+                    syncProto.handlers[i] = true;
+                    syncProto.results[i] = result;
+                    syncProto.emit('handler', result, i);
+                    syncProto._checkDone();
+                };
+                return func;
+            },
+
+            _checkDone: function () {
+                var handlersReady = true;
+                for (var j = 0; j < this.count; j++) {
+                    handlersReady = handlersReady && this.handlers[j];
+                }
+                if (handlersReady) {
+                    this.done();
+                }
+            },
+
+            done: function () {
+                this.emit('done', this.results);
             }
-        },
-    };
+        };
+
+        Async.Waterfall.prototype = {
+            addClosure: function () {
+                return this.add(CreateClosure.apply(this, arguments));
+            },
+
+            add: function (callback) {
+                var self = this;
+                var func = function () {
+                    if (callback) {
+                        callback.apply(self, arguments);
+                    }
+                    self.counter--;
+                    self._checkDone();
+                };
+                this.counter++;
+                return func;
+            },
+
+            _checkDone: function () {
+                if (this.counter == 0 && typeof (this._doneMethod) == 'function') {
+                    var self = this;
+                    setTimeout(function () {
+                        self._doneMethod();
+                    }, 1);
+                }
+            },
+        };
+
+    }
+
 
     function IsEmpty(elem) {
         if (elem == undefined || elem == null || elem.length == 0) return true;
@@ -7453,32 +7460,30 @@ Storages.Global.Site = Storages.Site.Global;*/
             return this._sendRequest("MKACTIVITY", url, null, callback);
         },
     };
-    if (!UsingDOM("Ui")) {
+    if (!UsingDOM("Ui")){
 
-        ui.id = "UI";
-        ui.url = "ui.js";
+        ui.id =  "UI";
+        ui.url =  "ui.js";
 
-        ui.info = L.Info;
-        ui.error = L.Error;
+        ui.info = console.info;
+        ui.error = console.error;
 
-        ui.Init = function () {
+        ui.Init = function(){
             Ev.CreateEvent("OnActionEvent", ui);
             ui.info("UI Initializing");
-            ui.onload(function() {
-                C.Process(WS.Body, "ui-processing");
-            });
+            C.Process(WS.Body, "ui-processing");
             ui.namespace = M.Namespaces.ui;
             ui.componentStorage = new Storage();
         };
 
-        ui.ModuleInitialized = function (url, module) {
+        ui.ModuleInitialized = function(url, module){
             //M.OnModuleRegistered.unsubscribe(ui.ModuleInitialized, url);
             J.info("jasp-init", url);
             WS.Body.all(".component[component-url='" + url + "'].jasp-processing-uicomponents").del(".jasp-processing-uicomponents");
-            if (module.initComponent) {
-                var context = {Condition: "ui-processing"};
+            if (module.initComponent){
+                var context = { Condition: "ui-processing" };
                 context.Selector = "";
-                context.Process = function (element, context, param) {
+                context.Process = function(element, context, param){
                     module.initComponent.apply(this, arguments);
                     element.OnComponentInitialized.fire();
                 }
@@ -7491,9 +7496,9 @@ Storages.Global.Site = Storages.Site.Global;*/
 
         ui.ComponentContext = {
             Condition: "ui-processing",
-            id: "uicomponents",
-            Selector: ".component[component-url]:not(.jasp-processed-uicomponents)",
-            Process: function (element) {
+            id : "uicomponents",
+            Selector : ".component[component-url]:not(.jasp-processed-uicomponents)",
+            Process : function(element){
                 var url = element.componentUrl = element.attr("component-url");
                 var wait = element.wait = element.attr("wait");
                 url = url.toLowerCase();
@@ -7501,12 +7506,12 @@ Storages.Global.Site = Storages.Site.Global;*/
                 Ev.CreateEvent("OnComponentInitialized", element);
                 var module = M.GetModuleByUrl(url);
                 if (module) {
-                    if (module.initComponent) {
+                    if (module.initComponent){
                         module.initComponent.apply(this, arguments);
                         element.OnComponentInitialized.fire();
                     }
                 }
-                else {
+                else{
                     M.OnModuleRegistered.subscribe(ui.ModuleInitialized, url);
                     element.module = M.Load(url, "component " + element.ToString());
                     return false;
@@ -7518,17 +7523,47 @@ Storages.Global.Site = Storages.Site.Global;*/
 
         C.Add(ui.ComponentContext);
 
+        ui.ComponentParsingContext = {
+            Condition: "module-parsing",
+            id : "uicomponents-parser",
+            Selector : "inner-template",
+            Process : function(protoElement){
+                protoElement.add(".prototype");
+                WS.Body.add(protoElement);
+                var forSelector = protoElement.get("@for");
+                var context = {
+                    Condition: "ui-processing",
+                    id : ("uicomponentForContext" + Math.random()).replace("0.",""),
+                    Selector : forSelector + ":not(.initialized)",
+                    Process : function(element){
+                        var title = protoElement.get("@title");
+                        if (title){
+                            element.add("@title", title);
+                        }
+                        element.innerHTML = protoElement.innerHTML;
+                        C.Process(element, "ui-processing");
+                        return true;
+                    }
+                };
+                C.Add(context);
+                return true;
+            }
+        };
+
+
+        C.Add(ui.ComponentParsingContext);
+
 
         //<div class='action' on=":click" atype="class-toggle" for="#Item22" set=".invisible.showed">
 
         ui.UIActionContext = {
             Condition: "ui-processing",
-            id: "uiaction",
-            Selector: ".ui-action:not(.jasp-processed-uiaction)",
-            Process: function (element) {
+            id : "uiaction",
+            Selector : ".ui-action:not(.jasp-processed-uiaction)",
+            Process : function(element){
                 var asel = element.uiActionSelector = element.attr("for");
                 var atype = element.uiActionType = element.attr("atype");
-                if (!atype) {
+                if (!atype){
                     atype = element.uiActionType = element.attr("action-type");
                 }
                 if (!atype) {
@@ -7536,39 +7571,39 @@ Storages.Global.Site = Storages.Site.Global;*/
                     return true;
                 }
                 var aevent = element.uiActionEvent = element.attr("on");
-                if (!aevent) {
+                if (!aevent){
                     aevent = element.uiActionEvent = ":click";
                 }
 
                 var handler = ui.UIActionHandlers[atype];
-                if (handler) {
-                    element.uiActionHandler = function () {
+                if (handler){
+                    element.uiActionHandler = function(){
                         ui.info("UI Action: " + element.uiActionType + ":" + element.uiActionEvent + " -> " + element.uiActionSelector);
-                        window.setTimeout(function () {
-                            try {
+                        window.setTimeout(function(){
+                            try{
                                 handler(element, element.uiActionType, element.uiActionSelector, element.uiActionEvent)
                             }
-                            catch (err) {
+                            catch(err){
                                 console.log(err);
                             }
                         }, 100);
                     };
                 }
-                else {
+                else{
                     ui.Error("Element " + element.ToString() + " has unknown event type: " + atype);
                     return true;
                 }
 
-                if (aevent.start(":")) {
+                if (aevent.start(":")){
                     aevent = ui.ElementEvents[aevent];
-                    if (aevent) {
+                    if (aevent){
                         element[aevent] = element.uiActionHandler;
                     }
-                    else {
+                    else{
                         ui.Error("Element " + element.ToString() + " has unknown event emitter: " + aevent);
                     }
                 }
-                else {
+                else{
                     ui.OnActionEvent.subscribe(ui.UIActionRecurseHandler, aevent);
                     ui.info("Subscribe on " + aevent + " action " + aname + ":" + atype + " for " + asel);
                 }
@@ -7578,74 +7613,74 @@ Storages.Global.Site = Storages.Site.Global;*/
 
         C.Add(ui.UIActionContext);
 
-        ui.UIActionRecurseHandler = function (ename, elem) {
+        ui.UIActionRecurseHandler = function(ename, elem) {
             ui.info("Recurse event emitted: " + ename);
-            if (elem) {
+            if (elem){
                 elem.uiActionHandler();
             }
         };
 
         ui.UIActionHandlers = {
-            "event": function (elem, atype, asel, aevent) {
+            "event" : function(elem, atype, asel, aevent){
                 ui.OnActionEvent.fire(asel, elem)
             },
 
-            "class-toggle": function (elem, atype, asel, aevent) {
+            "class-toggle" : function(elem, atype, asel, aevent){
                 var aname = elem.attr("set");
-                if (aname) {
+                if (aname){
                     var target = DOM._all(asel);
-                    target.each(function (elem) {
-                        if (this._is(aname)) {
+                    target.each(function(elem){
+                        if (this._is(aname)){
                             this._del(aname);
                         }
-                        else {
+                        else{
                             this._add(aname)
                         }
                     });
                 }
             },
 
-            "show": function (elem, atype, asel, aevent) {
+            "show" : function(elem, atype, asel, aevent){
                 var target = DOM._all(asel);
-                target.each(function (elem) {
+                target.each(function(elem){
                     this.show();
                 });
             },
 
-            "hide": function (elem, atype, asel, aevent) {
+            "hide" : function(elem, atype, asel, aevent){
                 var target = DOM._all(asel);
-                target.each(function (elem) {
+                target.each(function(elem){
                     this.hide();
                 });
             },
 
 
-            "visibility-toggle": function (elem, atype, asel, aevent) {
+            "visibility-toggle" : function(elem, atype, asel, aevent){
                 var target = DOM._all(asel);
-                target.each(function (elem) {
-                    if (this._is(".invisible")) {
+                target.each(function(elem){
+                    if (this._is(".invisible")){
                         this.show();
                     }
-                    else {
+                    else{
                         this.hide()
                     }
                 });
             },
 
-            "ins": function (elem, atype, asel, aevent) {
+            "ins" : function(elem, atype, asel, aevent){
                 var aname = elem.attr("set");
-                if (aname) {
+                if (aname){
                     var target = DOM._all(asel);
                     target._ins(aname);
                 }
             },
 
-            "set": function (elem, atype, asel, aevent) {
+            "set" : function(elem, atype, asel, aevent){
                 var aname = elem.attr("set");
-                if (aname) {
+                if (aname){
                     var value = null;
                     var target = DOM._all(asel);
-                    if (aname.contains("=")) {
+                    if (aname.contains("=")){
                         var parts = aname.split("=");
                         aname = parts[0];
                         value = parts[1];
@@ -7657,9 +7692,9 @@ Storages.Global.Site = Storages.Site.Global;*/
 
         ui.UIActionHandlers["class-on"] =
             ui.UIActionHandlers["add"] =
-                function (elem, atype, asel, aevent) {
+                function(elem, atype, asel, aevent){
                     var aname = elem.attr("set");
-                    if (aname) {
+                    if (aname){
                         var target = DOM._all(asel);
                         target._add(aname);
                     }
@@ -7667,33 +7702,33 @@ Storages.Global.Site = Storages.Site.Global;*/
 
         ui.UIActionHandlers["class-off"] =
             ui.UIActionHandlers["del"] =
-                function (elem, atype, asel, aevent) {
+                function(elem, atype, asel, aevent){
                     var aname = elem.attr("set");
-                    if (aname) {
+                    if (aname){
                         var target = DOM._all(asel);
                         target._del(aname);
                     }
                 };
 
         ui.ElementEvents = {
-            ":click": "onclick",
-            ":hover": "onmouseover",
-            ":d-click": "ondblclick",
-            ":receive": "ondropreceive",
-            ":drop": "OnDrop"
+            ":click" : "onclick",
+            ":hover" : "onmouseover",
+            ":d-click" : "ondblclick",
+            ":receive" : "ondropreceive",
+            ":drop" : "OnDrop"
         };
 
-        ui.getNamespace = function (namespace) {
+        ui.getNamespace = function(namespace){
             var parts = namespace.split('.');
-            if (parts[0].toLowerCase() == "ui") {
+            if (parts[0].toLowerCase() == "ui"){
                 parts.shift();
             }
             var ns = ui.namespace;
-            for (var i = 0; i < parts.length; i++) {
-                if (ns[parts[i]]) {
+            for (var i = 0; i < parts.length; i++){
+                if (ns[parts[i]]){
                     ns = ns[parts[i]];
                 }
-                else {
+                else{
                     ns = null;
                     ui.error("UI namespace " + namespace + " not found!");
                     return null;
@@ -7703,14 +7738,14 @@ Storages.Global.Site = Storages.Site.Global;*/
         }
 
 
-        ui.createNamespace = function (namespace) {
+        ui.createNamespace = function(namespace){
             var parts = namespace.split('.');
-            if (parts[0].toLowerCase() == "ui") {
+            if (parts[0].toLowerCase() == "ui"){
                 parts.shift();
             }
             var ns = ui.namespace;
-            for (var i = 0; i < parts.length; i++) {
-                if (!ns[parts[i]]) {
+            for (var i = 0; i < parts.length; i++){
+                if (!ns[parts[i]]){
                     ns[parts[i]] = {};
                 }
                 ns = ns[parts[i]];
@@ -7718,15 +7753,15 @@ Storages.Global.Site = Storages.Site.Global;*/
             return ns;
         }
 
-        ui.baseComponent = function (options) {
+        ui.baseComponent = function(options){
             if (!options) options = {};
-            if (typeof(options) == "object") {
+            if (typeof(options) == "object"){
                 this.classes = options.classes;
                 this.tags = options.tags;
                 this.id = options.id;
-                if (options.childs) {
+                if (options.childs){
                     this.childs = [];
-                    for (var i = 0; i < options.childs.length; i++) {
+                    for (var i = 0; i < options.childs.length; i++){
                         var child = ui.create(childs[i]);
                         child.parent = this;
                         this.childs.push(child);
@@ -7734,71 +7769,71 @@ Storages.Global.Site = Storages.Site.Global;*/
                 }
             }
             if (!this.id) this.id = this.type + Math.random().toString().replace("0.", "");
-            if (typeof options.dom == "object" && options.dom.nodeType == 1) {
+            if (typeof options.dom == "object" && options.dom.nodeType == 1){
                 this.render(options.dom);
             }
         }
 
         Inherit(ui.baseComponent, EventEmitter, {
-            type: "BaseComponent",
+            type : "BaseComponent",
 
-            render: function (dom) {
-                if (this.childs) {
-                    for (var i = 0; i < this.childs.length; i++) {
+            render : function(dom){
+                if (this.childs){
+                    for (var i = 0; i < this.childs.length; i++){
                         this.childs[i].render(dom);
                     }
                 }
             },
 
-            show: function (timeout) {
+            show : function(timeout){
                 var me = this;
-                if (typeof timeout == 'number') {
-                    setTimeout(function () {
+                if (typeof timeout == 'number'){
+                    setTimeout(function() {
                         this.hide();
                     }, timeout);
                 }
                 this.dom.show();
             },
 
-            hide: function () {
+            hide : function(){
                 this.dom.hide();
             },
 
-            remove: function () {
+            remove : function(){
                 this.dom.map = null;
                 this.dom.del();
             },
 
-            map: function (obj) {
+            map : function(obj){
 
             }
         })
 
-        ui.register = function (namespace, inherit, creator, mixin) {
+        ui.register = function(namespace, inherit, creator, mixin){
             if (creator) {
-                if (typeof(inherit) == "function" && typeof(creator) == "object") {
+                if (typeof(inherit) == "function" && typeof(creator) == "object"){
                     mixin = creator;
                     creator = inherit;
                     inherit = ui.baseComponent;
                 }
             }
-            else {
-                if (typeof(inherit) == "function") {
+            else{
+                if (typeof(inherit) == "function"){
                     creator = inherit;
                     inherit = ui.baseComponent;
                 }
-                if (typeof(inherit) == "string") {
+                if (typeof(inherit) == "string"){
                     creator = new Function();
                 }
             }
-            if (typeof(inherit) == "string") {
+            if (typeof(inherit) == "string"){
                 var i_ns = ui.getNamespace(namespace);
                 if (!i_ns) return null;
                 inherit = i_ns.create;
             }
             var ns = ui.createNamespace(namespace)
             ns.create = creator;
-            if (typeof inherit == "function") {
+            if (typeof inherit == "function"){
                 Inherit(creator, inherit, mixin);
             }
             ns.base = inherit.prototype;
@@ -7808,75 +7843,76 @@ Storages.Global.Site = Storages.Site.Global;*/
             return ns;
         }
 
-        ui.create = function (namespace, options) {
-            if (typeof namespace == "object") {
+        ui.create = function(namespace, options){
+            if (typeof namespace == "object"){
                 options = arguments[1] = namespace;
                 namespace = namespace.type;
             }
             var ns = ui.getNamespace(namespace);
-            if (ns && typeof(ns.create) == "function") {
-                return new ns.create(arguments[1], arguments[2], arguments[3], arguments[4],
-                    arguments[5], arguments[6], arguments[7], arguments[8]);
+            if (ns && typeof(ns.create) == "function"){
+                return new ns.create(arguments[1],arguments[2],arguments[3],arguments[4],
+                    arguments[5],arguments[6],arguments[7],arguments[8]);
             }
             return null;
         }
 
-        ui.onload = function (callback) {
-            if (M && M.OnModulesLoaded) {
-                if (M.modulesLoaded) {
+        ui.onload = function(callback){
+            if (M && M.OnModulesLoaded){
+                if (M.modulesLoaded){
                     callback();
                 }
-                else {
+                else{
                     M.OnModulesLoaded.subscribe(callback);
                 }
             }
-            else {
-                WS.DOMload(function () {
-                    if (M.modulesLoaded) {
+            else{
+                WS.DOMload(function(){
+                    if (M.modulesLoaded){
                         callback();
                     }
-                    else {
+                    else{
                         M.OnModulesLoaded.subscribe(callback);
                     }
                 });
             }
         }
 
-        ui.ShadowEventEmitter = function (element) {
+        ui.ShadowEventEmitter = function(element){
             var self = this;
+            ui.ShadowEventEmitter._super.apply(this, arguments);
             var baseOn = this.on;
-            this.on = this.subscribe = function (name, handler) {
-                element.addEventListener(name, function () {
+            this.on = this.subscribe = function(name, handler){
+                element.addEventListener(name, function(){
                     return handler.apply(self, arguments);
                 });
                 return baseOn.apply(self, arguments);
             }
-            element.on = function (name, handler) {
+            element.on = function(name, handler){
                 return self.on.apply(self, arguments);
             }
-            element.emit = element.do = element.fire = function () {
+            element.emit = element.do = element.fire = function(){
                 return self.emit.apply(self, arguments);
             }
         }
 
         Inherit(ui.ShadowEventEmitter, EventEmitter);
 
-        ui.inherit = function (namespace, creator, mixin) {
+        ui.inherit = function(namespace, creator, mixin){
             creator.namespace = namespace;
             var context = {
                 Condition: "ui-processing",
-                id: "uicomponentInitializer" + namespace,
-                Selector: namespace + ".component:not(.initialized)",
-                Process: function (element) {
+                id : "uicomponentInitializer" + namespace,
+                Selector : namespace + ":not(.initialized)",
+                Process : function(element){
                     element.add(".initialized");
                     element.shadow = new creator(element);
+                    Channels.emit("/ui-component-initialized/" + namespace, element, namespace);
                     return true;
                 }
             };
             C.Add(context);
             return Inherit(creator, ui.ShadowEventEmitter, mixin);
         }
-
 
         WS.DOMload(ui.Init);
     }
