@@ -19,7 +19,7 @@ function UdpServer(netInterface, config) {
     this.udpServer = new UdpJsonServer({port: this.localPort, address: this.localAddress, broadcast: true});
     this.udpServer.once("connect", ()=>{
         this.myLocalAddress = this.udpServer.address().address;
-        Frame.log("My local address " + this.myLocalAddress);
+        process.log("My local address " + this.myLocalAddress);
         this.emit("ready");
     });
     this.udpServer.on("json", (obj, rinfo) => {
@@ -40,14 +40,14 @@ Inherit(UdpServer, EventEmitter, {
         this.sendHello(addressParts.join("."), toPort);
     },
     sendHello : function (addressTo, portTo) {
-        Frame.log("Send hello from " + this.localAddress +  " to " + addressTo + ":" + portTo);
+        process.log("Send hello from " + this.localAddress +  " to " + addressTo + ":" + portTo);
         this.udpServer.send({
             type: "hello",
             id: this.serviceId,
             myAddress: this.localAddress,
             myPort: this.localPort,
             serviceType: "DiscoveryService",
-            parentId: Frame.rootId,
+            parentId: process.rootId,
         }, portTo, addressTo);
     },
     sendSeeyou : function (addressTo, portTo, addressFrom, portFrom) {
@@ -62,7 +62,7 @@ Inherit(UdpServer, EventEmitter, {
             yourPort: portTo,
             tcpPort: this.tcpPort,
             serviceType: "DiscoveryService",
-            parentId: Frame.rootId,
+            parentId: process.rootId,
         }, portTo, addressTo);
     }
 });
@@ -186,7 +186,7 @@ function DiscoveryService(config){
         });
     });
 
-    Frame.routeTable.forEach((route)=> {
+    process.routeTable.forEach((route)=> {
         this.registerNode({
             id: route.id,
             type: "local",
@@ -220,8 +220,8 @@ function DiscoveryService(config){
         server.once("ready", ()=>{
             server.on("hello", (obj, rinfo) => {
                 if (obj.id == this.serviceId) return;
-                //Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
-                //Frame.log(obj);
+                //process.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
+                //process.log(obj);
                 server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 this.registerNode( {
                     id: obj.id,
@@ -237,7 +237,7 @@ function DiscoveryService(config){
             });
             server.on("see-you", (obj, rinfo) => {
                 console.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
-                //Frame.log(obj);
+                //process.log(obj);
                 this.registerNode({
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
@@ -316,17 +316,17 @@ function DiscoveryService(config){
                 if (node){
                     if (node.type == "local"){
                         try {
-                            var socket = new JsonSocket(Frame.getPipe(obj.to), function () {
-                                Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
+                            var socket = new JsonSocket(process.getPipe(obj.to), function () {
+                                process.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
                                 socket.write(obj);
                                 socket.end();
                             });
                             socket.on('error', (err) => {
-                                Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                                process.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
                             });
                         }
                         catch (err) {
-                            Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                            process.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
                         }
                     }
                 }
@@ -339,18 +339,18 @@ function DiscoveryService(config){
                     if (node.type == "local"){
                         try {
                             if (this.routerId) {
-                                var socket = new JsonSocket(Frame.getPipe(this.routerId), function () {
-                                    Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
+                                var socket = new JsonSocket(process.getPipe(this.routerId), function () {
+                                    process.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
                                     socket.write(obj);
                                     socket.end();
                                 });
                                 socket.on('error', (err) => {
-                                    Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                                    process.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
                                 });
                             }
                         }
                         catch (err) {
-                            Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                            process.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
                         }
                     }
                 }
@@ -363,16 +363,16 @@ function DiscoveryService(config){
                     if (node.type == "local"){
                             try {
                                 var socket = new JsonSocket(node.tcpPort, obj.host, function () {
-                                    Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
+                                    process.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
                                     socket.write(obj);
                                     socket.end();
                                 });
                                 socket.on('error', (err)=>{
-                                    Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                                    process.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
                                 });
                             }
                             catch (err) {
-                                Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
+                                process.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
                             }
                     }
                 }
@@ -385,7 +385,7 @@ function DiscoveryService(config){
                 });
             }
         });
-        Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
+        process.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
 
     this.configuredHosts = config.hosts;
@@ -423,12 +423,12 @@ Inherit(DiscoveryService, Service, {
                 });
             }
             if (!existing) {
-                Frame.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
+                process.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
                 this.knownNodes[nfo.id] = nfo;
                 return true;
             } else {
                 if (existing.rank > nfo.rank) {
-                    Frame.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
+                    process.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
                     this.knownNodes[nfo.id] = nfo;
                     return true;
                 }
@@ -441,7 +441,7 @@ Inherit(DiscoveryService, Service, {
         if (nfo && nfo.id){
             delete this.knownNodes[nfo.id];
             if (nfo.rank >= 10) {
-                Frame.removeNode(nfo.id);
+                process.removeNode(nfo.id);
             }
         }
         return false;
@@ -450,7 +450,7 @@ Inherit(DiscoveryService, Service, {
     recheckConfiguredServers: function () {
         var self = this;
         this.serverPool.forEach((server)=> {
-            Frame.log("rechecking server " + server.localAddress);
+            process.log("rechecking server " + server.localAddress);
             server.broadcastHello();
             if (this.configuredHosts && Array.isArray(this.configuredHosts)) {
                 this.configuredHosts.forEach((remotePoint) => {
@@ -465,7 +465,7 @@ Inherit(DiscoveryService, Service, {
         var self = this;
         this.serverPool.forEach((server)=> {
             for (var item in this.knownNodes){
-                Frame.log("rechecking known node " + item + " from " + server.localAddress);
+                process.log("rechecking known node " + item + " from " + server.localAddress);
                 var node = this.knownNodes[item];
                 if (node.port && node.address && ["self", "local"].indexOf(node.type) < 0 && node.id != self.serviceId) {
                     server.sendHello(node.address, node.port);

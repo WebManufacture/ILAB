@@ -5,20 +5,20 @@ var os = require('os');
 var vm = require('vm');
 var ChildProcess = require('child_process');
 
-Frame.Statuses = ["new", "killed", "exited", "paused", "reserved", "stopping", "error", "loaded", "started", "working"];
-Frame.STATUS_NEW = 0;
-Frame.STATUS_KILLED = 1;
-Frame.STATUS_EXITED = 2;
-Frame.STATUS_PAUSED = 3;
-Frame.STATUS_STOPPING = 5;
-Frame.STATUS_ERROR = 6;
-Frame.STATUS_LOADED = 7;
-Frame.STATUS_STARTED = 8;
-Frame.STATUS_WORKING = 9;
+process.Statuses = ["new", "killed", "exited", "paused", "reserved", "stopping", "error", "loaded", "started", "working"];
+process.STATUS_NEW = 0;
+process.STATUS_KILLED = 1;
+process.STATUS_EXITED = 2;
+process.STATUS_PAUSED = 3;
+process.STATUS_STOPPING = 5;
+process.STATUS_ERROR = 6;
+process.STATUS_LOADED = 7;
+process.STATUS_STARTED = 8;
+process.STATUS_WORKING = 9;
 
-Frame.childs = [];
+process.childs = [];
 
-Frame.startChild = function(params){
+process.startChild = function(params){
     if (typeof params != 'object' || !params || !params.id || !params.path) return null;
     var self = this;
     var servicePath = params.path;
@@ -28,39 +28,39 @@ Frame.startChild = function(params){
                 servicePath += ".js";
             }
             if (servicePath.indexOf("/") < 0 && servicePath.indexOf("\\") < 0) {
-                servicePath = Path.resolve(Frame.ServicesPath + servicePath);
+                servicePath = Path.resolve(process.ServicesPath + servicePath);
             } else {
                 servicePath = Path.resolve(servicePath);
             }
         }
     }
 
-    var cpIndex = Frame.childs.indexOf(c => c.id == params.id);
+    var cpIndex = process.childs.indexOf(c => c.id == params.id);
     if (cpIndex >= 0){
-        var cp = Frame.childs[cpIndex];
+        var cp = process.childs[cpIndex];
         if (cp.code > Frames.STATUS_STOPPING) return cp;
         if (cp.code == Frames.STATUS_STOPPING){
             cp.once("exit", ()=>{
-                Frame.startChild(params);
+                process.startChild(params);
             });
             return cp;
         }
-        if (cp.code == Frame.STATUS_PAUSED){
+        if (cp.code == process.STATUS_PAUSED){
             cp.send("RESUME");
             return cp;
         };
-        Frame.childs.splice(cp, 1);
+        process.childs.splice(cp, 1);
     }
 
     var args = [];
     //if (servicePath) args.push(servicePath);
     var options = {
         silent: false,
-        cwd : Frame.workingPath,
+        cwd : process.workingPath,
         env : {
             serviceId: params.id,
-            parentId: Frame.serviceId,
-            rootId: Frame.rootId,
+            parentId: process.serviceId,
+            rootId: process.rootId,
             nodePath: servicePath,
             params: JSON.stringify(params)
         }
@@ -68,25 +68,25 @@ Frame.startChild = function(params){
     if (params && params.workingPath){
         options.cwd = params.workingPath;
     };
-    if (Frame.debugMode && process.debugPort){
+    if (process.debugMode && process.debugPort){
         options.execArgv = ["--inspect-brk=" + (parseInt(process.debugPort) + Math.floor(Math.random()*1000))];
     }
-    var cp = ChildProcess.fork(Frame.ilabPath + "Frame.js", args, options);
+    var cp = ChildProcess.fork(process.ilabPath + "process.js", args, options);
     cp.id = params.id;
     cp.path = params.path;
-    cp.code = Frame.STATUS_NEW;
+    cp.code = process.STATUS_NEW;
     process.emit("child-starting", cp);
     cp.once("exit", function(){
-        cp.code = Frame.STATUS_EXITED;
+        cp.code = process.STATUS_EXITED;
         process.emit('child-exited', cp);
     });
     cp.on("error", function(err){
-        cp.code = Frame.STATUS_ERROR;
+        cp.code = process.STATUS_ERROR;
         process.emit('child-error', cp, err);
     });
     cp.on("message", (obj) => {
         if (typeof obj == "object"){
-            Frame.send(obj);
+            process.send(obj);
             if (obj.type == "error"){
                 if (obj.item) {
                     return process.emit("child-error", new Error(obj.item + ""));
@@ -113,21 +113,21 @@ Frame.startChild = function(params){
                     return;
                 }
                 if (obj.state == "started") {
-                    cp.code = Frame.STATUS_STARTED;
+                    cp.code = process.STATUS_STARTED;
                     cp.emit('started', cp, obj);
                     process.emit("child-started-" + cp.id, cp, obj);
                     process.emit("child-started", cp, obj);
                     return;
                 }
                 if (obj.state == "loaded") {
-                    cp.code = Frame.STATUS_LOADED;
+                    cp.code = process.STATUS_LOADED;
                     cp.emit('loaded', cp, obj);
                     process.emit("child-loaded-" + cp.id, cp, obj);
                     process.emit("child-loaded", cp, obj);
                     return;
                 }
                 if (obj.state == "connected") {
-                    cp.code = Frame.STATUS_WORKING;
+                    cp.code = process.STATUS_WORKING;
                     cp.emit('connected', cp, obj);
                     process.emit("child-connected-" + cp.id, cp, obj);
                     process.emit("child-connected", cp, obj);
@@ -143,12 +143,12 @@ Frame.startChild = function(params){
     cp.exit  = function(){
         var self = this;
         var exited = false;
-        cp.code = Frame.STATUS_STOPPING;
+        cp.code = process.STATUS_STOPPING;
         cp.send("EXIT-REQUEST");
         //console.log("process-exit:EXIT-REQUEST");
         var exitTimeout = setTimeout(function(){
             if (!exited){
-                Frame.log("killing: " + cp.id + " KILLED BY TIMEOUT!");
+                process.log("killing: " + cp.id + " KILLED BY TIMEOUT!");
                 cp.kill('SIGINT');
                 self.emit("child-exited", ForkMon.STATUS_KILLED);
             }
@@ -161,17 +161,17 @@ Frame.startChild = function(params){
     process.once('exiting', ()=>{
         cp.exit();
     });
-    Frame.childs.push(cp);
+    process.childs.push(cp);
     return cp;
 }
 
-Frame.getChild = function(childId){
-    return Frame.childs.find(c => c.id == childId);
+process.getChild = function(childId){
+    return process.childs.find(c => c.id == childId);
 };
 
-Frame.stopChild = function(childId){
+process.stopChild = function(childId){
     if (childId){
-        var cp = Frame.getChild(childId);
+        var cp = process.getChild(childId);
         if (cp){
             cp.exit();
             return cp;

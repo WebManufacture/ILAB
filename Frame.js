@@ -35,16 +35,26 @@ process.basePath = process.cwd();
 process.ilabPath = process.basePath;
 if (process.ilabPath.indexOf("/") != process.ilabPath.length - 1) process.ilabPath += "/";
 process.workingPath =  process.env.workDir == 'string' ? Path.resolve(process.env.workDir) : process.cwd();
-process.NodesPath =  process.ilabPath + "Nodes/";
+process.NodesPath = process.ilabPath + "Nodes/";
 process.ModulesPath = process.ilabPath + "Modules/";
 process.ServicesPath = process.ilabPath + "Services/";
 process.SystemPath = process.ilabPath + "System/";
 process.NodeModulesPath = process.execPath.replace("node.exe", "") + "node_modules/";
-process.Nodes = {};
+process.Nodes = [];
 process.Modules = [];
-process.Services = {};
+process.Services = [];
+process.Childs = [];
 
-useSystem("FrameRouter");
+process.router = new useSystem("XRouter")();
+useSystem("ForkManager");
+
+process.on("message", (message) => {
+    process.router.routeMessage(message);
+});
+
+process.on("child-message", (cp, message) => {
+    process.router.routeMessage(message);
+});
 
 process.log = function(){
     console.log.apply(console, arguments);
@@ -55,14 +65,10 @@ process.newId = function(){
 }
 
 process.setId = function(id){
-    if (process.serviceId && process.serviceId != id){
-        console.log("Node id changing from " + process.serviceId + " to " + id);
-    }
     if (!process.isChild){
         process.rootId = id;
     }
     process.id = id;
-    process.serviceId = id;
     process.pipeId = process.getPipe(id);
 }
 
@@ -94,6 +100,14 @@ process.log = function(log){
     console.log(log);
 };
 
+var oldLog = console.log;
+console.log = function () {
+    if (typeof arguments[0] == "string" && arguments[0].indexOf(process.id) != 0) {
+        arguments[0] = process.id + ": " + arguments[0];
+    }
+    oldLog.apply(this, arguments);
+};
+
 process.send = function(arg1, arg2){
     if (process.isChild && process.connected){
        return process.send(arg1, arg2);
@@ -112,67 +126,12 @@ process.error = function(err){
     console.error(err);
 };
 
-process.node = getEnvParam("nodeName", '');
-process.nodePath = getEnvParam("nodePath", '');
-
-
-process._parseCmd = function() {
+process._detectDebugMode = function() {
     var debugMode = false;
-    var servicesToStart = [];
-    function findServiceIndex(selectorObj) {
-        if (selectorObj.id){
-            return servicesToStart.findIndex(s => s.id == selectorObj.id);
-        }
-        if (selectorObj.path){
-            return servicesToStart.findIndex(s => s.path == selectorObj.path);
-        }
-        return servicesToStart.findIndex(s => s.type == selectorObj.type);
-    }
-    function copyConfig(to, from, replace){
-        if (to && from){
-            for (var item in from){
-                if (from.hasOwnProperty(item) && (to[item] === undefined || replace)){
-                    to[item] = from[item];
-                }
-            }
-        }
-    }
-    function parseConfig(config, key) {
-        if (!config) return null;
-        if (!config.type){
-            config.type = key;
-        }
-        if (config.id) {
-            if (config.id == "auto") {
-                config.id = process.newId();
-            }
-        } else {
-            if (key) {
-                config.id = key;
-            }
-            else {
-                config.id = process.newId();
-            }
-        }
-        if (!config.path){
-            config.path = config.type;
-        }
-        return config;
-    }
-    function mergeConfig(config) {
-        var index = findServiceIndex(config);
-        if (index >= 0){
-            copyConfig(servicesToStart[index], config, true);
-        } else {
-            servicesToStart.push(config);
-        }
-        return config;
-    }
     try{
         if (process.execArgv[0] && (process.execArgv[0].indexOf("--inspect") >= 0 || process.execArgv[0].indexOf("--debug") >= 0)){
             debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
         }
-        var configFileName = "config.json";
         for (var i = 2; i <= process.argv.length; i++) {
             var arg = process.argv[i];
             if (!arg) continue;
@@ -180,54 +139,112 @@ process._parseCmd = function() {
                 debugMode = arg.indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
                 continue;
             }
-            if (arg.indexOf("{") == 0) {
-                try {
-                    var service = eval("(function(){ return " + arg + "; })()");
-                    if (service.type || service.path || service.id) {
-                        mergeConfig(service);
-                    }
-                } catch (err) {
-                    console.error(err);
-                }
-                continue;
-            }
-            if (arg.indexOf("--") == 0) continue;
-            if (arg.indexOf(".js") < 0) {
-                mergeConfig(parseConfig({
-                    path: process.ServicesPath + arg + ".js"
-                }));
-            } else {
-                mergeConfig(parseConfig({
-                    path: arg
-                }));
-            }
         }
         process.debugMode = debugMode;
         // console.log('Frame: servicesToStart ', servicesToStart)
-        return servicesToStart;
     }
     catch (err) {
         console.log("RootError: ");
         console.error(err);
-        return servicesToStart;
     }
 };
 
-process._initFrame = function (path) {
-//    process.send({type: "control", state: "loaded"});
-    try {
-        if (path.indexOf("http://") == 0 || path.indexOf("https://") == 0) {
-            http.get(path, (res) => {
-                var statusCode = res.statusCode;
-                if (statusCode !== 200) {
-                    process.fatal("Can't get node: " + res.statusCode + " : " + path);
-                    return;
+process.startCode = function (path, params) {
+    process.log("Virtual node starting...");
+    node = vm.Script(node, { filename: process.nodePath || process.node || "tempNode.vm" });
+    node = node.runInThisContext();
+    process.log("Virtual node started");
+};
+
+process.start = function (path, params) {
+    var originalPath = path;
+    function _startCode (node) {
+        try{
+            if (node) {
+                if (typeof node == "string") {
+                   process.startCode(path, params);
                 }
-                res.setEncoding('utf8');
-                var rawData = '';
-                res.on('data', (chunk) => rawData += chunk);
-                res.on('end', () => {
-                    try {/*
+                if (typeof node == "function") {
+                    var nodeType = node.name;
+                    var nodeId = node.name;
+                    var nodeClass = null;
+                    var result = null;
+                    if (node.prototype) {
+                        if (node.hasPrototype("Service")) {
+                            var service = new node(params);
+                            if (service) {
+                                if (service.serviceType) {
+                                    nodeType = service.serviceType;
+                                }
+                                if (service.serviceId) {
+                                    nodeId = service.serviceId;
+                                }
+                            }
+                            nodeClass = 'service';
+                        } else {
+                            node = new node(params);
+                            if (node) {
+                                if (node.type) {
+                                    nodeType = node.type;
+                                }
+                                if (node.id) {
+                                    nodeId = node.id;
+                                }
+                            }
+                            nodeClass = 'class';
+                        }
+                    } else {
+                        result = node(params);
+                        if (node) {
+                            if (node.type) {
+                                nodeType = node.type;
+                            }
+                            if (node.id) {
+                                nodeId = node.id;
+                            }
+                        }
+                        nodeClass = 'function';
+                    }
+                    var message = {
+                        type: "control",
+                        state: "started",
+                        nodeType: nodeClass,
+                        result: result,
+                        serviceId: nodeId,
+                        serviceType: nodeType,
+                        pipe: process.getPipe(nodeId),
+                        config: params
+                    };
+                    if (result) message.result = result;
+                    process.send(message);
+                    return message;
+                }
+            } else {
+                process.log("unresolved start.")
+            }
+        }
+        catch (err){
+            process.error(err);
+        }
+    };
+    try {
+        if (!params) params = {};
+        if (typeof path == "function") {
+            return _startCode(path);
+        }
+        if (typeof path == "string") {
+            if (path.indexOf("http://") == 0 || path.indexOf("https://") == 0) {
+                http.get(path, (res) => {
+                    var statusCode = res.statusCode;
+                    if (statusCode !== 200) {
+                        process.fatal("Can't get node: " + res.statusCode + " : " + path);
+                        return;
+                    }
+                    res.setEncoding('utf8');
+                    var rawData = '';
+                    res.on('data', (chunk) => rawData += chunk);
+                    res.on('end', () => {
+                        try {/*
                         process.nodePath = process.serviceId ? process.serviceId : "UnknownTempService" + Math.random() + ".js";
                         process.nodePath = process.nodePath.replace(/\//ig, '-');
                         process.nodePath = process.nodePath.replace(/\\/ig, '-');
@@ -247,78 +264,23 @@ process._initFrame = function (path) {
                             process._initFrame();
                         });
                         */
-                        process._startFrame(rawData);
-                    } catch (e) {
-                        process.fatal(e);
-                    }
+                            _startCode(rawData);
+                        } catch (e) {
+                            process.fatal(e);
+                        }
+                    });
+                }).on('error', function (e) {
+                    process.fatal(e);
                 });
-            }).on('error', function(e){
-                process.fatal(e);
-            });
-            return;
-        }
-        else {
-            var node = require(path);
-            process._startFrame(node);
+                return;
+            } else {
+                var node = require(path);
+                _startCode(node);
+            }
         }
     }
     catch (err) {
         process.fatal(err);
-    }
-};
-
-process._startFrame = function (node) {
-    try{
-        var params = getEnvParam("params", {});
-        if (params && typeof params == "string") params = JSON.parse(params);
-
-        if (typeof node == "string") {
-            console.log(process.nodePath + " node starting...");
-            process.on('uncaughtException', function () {
-                process.exit();
-            });
-            node = vm.Script(node, { filename: process.nodePath || process.node || "tempNode.vm" });
-            node = node.runInThisContext();
-            console.log(process.nodePath + " node started");
-        }
-        process.serviceType = typeof node;
-        if (node) {
-            if (typeof node == "function") {
-                process.serviceType = node.name;
-                var service = new node(params);
-                if (node.hasPrototype("Service")) {
-                    if (service.serviceType) {
-                        process.serviceType = service.serviceType;
-                    } else {
-                        process.serviceType = service.name;
-                    }
-                    if (service.serviceId) {
-                        if (process.serviceId != service.serviceId){
-                            process.serviceId = service.serviceId;
-                        }
-                        var oldLog = console.log;
-                        console.log = function () {
-                            if (typeof arguments[0] == "string" && arguments[0].indexOf(service.serviceId) != 0) {
-                                arguments[0] = service.serviceId + ": " + arguments[0];
-                            }
-                            oldLog.apply(this, arguments);
-                        };
-                    }
-                    service.on("error", function (err) {
-                        // console.error(err);
-                        process.error(err);
-                    });
-                }
-                process.on('uncaughtException', function (err) {
-                    process.error(err);
-                    process.exit();
-                });
-            }
-        }
-        process.send({type: "control", state: "started",serviceId: process.serviceId, serviceType: process.serviceType, pipe: process.pipeId, config : params });
-    }
-    catch (err){
-        process.error(err);
     }
 };
 
@@ -328,7 +290,7 @@ process.exit = function(){
     if (process.exitingInteval == null) {
         process.emit("exiting");
         var date = (new Date());
-        //console.log(process.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+        //console.log(process.id + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
         process.exitingInteval = setTimeout(function () {
             process.exit();
         }, 10);
@@ -340,8 +302,10 @@ process.exit = function(){
 
 process.once("exit", function(){
     process.exit();
-    // var date = (new Date());
-    //console.log(process.serviceId + ":" + process.servicePort + " exited:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+});
+
+process.on('uncaughtException', function (ex) {
+    console.error(ex)
 });
 
 process.on('unhandledRejection', (reason, p) => {
@@ -358,24 +322,12 @@ process.on("message", function(pmessage){
 process.once("SIGTERM", process.exit);
 process.once("SIGINT", process.exit);
 
-//console.log(process.isChild ? "CHILD " : "" + "FRAME: " + process.id + "");
+process.setId(getEnvParam("id", process.newId()));
+process._detectDebugMode();
 
 if (process.isChild) {
-    process.serviceId = getEnvParam("serviceId", process.newId());
-    var nodesConfig = process._parseCmd();
-    process.setId(process.serviceId);
-    process.send({type: "control", state: "loaded",serviceId: process.serviceId, pipe: process.pipeId, config : nodesConfig });
-    if (nodesConfig && nodesConfig.length) {
-        if (!process.nodePath) {
-            process.nodePath = nodesConfig[0].path;
-            process.node = nodesConfig[0].id;
-        }
-        process._initFrame();
-    } else {
-        if (!process.nodePath) {
-            process.nodePath = process.ilabPath + "RootService.js";
-            process.node = "RootService";
-        }
-        process._initFrame();
-    }
+    process.type = "container";
+    process.send({type: "control", state: "loaded", id: process.id, pipe: process.pipeId});
 }
+
+console.log((process.isChild ? "CHILD" : "FRAME") + " loaded");

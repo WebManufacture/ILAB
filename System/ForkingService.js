@@ -104,7 +104,7 @@ function ForkingService(config, portCountingFunc){
     return Service.apply(this, arguments);
 }
 
-Inherit(ForkingService, Service, {
+Inherit(ForkingService, RoutingService, {
 
 });
 

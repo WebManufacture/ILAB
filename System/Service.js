@@ -7,13 +7,12 @@ var util = useModule('utils');
 var Selector = useModule('selectors');
 const stream = require('stream');
 var ServiceProxy = useSystem('ServiceProxy');
-
+var XRouter = useSystem('XRouter');
 
 Service = function(params){
     var self = this;
     this._config = {};
     this._eventsDescriptions = {};
-
     this.register("error", {
         args: [
             {
@@ -22,68 +21,21 @@ Service = function(params){
             }
         ],
     });
-    if (!this.serviceType){
-        this.serviceType = params.type ? params.type : this.constructor.name;
-        //console.log("This class is " + this.constructor.name);
-    }
-    if (!this.serviceId) {
-        if (params && params.id) {
-            if (params.id == "auto") {
-                this.serviceId = require('uuid/v4')();
-            } else {
-                this.serviceId = params.id;
-            }
-        } else {
-            if (Frame.serviceId) {
-                this.serviceId = Frame.serviceId;
-            } else {
-                this.serviceId = require('uuid/v4')();
-            }
-        }
-    }
-    //console.log(process.channel);
-    /*
-    this._pipesServerForBaseInteraction = net.createServer({
-        allowHalfOpen: false,
-        pauseOnConnect: false
-    });
-    this._pipesServerForBaseInteraction.on("connection", (socket) => {
-        self._onConnection(socket);
-    });
-    this.port = Frame.servicePort;
-    this._netServerForBaseInteraction = net.createServer({
-        allowHalfOpen: false,
-        pauseOnConnect: false
-    });
-    this._netServerForBaseInteraction.on("connection", (socket) => {
-        self._onConnection(socket);
-    });
-    self.setMaxListeners(100);
-    this._pipesServerForBaseInteraction.on("error", function (err) {
-        try {
-            self.emit('error', err);
-        }
-        catch (e){
-            console.log(err);
-            console.error(e);
-        }
-    });
-    try {
-        var pipeId = Frame.pipeId;
-        this._pipesServerForBaseInteraction.listen(pipeId, function () {
-            Frame.log("Listening pipe " + pipeId);
-        });
-    }
-    catch (error){
-        throw ("Cannot start " + this.serviceId + " on " + Frame.pipeId + "\n" + error.message);
-    }*/
+    this.parseParams(params);
 
-    process.on("self-message", this.routeInternal.bind(this));
+    var route = {
+        id: this.serviceId,
+        type: this.serviceType,
+        rank: 10,
+        provider: this.routeMessage.bind(this.router)
+    };
+    process.router.addRoute(route);
 
     this.register("exiting", {
         description: "occurs when service process like to exit",
         args: []
     });
+
     var wasExiting = false;
     process.once("SIGTERM", () =>{
         if (!wasExiting){
@@ -162,29 +114,45 @@ Service.CreateProxyObject = function (service) {
 };
 
 Inherit(Service, EventEmitter, {
+    parseParams: function(params){
+        if (!this.serviceType){
+            this.serviceType = params.type ? params.type : this.constructor.name;
+            //console.log("This class is " + this.constructor.name);
+        }
+        if (!this.serviceId) {
+            if (params && params.id) {
+                if (params.id == "auto") {
+                    this.serviceId = require('uuid/v4')();
+                } else {
+                    this.serviceId = params.id;
+                }
+            } else {
+                this.serviceId = require('uuid/v4')();
+            }
+        }
+        if (this.id) {
+            this.id = this.serviceId;
+        }
+        return this.id;
+    },
+
     connect: function (serviceSelector) {
         if (!serviceSelector) return null;
         if (typeof serviceSelector == 'string') {
             serviceSelector = new Selector(serviceSelector);
         }
         return new Promise((resolve, reject)=>{
-            Frame.routeMessage({
-                to: serviceSelector.id,
-                from: this.serviceId,
-                source: this.serviceType + "#" + this.serviceId,
-                destination: serviceSelector,
-                content: { type: "startup" }
-            });
+            this.routeMessage(serviceSelector, XRouter.,{ type: "lookup" });
             this.on("message-result", ()=>{
 
             });
         });
     },
 
-    routeLocal: function(serviceId, packet){
+    routeMessage: function(destination, messageType, content){
         //var socket = new JsonSocket(node.data.tcpPort, "127.0.0.1", function (err) {
-        /*var socket = new JsonSocket(Frame.getPipe(serviceId), function (err) {
-            //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
+        /*var socket = new JsonSocket(process.getPipe(serviceId), function (err) {
+            //console.log(process.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
             try {
                 socket.write(packet);
                 socket.end();
@@ -193,15 +161,16 @@ Inherit(Service, EventEmitter, {
                 console.error(err);
             }
         });*/
-        Frame.routeMessage({
-            to: serviceId,
-            from: this.serviceId,
-            source: this.serviceType + "#" + this.serviceId,
-            content: packet
-        })
+        return process.router.routeMessage({
+            id : Date.now().valueOf() + (Math.random()  + "").replace("0.", ""),
+            source : this.serviceType + "#" + this.serviceId,
+            type: messageType,
+            destination: destination,
+            content: content
+        });
     },
 
-    routeInternal: function(message){
+    routeDefault: function(message){
         if (message.type == "method"){
             try {
                 this._calleeFunctionMessage = message;
@@ -386,7 +355,7 @@ Inherit(Service, EventEmitter, {
 
     _closeServer : function(){
         //this._pipesServerForBaseInteraction.close();
-        //console.log("exiting:closing " + Frame.pipeId);
+        //console.log("exiting:closing " + process.pipeId);
         //this.emit("closing-server");
     },
 

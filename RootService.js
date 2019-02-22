@@ -3,8 +3,9 @@ var os = require("os");
 
 function _init() {
     useModule('utils.js');
-    var ForkingService = useSystem('ForkingService');
-    //var Service = useSystem('Service');
+    //var ForkingService = useSystem('ForkingService');
+    //var RoutingService = useSystem('RoutingService');
+    var Service = useSystem('Service');
 
 
     function _parseCmd () {
@@ -35,14 +36,14 @@ function _init() {
             }
             if (config.id) {
                 if (config.id == "auto") {
-                    config.id = Frame.newId();
+                    config.id = process.newId();
                 }
             } else {
                 if (key) {
                     config.id = key;
                 }
                 else {
-                    config.id = Frame.newId();
+                    config.id = process.newId();
                 }
             }
             if (!config.path){
@@ -127,7 +128,7 @@ function _init() {
                                         continue;
                                     }
                                     if (key == "ports"){
-                                        //Frame.portRanges = Frame.portRanges.concat(configFile.ports);
+                                        //process.portRanges = process.portRanges.concat(configFile.ports);
                                         continue;
                                     }
                                     var config = parseConfig(configFile[key], key);
@@ -138,7 +139,7 @@ function _init() {
                             }
                         }
                     } catch (error) {
-                        Frame.error(error);
+                        process.error(error);
                     }
                     continue;
                 }
@@ -163,7 +164,7 @@ function _init() {
                     }));
                 }
             }
-            Frame.debugMode = typeof v8debug === 'object' || debugMode;
+            process.debugMode = typeof v8debug === 'object' || debugMode;
             // console.log('Frame: servicesToStart ', servicesToStart)
             return servicesToStart;
         }
@@ -175,17 +176,17 @@ function _init() {
     };
 
     global.RootService = function RootService() {
-        console.log("RootService for ILAB v4");
-        Frame.serviceType = this.serviceType = "RootService";
+        console.log("RootService for ILAB v4-Local");
+        process.serviceType = this.serviceType = "RootService";
         try {
             var servicesToStart = _parseCmd();
             if (servicesToStart.id){
-                Frame.setId(servicesToStart.id);
+                process.setId(servicesToStart.id);
             }
             //console.log("Detected " + servicesToStart.length + " services to start");
-            var debugMode =  Frame.debugMode;
-            Frame.pipeId = Frame.getPipe(Frame.serviceId);
-            var result = Service.call(this, { id: Frame.serviceId });
+            var debugMode =  process.debugMode;
+            process.pipeId = process.getPipe(process.serviceId);
+            var result = Service.call(this, { id: process.serviceId });
             this.on("error", function (err) {
                 if (err.serviceId) {
                     console.log("Service error: " + err.serviceId);
@@ -194,16 +195,30 @@ function _init() {
                 err.handled = true;
             });
             var frames = [];
-            for (var i = 0; i <= servicesToStart.length; i++) {
+            for (var i = 0; i < servicesToStart.length; i++) {
                 ((service)=> {
-                    var frame = Frame.startChild(service);
+                    var servicePath = service.path;
+                    if (servicePath) {
+                        if (servicePath.indexOf("http://") != 0 && servicePath.indexOf("https://") != 0) {
+                            if (servicePath.indexOf(".js") != servicePath.length - 3) {
+                                servicePath += ".js";
+                            }
+                            if (servicePath.indexOf("/") < 0 && servicePath.indexOf("\\") < 0) {
+                                servicePath = Path.resolve(process.ServicesPath + servicePath);
+                            } else {
+                                servicePath = Path.resolve(servicePath);
+                            }
+                        }
+                    }
+
+                    var frame = process.start(servicePath);
                     if (frame) {
                         frames.push(new Promise((resolve, reject) => {
-                            frame.once("started", (cp) => {
+                            process.once("started", (cp) => {
                                 if (cp.serviceType) {
-                                    Frame.log("Started: " + cp.serviceType + "#" + cp.id);
+                                    process.log("Started: " + cp.serviceType + "#" + cp.id);
                                 } else {
-                                    Frame.log("Started: " + cp.id);
+                                    process.log("Started: " + cp.id);
                                 }
                                 resolve();
                             });
@@ -220,7 +235,7 @@ function _init() {
         }
     };
 
-    Inherit(RootService, ForkingService, {
+    Inherit(RootService, Service, {
 
     });
 }
@@ -229,7 +244,7 @@ if (!global.Frame){
     Frame = { isChild: false }
     require(Path.resolve("./Frame.js"));
     _init();
-    Frame._startFrame(RootService);
+    process.start(RootService);
 } else {
     _init();
     module.exports = RootService;
