@@ -179,18 +179,32 @@ Selector.prototype = {
     }
 }
 
-Selector.Parse = function(txt){
+Selector.Parse = function(txt) {
+    if (typeof txt == "string"){
+        var items = Selector.ParseText(txt);
+        if (items && items.length){
+            if (items.length == 1){
+                return items[0];
+            } else {
+                return items;
+            }
+        }
+        return null;
+    }
+    return txt;
+}
+
+Selector.ParseText = function(txt){
     if (txt){
         var item;
         var items = [];
         var lines = txt.split('\n');
-        for (var i = 0; i < lines.length; i++){
+        for (var i = 0; i < lines.length; i++) {
             var parts = lines[i].split(',');
-            for (var j = 0; j < parts.length; j++){
+            for (var j = 0; j < parts.length; j++) {
                 items.push(new Selector(parts[j]));
             }
         }
-        return items;
     }
 }
 

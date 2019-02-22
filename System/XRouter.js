@@ -50,12 +50,53 @@ Node may have another fields:
 
     it may also contains
     content -- content object of message
-    hopes - decremental hopes
+    jumps - decremental hopes
 */
 
 
-function XRouter(){
+function XRouter(selector){
+    if (!selector) selector = '';
+    selector = Selector.Parse(selector);
+    this.id = selector.id;
+    this.type = selector.type;
+    this.tags = selector.tags;
+    this.selector = selector;
+
+    //Роутер должен знать о своем селекторе (будь то контейнер или сервис)
+    //Чтобы маршрутизировать широковещательные запросы себе или кому-то еще.
+
     this.routeTable = [];
+    this.defaultHandlers = {};
+    this.defaultHandlers[XRouter.TYPE_HI] = this._routeSystem.bind(this);
+    this.defaultHandlers[XRouter.TYPE_LOOKUP] = this._routeSystem.bind(this);
+    this.defaultHandlers[XRouter.TYPE_SEEYOU] = this._routeSystem.bind(this);
+    this.defaultHandlers[XRouter.TYPE_BYE] = this._routeSystem.bind(this);
+    this.defaultHandlers[XRouter.TYPE_FOLLOW] = this._routeSystem.bind(this);
+    this.defaultHandlers[XRouter.TYPE_REDIRECT] = this._routeSystem.bind(this);
+    this.defaultHandlers[XRouter.TYPE_SUBSCRIBE] = this._routeSystem.bind(this);
+    this.defaultHandlers[XRouter.TYPE_UNSCRIBE] = this._routeSystem.bind(this);
+
+    this.defaultHandlers[XRouter.TYPE_GET] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_SET] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_ALL] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_SEARCH] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_ADD] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_DEL] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_CALL] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_RESPONSE] = this._routeDefault.bind(this);
+
+
+    this.defaultHandlers[XRouter.TYPE_ERROR] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_FATAL] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_DENIED] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_TRACE] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_NOTFOUND] = this._routeDefault.bind(this);
+    this.defaultHandlers[XRouter.TYPE_CLOSED] = this._routeDefault.bind(this);
+
+    this.handlers = {};
+    for (var name in this.defaultHandlers){
+        this.handlers[name] = this.defaultHandlers[name];
+    }
 }
 
 XRouter.TYPE_HI         = "hi";        //used when new node up
@@ -83,9 +124,53 @@ XRouter.TYPE_TRACE      = "trace";     //used for QOS
 XRouter.TYPE_NOTFOUND   = "notfound";  //used for QOS
 XRouter.TYPE_CLOSED     = "closed";    //used for QOS
 
-
 Inherit(XRouter, {
-    routeMessage : function(message){
+    replaceTypeHandler : function(messageType, handler){
+        if (messageType && handler) {
+            this.handlers[messageType] = handler;
+        }
+    },
+
+    restoreTypeHandler : function(messageType){
+        if (messageType && handler) {
+            this.handlers[messageType] = this.defaultHandlers[messageType];
+        }
+    },
+
+    _routeSystem : function(message, from){
+        if (typeof message.jumps != "number"){
+            message.jumps = 2;
+        }
+        if (message.jumps){
+            message.jumps--;
+            var source = Selector.Parse(message.source);
+            switch (message.type) {
+                case XRouter.TYPE_HI :
+                    if (from){
+                        this.addRoute({
+                            id : source.id,
+                            rank : 60,
+                            provider: from
+                        });
+                    }
+                case XRouter.TYPE_BYE: this.removeRoute(source.id);
+                case XRouter.TYPE_LOOKUP: {
+
+                }
+            }
+        }
+        return message;
+    },
+
+    _routeRPC : function(message){
+        return message;
+    },
+
+    _routeProblem : function(message){
+        return message;
+    },
+
+    _routeDefault : function(message){
         if (message.to == process.id){
             process.emit("self-message", message.content);
             return message;
@@ -127,11 +212,18 @@ Inherit(XRouter, {
         return message;
     },
 
+    routeMessage : function(message){
+        if (!message.type){ message.type = XRouter.TYPE_HI };
+        var handler = this.handlers[message.type];
+        if (!handler) handler = this.handlers[XRouter.TYPE_FOLLOW];
+        return handler(message);
+    },
+
     addRoute : function(node){
         if (node) {
             if (typeof node == "object" && node.id) {
+                this.routeTable.push(node);
                 process.emit("created-route", node);
-                process.routeTable.push(node);
                 //process.log("Added route: " + node.id + " across " + node.providerId);
             } else {
                 //process.log("Try to add route without id" + node.id);
@@ -142,12 +234,12 @@ Inherit(XRouter, {
     removeRoute : function(nodeId){
         if (!nodeId) return;
         if (typeof nodeId == "object") nodeId = nodeId.id;
-        var nodeIndex = process.routeTable.findIndex(r => r.id == nodeId);
+        var nodeIndex = this.routeTable.findIndex(r => r.id == nodeId);
         if (nodeIndex >= 0){
-            var node = process.routeTable[nodeIndex];
-            process.emit("removed-route", node);
+            var node = this.routeTable[nodeIndex];
             //process.log("Removed route: " + node.id + " across " + node.providerId);
-            process.routeTable.splice(nodeIndex, 1);
+            this.routeTable.splice(nodeIndex, 1);
+            process.emit("removed-route", node);
         } else {
             //process.log("Node " + nodeId + " not found in routing");
         }
