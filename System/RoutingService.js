@@ -19,7 +19,6 @@ function RoutingService(config){
         this.route(packet)
     };
 
-
     this.router = new XRouter();
     this.router.addRoute({
         id : this.serviceId,

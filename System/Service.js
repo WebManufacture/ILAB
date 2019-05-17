@@ -1,8 +1,13 @@
 var fs = require('fs');
-var JsonSocket = useModule('jsonsocket');
 var net = require('net');
 var Path = require('path');
 var EventEmitter = require('events');
+
+if (!global.useModule){
+    require("../System/FrameBase.js");
+}
+
+var JsonSocket = useModule('jsonsocket');
 var util = useModule('utils');
 var Selector = useModule('selectors');
 const stream = require('stream');
@@ -29,7 +34,16 @@ Service = function(params){
         rank: 10,
         provider: this.routeMessage.bind(this.router)
     };
-    process.router.addRoute(route);
+
+    this.router = new XRouter(route);
+
+    if (!process.id){
+        process.setId(this.serviceId);
+    }
+
+    if (process.router) {
+        process.router.addRoute(route);
+    }
 
     this.register("exiting", {
         description: "occurs when service process like to exit",
@@ -65,6 +79,36 @@ Service = function(params){
             self._closeServer();
         }
     });
+
+    this._pipesServerForBaseInteraction = net.createServer({
+        allowHalfOpen: false,
+        pauseOnConnect: false
+    });
+    this._pipesServerForBaseInteraction.on("connection", (socket) => {
+        self._onConnection(socket);
+    });
+
+    self.setMaxListeners(100);
+    this._pipesServerForBaseInteraction.on("error", function (err) {
+        try {
+            self.emit('error', err);
+        }
+        catch (e){
+            console.log(err);
+            console.error(e);
+        }
+    });
+
+    try {
+        var pipeId = this.pipeId = process.getPipe(this.serviceId);
+        this._pipesServerForBaseInteraction.listen(pipeId, function () {
+            console.log("Listening pipe " + pipeId);
+        });
+    }
+    catch (error){
+        throw ("Cannot start " + this.serviceId + " on " + this.pipeId + "\n" + error.message);
+    }
+
     this.GetDescription = function () {
         return Service.GetDescription(self);
     }
@@ -116,7 +160,7 @@ Service.CreateProxyObject = function (service) {
 Inherit(Service, EventEmitter, {
     parseParams: function(params){
         if (!this.serviceType){
-            this.serviceType = params.type ? params.type : this.constructor.name;
+            this.serviceType = params && params.type ? params.type : this.constructor.name;
             //console.log("This class is " + this.constructor.name);
         }
         if (!this.serviceId) {
@@ -142,7 +186,7 @@ Inherit(Service, EventEmitter, {
             serviceSelector = new Selector(serviceSelector);
         }
         return new Promise((resolve, reject)=>{
-            this.routeMessage(serviceSelector, XRouter.,{ type: "lookup" });
+            this.routeMessage(serviceSelector, XRouter.TYPE_LOOKUP,{ type: "lookup" });
             this.on("message-result", ()=>{
 
             });
@@ -161,7 +205,7 @@ Inherit(Service, EventEmitter, {
                 console.error(err);
             }
         });*/
-        return process.router.routeMessage({
+        return this.router.routeMessage({
             id : Date.now().valueOf() + (Math.random()  + "").replace("0.", ""),
             source : this.serviceType + "#" + this.serviceId,
             type: messageType,
@@ -354,9 +398,9 @@ Inherit(Service, EventEmitter, {
     },
 
     _closeServer : function(){
-        //this._pipesServerForBaseInteraction.close();
-        //console.log("exiting:closing " + process.pipeId);
-        //this.emit("closing-server");
+        this._pipesServerForBaseInteraction.close();
+        console.log("exiting:closing " + this.pipeId);
+        this.emit("closing-server");
     },
 
     emit: function (eventName) {
@@ -398,3 +442,7 @@ Inherit(Service, EventEmitter, {
 });
 
 module.exports = Service;
+
+if (!module.parent) {
+    return new Service();
+}

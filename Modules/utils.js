@@ -4,7 +4,7 @@ var Path = require("path");
 //для совместимости!
 // 05.02.2019 - A.Semchenkov --- С чем совместимости, Саша !!!???
 // 06.02.2019 - Саша -- О господи, я разговариваю сам с собой в собственном коде!
-if (!global.Frame){
+if (!global.useModule){
 	function _regOlds(){
 		console.error("USING OBSOLETE ENVIRONMENT!");
 		var ilabPath = process.argv[1];

@@ -45,13 +45,16 @@ Node may have another fields:
 
     id -- message id (time + random generator is ok)
     destination -- Receiver selector
-    source -- source selector
+    source -- source selector,
+    sender -- a node Id which are sends a message.
     type -- message type (see XRouter.TYPE_)
 
     it may also contains
     content -- content object of message
     jumps - decremental hopes
 */
+
+//Аспекты передачи сообщений
 
 
 function XRouter(selector){
@@ -68,9 +71,9 @@ function XRouter(selector){
     this.routeTable = [];
     this.defaultHandlers = {};
     this.defaultHandlers[XRouter.TYPE_HI] = this._routeSystem.bind(this);
-    this.defaultHandlers[XRouter.TYPE_LOOKUP] = this._routeSystem.bind(this);
+    this.defaultHandlers[XRouter.TYPE_LOOKUP] = this._routeLookup.bind(this);
     this.defaultHandlers[XRouter.TYPE_SEEYOU] = this._routeSystem.bind(this);
-    this.defaultHandlers[XRouter.TYPE_BYE] = this._routeSystem.bind(this);
+    this.defaultHandlers[XRouter.TYPE_BYE] = this._routeBye.bind(this);
     this.defaultHandlers[XRouter.TYPE_FOLLOW] = this._routeSystem.bind(this);
     this.defaultHandlers[XRouter.TYPE_REDIRECT] = this._routeSystem.bind(this);
     this.defaultHandlers[XRouter.TYPE_SUBSCRIBE] = this._routeSystem.bind(this);
@@ -124,7 +127,7 @@ XRouter.TYPE_TRACE      = "trace";     //used for QOS
 XRouter.TYPE_NOTFOUND   = "notfound";  //used for QOS
 XRouter.TYPE_CLOSED     = "closed";    //used for QOS
 
-Inherit(XRouter, {
+XRouter.prototype = {
     replaceTypeHandler : function(messageType, handler){
         if (messageType && handler) {
             this.handlers[messageType] = handler;
@@ -145,21 +148,31 @@ Inherit(XRouter, {
             message.jumps--;
             var source = Selector.Parse(message.source);
             switch (message.type) {
-                case XRouter.TYPE_HI :
-                    if (from){
-                        this.addRoute({
-                            id : source.id,
-                            rank : 60,
-                            provider: from
-                        });
-                    }
-                case XRouter.TYPE_BYE: this.removeRoute(source.id);
-                case XRouter.TYPE_LOOKUP: {
-
-                }
+                case
+                    XRouter.TYPE_BYE: this.removeRoute(source.id);
+                    break;
+                default: return this._routeDefault(message, from);
             }
         }
         return message;
+    },
+
+    _routeBye : function(message){
+        this.removeRoute(message.source.id);
+        return message;
+    },
+
+    _routeLookup: function(message, from){
+        var dst = message.destination;
+        if (dst.is(this.selector)){
+            this.routeMessage({
+                type: XRouter.TYPE_SEEYOU,
+                destination : message.source,
+                source: this.selector,
+                sender: this.id
+            });
+        }
+
     },
 
     _routeRPC : function(message){
@@ -213,7 +226,29 @@ Inherit(XRouter, {
     },
 
     routeMessage : function(message){
+        if (!message.id) { message.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");}
         if (!message.type){ message.type = XRouter.TYPE_HI };
+        if (typeof message.destination == "string"){
+            message.destination = new Selector(message.destination);
+        }
+        if (typeof message.jumps != "number"){
+            message.jumps = 2;
+        } else {
+            if (message.jumps) {
+                message.jumps--;
+            }
+        }
+        if (typeof message.source == "string"){
+            message.source = new Selector(message.source);
+        }
+        //По умолчанию, мы смотрим от кого пришло сообщение и добавляем его в роуты
+        if (message.sender && message.sender != this.id){
+            this.addRoute({
+                id : source.id,
+                rank : 60,
+                provider: message.sender
+            });
+        }
         var handler = this.handlers[message.type];
         if (!handler) handler = this.handlers[XRouter.TYPE_FOLLOW];
         return handler(message);
@@ -244,6 +279,6 @@ Inherit(XRouter, {
             //process.log("Node " + nodeId + " not found in routing");
         }
     }
-});
+};
 
 module.exports = XRouter;
