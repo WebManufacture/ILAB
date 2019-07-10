@@ -162,7 +162,7 @@ function DiscoveryService(config){
             type: "local",
             rank: 5,
             serviceType: config.serviceType,
-            tcpPort: servicePort
+            tcpPort: config.servicePort
         });
     });
 
