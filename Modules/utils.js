@@ -1,69 +1,52 @@
 var util = require("util");
 var Path = require("path");
 
-//для совместимости!
-// 05.02.2019 - A.Semchenkov --- С чем совместимости, Саша !!!???
-// 06.02.2019 - Саша -- О господи, я разговариваю сам с собой в собственном коде!
-if (!global.useModule){
-	function _regOlds(){
-		console.error("USING OBSOLETE ENVIRONMENT!");
-		var ilabPath = process.argv[1];
-		ilabPath = Path.dirname(ilabPath);
-		var NodesPath =  ".\\ILAB\\Nodes\\";
-		var ModulesPath = ".\\ILAB\\Modules\\";
-		var ServicesPath = ".\\ILAB\\Services\\";
-		var nodeModulesPath = process.execPath.replace("node.exe", "") + "node_modules\\";
-		if (!global.useNodeType){
-			global.useNodeType = function(path){
-				if (path.indexOf(".js") != path.length - 3){
-				  path += ".js";
-				}
-				return require(Path.resolve(NodesPath + path));
-			};
-		}
-
-		if (!global.useModule){
-			global.useModule = function(path){
-				if (path.indexOf(".js") != path.length - 3){
-				  path += ".js";
-				}
-				return require(Path.resolve(ModulesPath + path));
-			};
-		}
-		
-		if (!global.useSystem){
-			global.useSystem = function(path){
-				return require(Path.resolve(nodeModulesPath + path));
-			};
-		}
-	}
-	
-	_regOlds();
-}
-
 if (!global.Inherit) {
 	global.Inherit = function (Child, Parent, mixin) {
 		if (typeof(Child) == "string") {
 			Child = window[Child] = function () {
 			};
 		}
-		var F = function () {
-		};
-		F.prototype = Parent.prototype
-		var childProto = Child.prototype = new F();
-		childProto.constructor = Child;
-		if (mixin) {
-			for (var item in mixin) {
-				childProto[item] = mixin[item];
+		if (typeof Parent == 'function') {
+			var parentConstructor = Parent;
+			var F = function () {
+			};
+			F.prototype = Parent.prototype;
+			var childProto = Child.prototype = new F();
+			childProto.constructor = Child;
+			childProto.className = Child.name;
+			if (mixin) {
+				for (var item in mixin) {
+					childProto[item] = mixin[item];
+				}
 			}
+			var parentProto = Child.base = Parent.prototype;
+			childProto._base = Parent.prototype;
+			childProto._super = childProto.super = Child.super = Child.super_ = function (args) {
+				this.super = this._super = Parent.super;
+				parentConstructor.apply(this, arguments);
+			};
+			return Child;
 		}
-		Child.base = Parent.prototype;
-		childProto._base = Parent.prototype;
-		childProto._super = Child._super = Child.super_ = function (args) {
-			Child.base.constructor.apply(this, arguments);
+		if (typeof Parent == 'object'){
+			console.log("UTILS: Inheriting from object")
+			var F = function () {};
+			F.prototype = Parent;
+			var childProto = Child.prototype = new F();
+			childProto.constructor = Child;
+			childProto.className = Child.name;
+			if (mixin) {
+				for (var item in mixin) {
+					childProto[item] = mixin[item];
+				}
+			}
+			var parentProto = Child.base = F;
+			childProto._base = F;
+			childProto._super = childProto.super = Child.super = Child.super_ = function (args) {};
+			return Child;
 		}
-		return Child;
-	}
+		console.error("UTILS: Inheriting from unknown!")
+	};
 
 	Object.defineProperty(Object.prototype, "classType", {
 		enumerable: false,
@@ -263,3 +246,4 @@ String.prototype.get = function(regex){
 	}
 	return null;	
 };
+

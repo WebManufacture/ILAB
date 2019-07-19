@@ -1,6 +1,6 @@
 var Service = useSystem("Service");
 useModule("utils.js");
-var Router = useModule('Router');
+var XRouter = useSystem('XRouter');
 
 
 function RoutingService(config){

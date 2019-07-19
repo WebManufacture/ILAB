@@ -58,12 +58,13 @@ Node may have another fields:
 
 
 function XRouter(selector){
-    if (!selector) selector = '';
-    selector = Selector.Parse(selector);
-    this.id = selector.id;
-    this.type = selector.type;
-    this.tags = selector.tags;
-    this.selector = selector;
+    if (selector) {
+        selector = Selector.Parse(selector);
+        this.id = selector.id;
+        this.type = selector.type;
+        this.tags = selector.tags;
+        this.selector = selector;
+    }
 
     //Роутер должен знать о своем селекторе (будь то контейнер или сервис)
     //Чтобы маршрутизировать широковещательные запросы себе или кому-то еще.

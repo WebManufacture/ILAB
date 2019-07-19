@@ -2,162 +2,319 @@ var Path = require('path');
 var fs = require('fs');
 var http = require('http');
 var os = require('os');
+var net = require('net');
 var vm = require('vm');
 var ChildProcess = require('child_process');
-require('/System/FrameBase.js');
 
-process.startCode = function (path, params) {
-    process.log("Virtual node starting...");
-    node = vm.Script(node, { filename: process.nodePath || process.node || "tempNode.vm" });
-    node = node.runInThisContext();
-    process.log("Virtual node started");
-};
+function Frame(params){
+    this.fm = useSystem("ForkManager");
 
-process.start = function (path, params) {
-    var originalPath = path;
-    function _startCode (node) {
-        try{
-            if (node) {
-                if (typeof node == "string") {
-                   process.startCode(path, params);
-                }
-                if (typeof node == "function") {
-                    var nodeType = node.name;
-                    var nodeId = node.name;
-                    var nodeClass = null;
-                    var result = null;
-                    if (node.prototype) {
-                        if (node.hasPrototype("Service")) {
-                            var service = new node(params);
-                            if (service) {
-                                if (service.serviceType) {
-                                    nodeType = service.serviceType;
-                                }
-                                if (service.serviceId) {
-                                    nodeId = service.serviceId;
-                                }
-                            }
-                            nodeClass = 'service';
-                        } else {
-                            node = new node(params);
-                            if (node) {
-                                if (node.type) {
-                                    nodeType = node.type;
-                                }
-                                if (node.id) {
-                                    nodeId = node.id;
-                                }
-                            }
-                            nodeClass = 'class';
-                        }
-                    } else {
-                        result = node(params);
-                        if (node) {
-                            if (node.type) {
-                                nodeType = node.type;
-                            }
-                            if (node.id) {
-                                nodeId = node.id;
-                            }
-                        }
-                        nodeClass = 'function';
-                    }
-                    var message = {
-                        type: "control",
-                        state: "started",
-                        nodeType: nodeClass,
-                        result: result,
-                        serviceId: nodeId,
-                        serviceType: nodeType,
-                        pipe: process.getPipe(nodeId),
-                        config: params
-                    };
-                    if (result) message.result = result;
-                    process.send(message);
-                    return message;
-                }
-            } else {
-                process.log("unresolved start.")
-            }
-        }
-        catch (err){
-            process.error(err);
+    this._super();
+
+    this.Nodes = [];
+    this.Modules = [];
+    this.Services = [];
+    this.Childs = [];
+
+    if (this.isChild) {
+        this.send({type: "control", state: "loaded", id: this.id, pipe: this.pipeId});
+    }
+
+    this.exit = function(){
+        if (this.exitingInteval == null) {
+            process.emit("exiting");
+            var date = (new Date());
+            //console.log(process.id + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
+            this.exitingInteval = setTimeout(function () {
+                process.exit();
+            }, 10);
         }
     };
-    try {
-        if (!params) params = {};
-        if (typeof path == "function") {
-            return _startCode(path);
+
+    var wasExiting = false;
+    process.once("SIGTERM", () =>{
+        if (!wasExiting){
+            wasExiting = true;
+            this._closeServer();
+            this.exit();
+        };
+    });
+    process.once("SIGINT", () =>{
+        if (!wasExiting){
+            wasExiting = true;
+            this._closeServer();
+            this.exit();
+        };
+
+    });
+    process.once("exiting", () =>{
+        if (!wasExiting) {
+            wasExiting = true;
+            this._closeServer();
         }
-        if (typeof path == "string") {
-            if (path.indexOf("http://") == 0 || path.indexOf("https://") == 0) {
-                http.get(path, (res) => {
-                    var statusCode = res.statusCode;
-                    if (statusCode !== 200) {
-                        process.fatal("Can't get node: " + res.statusCode + " : " + path);
-                        return;
+    });
+    process.once("exit", () =>{
+        if (!wasExiting){
+            wasExiting = true;
+            this._closeServer();
+        }
+        if (this.exitingInteval){
+            clearTimeout(this.exitingInteval);
+        }
+    });
+
+    process.on("message", (message) => {
+        this.routeMessage(message);
+    });
+
+    process.on("child-message", (cp, message) => {
+        this.routeMessage(message);
+    });
+
+
+    this.pipeId = this.getPipe();
+
+    this._pipesServerForBaseInteraction = net.createServer({
+        allowHalfOpen: false,
+        pauseOnConnect: false
+    });
+    this._pipesServerForBaseInteraction.on("connection", (socket) => {
+        this._onConnection(socket);
+    });
+
+    process.setMaxListeners(100);
+    this._pipesServerForBaseInteraction.on("error", (err) => {
+        try {
+            this.error(err);
+        }
+        catch (e){
+            console.log(err);
+            console.error(e);
+        }
+    });
+
+    try{
+        this._pipesServerForBaseInteraction.listen(this.pipeId, () => {
+            console.log("Listening pipe " + this.pipeId);
+        });
+    }
+    catch (error){
+        throw ("Cannot start container " + this.id + " on " + this.pipeId + "\n" + error.message);
+    }
+
+};
+
+Frame.getEnvParam = function(name, defaultValue){
+    return process.env[name] ? process.env[name] : (
+        process.env.params ? (process.env.params[name] ? process.env.params[name] : defaultValue) : defaultValue
+    )
+};
+
+function prepareArgAspect(func){
+    return function (path) {
+        if (path.indexOf(".js") != path.length - 3){
+            path += ".js";
+        }
+        return func(path);
+    }
+}
+
+//Оставлено для совместимости!
+
+
+process.basePath = process.cwd();
+process.ilabPath = process.basePath;
+if (process.ilabPath.indexOf("/") != process.ilabPath.length - 1) process.ilabPath += "/";
+process.workingPath =  Path.resolve(Frame.getEnvParam('workDir'), process.cwd());
+process.NodesPath = process.ilabPath + "Nodes/";
+process.ModulesPath = process.ilabPath + "Modules/";
+process.ServicesPath = process.ilabPath + "Services/";
+process.SystemPath = process.ilabPath + "System/";
+process.NodeModulesPath = process.execPath.replace("node.exe", "") + "node_modules/";
+
+global.useModule = prepareArgAspect(function(path){
+    return require(Path.resolve(process.ModulesPath + path));
+});
+global.useService = prepareArgAspect(function(path){
+    return require(Path.resolve(process.ServicesPath + path));
+});
+global.useRoot = prepareArgAspect(function(path){
+    return require(Path.resolve(process.ilabPath + path));
+});
+global.useSystem = prepareArgAspect(function(path){
+    return require(Path.resolve(process.SystemPath + path));
+});
+
+var oldRequire = require;
+global.require = function(path){
+    return oldRequire.apply(this, arguments);
+};
+
+Inherit(Frame, useSystem('Container'), {
+    _onConnection  : function(socket){
+        var self = this;
+        //console.log(this.serviceId + ":" + this.port + " connection");
+        socket = new JsonSocket(socket);
+
+        var errorHandler = function(err){
+            self.emit("error", err);
+        };
+        socket.on("error", errorHandler);
+
+        var goStreamMode = (message, result) => {
+            socket.write({"type": "stream",  id: message.id, length: result.length});
+            socket.removeListener('messageHandlerFunction', messageHandlerFunction);
+            messageHandlerFunction = (message) => {
+                if (message.type == "stream-started"){
+                    if (result.encoding){
+                        socket.netSocket.setEncoding(result.encoding);
                     }
-                    res.setEncoding('utf8');
-                    var rawData = '';
-                    res.on('data', (chunk) => rawData += chunk);
-                    res.on('end', () => {
-                        try {/*
-                        process.nodePath = process.serviceId ? process.serviceId : "UnknownTempService" + Math.random() + ".js";
-                        process.nodePath = process.nodePath.replace(/\//ig, '-');
-                        process.nodePath = process.nodePath.replace(/\\/ig, '-');
-                        if (process.nodePath.indexOf(".js") != process.nodePath.length - 3) {
-                            process.nodePath += ".js";
-                        }
-                        const tempPath = Path.resolve("./Temp/");
-                        if (!fs.existsSync(tempPath)){
-                            fs.mkdirSync(tempPath);
-                        }
-                        process.nodePath =  Path.resolve("./Temp/" + process.nodePath);
-                        fs.writeFile(process.nodePath, rawData, function (err, result) {
-                            if (err){
-                                process.fatal(err);
-                                return;
+                    else {
+                        socket.netSocket.setEncoding('binary');
+                    }
+                    if (result instanceof stream.Readable) {
+                        result.pipe(socket.netSocket);
+                    }
+                    if (result instanceof stream.Writable) {
+                        socket.netSocket.pipe(result);
+                    }
+                } else {
+                    throw new Error("Reusable socket detected after go stream mode")
+                }
+            };
+            socket.on('json', messageHandlerFunction);
+
+        };
+
+        var messageHandlerFunction = function (message) {
+            if (message.type == "method"){
+                try {
+                    this._calleeFunctionMessage = message;
+                    var result = self._callMethod(message.name, message.args);
+                    this._calleeFunctionMessage = null;
+                }
+                catch (err){
+                    if (message.id) {
+                        socket.write({"type": "error", id: message.id, result: err, message: err.message, stack: err.stack});
+                    }
+                    return;
+                }
+                if (result instanceof Promise){
+                    result.then(function (result) {
+                        try {
+                            if (result instanceof stream.Readable || result instanceof stream.Writable) {
+                                goStreamMode(message, result);
                             }
-                            process._initFrame();
-                        });
-                        */
-                            _startCode(rawData);
-                        } catch (e) {
-                            process.fatal(e);
+                            else {
+                                socket.write({"type": "result", id: message.id, result: result});
+                            }
+                        }
+                        catch (error){
+                            throw error;
+                        }
+                    }).catch(function (error) {
+                        if (typeof error == "string") {
+                            socket.write({"type": "error", id: message.id, result: error, message: error});
+                        }
+                        else {
+                            socket.write({"type": "error", id: message.id, result: error.message, message: error.message, stack: error.stack});
                         }
                     });
-                }).on('error', function (e) {
-                    process.fatal(e);
-                });
-                return;
-            } else {
-                var node = require(path);
-                _startCode(node);
+                }
+                else {
+                    if (result instanceof stream.Readable || result instanceof stream.Writable) {
+                        goStreamMode(message, result);
+                    } else {
+                        socket.write({"type": "result", id: message.id, result: result})
+                    }
+                }
+            }
+            if (message.type == "startup") {
+                var proxy = Service.CreateProxyObject(self);
+                if (proxy) {
+                    socket.write(proxy);
+                }
+            }
+            if (message.type == "subscribe") {
+                self.on("internal-event", internalEventHandler);
+            }
+        };
+        var internalEventHandler = function (eventName, args) {
+            //args.shift();
+            try {
+                if (!socket.closed) {
+                    socket.write({
+                        type: "event",
+                        name: eventName,
+                        calleeId: this._calleeFunctionMessage ? this._calleeFunctionMessage.id : null,
+                        calleeName: this._calleeFunctionMessage ? this._calleeFunctionMessage.name : null,
+                        args: args});
+                }
+            } catch(err){
+                //errorHandler(err);
+            }
+        };
+        var serverClosingHandler = function (eventName, args) {
+            socket.end();
+        };
+        socket.on("json", messageHandlerFunction);
+        self.once("closing-server", serverClosingHandler);
+
+        socket.once("close", function (isError) {
+            self.removeListener("internal-event", internalEventHandler);
+            self.removeListener("closing-server", serverClosingHandler);
+            socket.removeAllListeners();
+        });
+        socket.once("end", function (isError) {
+            self.removeListener("internal-event", internalEventHandler);
+            self.removeListener("closing-server", serverClosingHandler);
+            socket.removeAllListeners();
+        });
+        process.once("exit", function(){
+            socket.end();
+            socket.close(true);
+        });
+    },
+
+    _closeServer : function(){
+        this._pipesServerForBaseInteraction.close();
+        console.log("exiting:closing " + this.pipeId);
+    }
+});
+
+Frame._detectDebugMode = function() {
+    var debugMode = false;
+    try{
+        if (process.execArgv[0] && (process.execArgv[0].indexOf("--inspect") >= 0 || process.execArgv[0].indexOf("--debug") >= 0)){
+            debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
+        }
+        for (var i = 2; i <= process.argv.length; i++) {
+            var arg = process.argv[i];
+            if (!arg) continue;
+            if (arg.indexOf("--inspect") >= 0) {
+                debugMode = arg.indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
+                continue;
             }
         }
+        process.debugMode = debugMode;
+        // console.log('Frame: servicesToStart ', servicesToStart)
     }
     catch (err) {
-        process.fatal(err);
+        console.log("RootError: ");
+        console.error(err);
     }
 };
 
-process.setId(process.getEnvParam("id", process.newId()));
-
-useSystem("ForkManager");
-var XRouter = useSystem("XRouter");
-process.router = new XRouter(new Selector({id: process.id, type: "container"}));
-
-process.on("message", (message) => {
-    process.router.routeMessage(message);
+process.on('uncaughtException', function (ex) {
+    console.error(ex);
 });
 
-process.on("child-message", (cp, message) => {
-    process.router.routeMessage(message);
+process.on('unhandledRejection', (reason, p) => {
+    console.log('Unhandled Rejection at:', p, 'reason:', reason);
+    // application specific logging, throwing an error, or other logic here
 });
 
-if (process.isChild) {
-    process.type = "container";
-    process.send({type: "control", state: "loaded", id: process.id, pipe: process.pipeId});
-}
+process.once("SIGTERM", process.exit);
+process.once("SIGINT", process.exit);
 
-console.log((process.isChild ? "CHILD" : "FRAME") + " loaded");
+module.exports = Frame;
