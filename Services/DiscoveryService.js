@@ -186,7 +186,10 @@ function DiscoveryService(config){
         });
     });
 
-    process.routeTable.forEach((route)=> {
+    var router = require('router');
+    var container = require('container');
+
+    router.getTable.forEach((route)=> {
         this.registerNode({
             id: route.id,
             type: "local",
