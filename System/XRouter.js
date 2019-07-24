@@ -6,6 +6,7 @@ var vm = require('vm');
 var ChildProcess = require('child_process');
 var utils = useModule('utils');
 var Selector = useModule('selectors');
+var Router = useModule('Router');
 
 /*
 Node should have next fields:
@@ -56,230 +57,397 @@ Node may have another fields:
 
 //Аспекты передачи сообщений
 
+function MapNode(parentPath) {
+    this["/"] = [];
+    this["<"] = [];
+    this[">"] = [];
+    this["//"] = parentPath;
+};
 
-function XRouter(selector){
-    if (selector) {
-        selector = Selector.Parse(selector);
-        this.id = selector.id;
-        this.type = selector.type;
-        this.tags = selector.tags;
-        this.selector = selector;
-    }
-
-    //Роутер должен знать о своем селекторе (будь то контейнер или сервис)
-    //Чтобы маршрутизировать широковещательные запросы себе или кому-то еще.
-
-    this.routeTable = [];
-    this.defaultHandlers = {};
-    this.defaultHandlers[XRouter.TYPE_HI] = this._routeSystem.bind(this);
-    this.defaultHandlers[XRouter.TYPE_LOOKUP] = this._routeLookup.bind(this);
-    this.defaultHandlers[XRouter.TYPE_SEEYOU] = this._routeSystem.bind(this);
-    this.defaultHandlers[XRouter.TYPE_BYE] = this._routeBye.bind(this);
-    this.defaultHandlers[XRouter.TYPE_FOLLOW] = this._routeSystem.bind(this);
-    this.defaultHandlers[XRouter.TYPE_REDIRECT] = this._routeSystem.bind(this);
-    this.defaultHandlers[XRouter.TYPE_SUBSCRIBE] = this._routeSystem.bind(this);
-    this.defaultHandlers[XRouter.TYPE_UNSCRIBE] = this._routeSystem.bind(this);
-
-    this.defaultHandlers[XRouter.TYPE_GET] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_SET] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_ALL] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_SEARCH] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_ADD] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_DEL] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_CALL] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_RESPONSE] = this._routeDefault.bind(this);
-
-
-    this.defaultHandlers[XRouter.TYPE_ERROR] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_FATAL] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_DENIED] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_TRACE] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_NOTFOUND] = this._routeDefault.bind(this);
-    this.defaultHandlers[XRouter.TYPE_CLOSED] = this._routeDefault.bind(this);
-
-    this.handlers = {};
-    for (var name in this.defaultHandlers){
-        this.handlers[name] = this.defaultHandlers[name];
-    }
+function XRouter() {
+    this.HandlersIndex = [];
+    this.Handlers = new MapNode("/");
+    this.basePath = "";
+    this.Enabled = true;
+    this.WaitingContexts = {};
+    this.WaitingContextsCount = 0;
+    this.ProcessingContexts = {};
+    this.ProcessingContextsCount = 0;
+    if (!timeout) timeout = 5000;
+    this.timeout = timeout;
 }
 
-XRouter.TYPE_HI         = "hi";        //used when new node up
-XRouter.TYPE_LOOKUP     = "lookup";    //used for node search
-XRouter.TYPE_SEEYOU     = "seeyou";    //response to lookup packet
-XRouter.TYPE_BYE        = "bye";       //used when node down
-XRouter.TYPE_FOLLOW     = "follow";    //used to wrap messages
-XRouter.TYPE_REDIRECT   = "redirect";  //used to unwrap messages
-XRouter.TYPE_SUBSCRIBE  = "subscribe"; //used for subscriptions mechanism
-XRouter.TYPE_UNSCRIBE   = "unscribe";  //used for subscriptions mechanism
+XRouter.TYPE_HI = "hi";        //used when new node up
+XRouter.TYPE_LOOKUP = "lookup";    //used for node search
+XRouter.TYPE_SEEYOU = "seeyou";    //response to lookup packet, or to hi packet
+XRouter.TYPE_BYE = "bye";       //used when node down
+XRouter.TYPE_REDIRECT = "redirect";  //used for subscriptions mechanism, will redirect the path to node
+XRouter.TYPE_FOLLOW = "follow";    //used for subscriptions mechanism, will translate the path to node
 
-XRouter.TYPE_GET        = "get";       //used for RPC
-XRouter.TYPE_SET        = "set";       //used for RPC
-XRouter.TYPE_ALL        = "all";       //used for RPC
-XRouter.TYPE_SEARCH     = "all";       //used for RPC
-XRouter.TYPE_ADD        = "add";       //used for RPC
-XRouter.TYPE_DEL        = "del";       //used for RPC
-XRouter.TYPE_CALL       = "call";      //used for RPC
-XRouter.TYPE_RESPONSE   = "response";  //used for RPC
+XRouter.TYPE_GET_TUNNEL = "get-tunnel";//used for streaming, or direct containers communication
+XRouter.TYPE_AUTO = "auto";      //used for auto-routing
+XRouter.TYPE_LIVE = "live";      //used for "live" messages (which code should run on each route point)
+XRouter.TYPE_RESPONSE = "response";  //used for streaming, or direct containers communication
 
-XRouter.TYPE_ERROR      = "error";     //used for QOS
-XRouter.TYPE_FATAL      = "fatal";     //used for QOS
-XRouter.TYPE_DENIED     = "denied";    //used for QOS
-XRouter.TYPE_TRACE      = "trace";     //used for QOS
-XRouter.TYPE_NOTFOUND   = "notfound";  //used for QOS
-XRouter.TYPE_CLOSED     = "closed";    //used for QOS
+XRouter.TYPE_CALL = "call";      //used for RPC
+XRouter.TYPE_GET = "get";       //used for RPC
+XRouter.TYPE_SET = "set";       //used for RPC
+XRouter.TYPE_ALL = "all";       //used for RPC
+XRouter.TYPE_SEARCH = "all";       //used for RPC
+XRouter.TYPE_ADD = "add";       //used for RPC
+XRouter.TYPE_DEL = "del";       //used for RPC
 
-XRouter.prototype = {
-    replaceTypeHandler : function(messageType, handler){
-        if (messageType && handler) {
-            this.handlers[messageType] = handler;
-        }
+XRouter.TYPE_ERROR = "error";     //used for QOS
+XRouter.TYPE_FATAL = "fatal";     //used for QOS
+XRouter.TYPE_DENIED = "denied";    //used for QOS
+XRouter.TYPE_TRACE = "trace";     //used for QOS
+XRouter.TYPE_NOTFOUND = "notfound";  //used for QOS
+XRouter.TYPE_CLOSED = "closed";    //used for QOS
+
+
+Inherit(XRouter, {
+    on: function (path, handler) {
+        return this._addHandler(path.toLowerCase(), handler);
     },
 
-    restoreTypeHandler : function(messageType){
-        if (messageType && handler) {
-            this.handlers[messageType] = this.defaultHandlers[messageType];
-        }
+    un: function (handler) {
+        return this._removeHandler(handler);
     },
 
-    _routeSystem : function(message, from){
-        if (typeof message.jumps != "number"){
-            message.jumps = 2;
-        }
-        if (message.jumps){
-            message.jumps--;
-            var source = Selector.Parse(message.source);
-            switch (message.type) {
-                case
-                    XRouter.TYPE_BYE: this.removeRoute(source.id);
-                    break;
-                default: return this._routeDefault(message, from);
+    map: function (map) {
+        if (map) {
+            if (Array.isArray(map)) {
+                for (let path of map) {
+                    this._addHandler(path.toLowerCase(), map[path]);
+                }
+            } else {
+                for (let path in map) {
+                    this._addHandler(path.toLowerCase(), map[path]);
+                }
             }
         }
-        return message;
     },
 
-    _routeBye : function(message){
-        this.removeRoute(message.source.id);
-        return message;
+    GetContext: function (selector, data) {
+        var context = new RoutingContext(selector, this.basePath, data);
+        context.debugMode = this.debugMode;
+        return context;
     },
 
-    _routeLookup: function(message, from){
-        var dst = message.destination;
-        if (dst.is(this.selector)){
-            this.routeMessage({
-                type: XRouter.TYPE_SEEYOU,
-                destination : message.source,
-                source: this.selector,
-                sender: this.id
-            });
+    do: function (selector, data) {
+        return this.Process(this.GetContext(selector, data));
+    },
+
+    Process: function (context) {
+        this.ProcessingContextsCount++;
+        this.ProcessingContexts[context.id] = context;
+        context.router = this;
+            context.callPlan = [];
+            context.getCallPlan(context.callPlan, this.Handlers, 0);
+            context.log("callPlan: ", context.callPlan.length);
+        context.callChain(0);
+        return context;
+    },
+
+
+    _removeHandler: function (handler) {
+        const root = this.Handlers;
+        if (!handler) {
+            return null;
         }
-
-    },
-
-    _routeRPC : function(message){
-        return message;
-    },
-
-    _routeProblem : function(message){
-        return message;
-    },
-
-    _routeDefault : function(message){
-        if (message.to == process.id){
-            process.emit("self-message", message.content);
-            return message;
-        }
-        if (message.to){
-            //Unicast message
-            var route = process.routeTable.find(r => r.id == message.to);
-            if (route){
-                if (route.providerId == "self"){
-                    process.emit("self-message", message.content);
-                    return message;
-                }
-                if (route.providerId == "child"){
-                    var child = process.getChild(message.to);
-                    if (child) {
-                        child.send(message);
-                    } else {
-                        console.log("routing to unreachable child node " + message.to);
+        for (var key in root) {
+            if (typeof root[key] == "object") {
+                if (root[key] instanceof Array) {
+                    var arr = root[key];
+                    for (var i = 0; i < arr.length; i++) {
+                        if (arr[i] === handler) {
+                            arr.splice(i, 1);
+                            return;
+                        }
                     }
-                    return message;
-                }
-                console.log("Route with unknown routing type " + route.id + ":" + route.type + " --> " + route.providerId);
-            } else {
-                if (process.isChild) {
-                    //Should route to uplink
-                    process.send({
-                        type: "message",
-                        message: message
-                    });
                 } else {
-                    //Let's check by node type
-                    //Should route to default router
-                    var route = process.routeTable.find(r => r.id == message.to);
+                    this._removeHandler(root[key], handler);
                 }
             }
-        } else {
-            //Multicast message
         }
-        return message;
     },
 
-    routeMessage : function(message){
-        if (!message.id) { message.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");}
-        if (!message.type){ message.type = XRouter.TYPE_HI };
-        if (typeof message.destination == "string"){
-            message.destination = new Selector(message.destination);
+    _addHandler: function (path, handler) {
+        const root = this.Handlers;
+        if (!handler) {
+            return null;
         }
-        if (typeof message.jumps != "number"){
-            message.jumps = 2;
-        } else {
-            if (message.jumps) {
-                message.jumps--;
+        if (!path || path == '') path = '/';
+        if (!path.start("/")) path = '/' + path;
+        var parts = path.split('/');
+        parts.shift();
+        var lastPart = parts[parts.length - 1];
+        if (lastPart == "<") {
+            parts = parts.slice(0, parts.length - 1);
+            return this._addHandlerInternal(root, parts, handler, '<');
+        }
+        if (lastPart == ">") {
+            parts = parts.slice(0, parts.length - 1);
+            return this._addHandlerInternal(root, parts, handler, '>');
+        }
+        return this._addHandlerInternal(root, parts, handler, '/');
+    },
+
+    _addHandlerInternal: function (root, parts, handler, endHandlerSymbol) {
+        //console.log("calling addhandler! " + JSON.stringify(parts) + " " + endHandlerSymbol);
+        var parentPath = root["//"];
+        var cg = root;
+        for (var i = 0; i < parts.length; i++) {
+            var p = parts[i];
+            if (p == "") {
+                break;
             }
-        }
-        if (typeof message.source == "string"){
-            message.source = new Selector(message.source);
-        }
-        //По умолчанию, мы смотрим от кого пришло сообщение и добавляем его в роуты
-        if (message.sender && message.sender != this.id){
-            this.addRoute({
-                id : source.id,
-                rank : 60,
-                provider: message.sender
-            });
-        }
-        var handler = this.handlers[message.type];
-        if (!handler) handler = this.handlers[XRouter.TYPE_FOLLOW];
-        return handler(message);
-    },
-
-    addRoute : function(node){
-        if (node) {
-            if (typeof node == "object" && node.id) {
-                this.routeTable.push(node);
-                process.emit("created-route", node);
-                //process.log("Added route: " + node.id + " across " + node.providerId);
-            } else {
-                //process.log("Try to add route without id" + node.id);
+            parentPath = parentPath + p + "/";
+            if (!cg[p + "/"]) {
+                cg[p + "/"] = new MapNode(parentPath);
             }
+            cg = cg[p + "/"];
         }
-    },
-
-    removeRoute : function(nodeId){
-        if (!nodeId) return;
-        if (typeof nodeId == "object") nodeId = nodeId.id;
-        var nodeIndex = this.routeTable.findIndex(r => r.id == nodeId);
-        if (nodeIndex >= 0){
-            var node = this.routeTable[nodeIndex];
-            //process.log("Removed route: " + node.id + " across " + node.providerId);
-            this.routeTable.splice(nodeIndex, 1);
-            process.emit("removed-route", node);
+        var ch = cg[endHandlerSymbol];
+        if (typeof (handler) == "object" && handler instanceof Array) {
+            for (var i = 0; i < handler.length; i++) {
+                ch.push(handler[i]);
+            }
         } else {
-            //process.log("Node " + nodeId + " not found in routing");
+            ch.push(handler);
         }
+        return cg;
+    },
+});
+
+RoutingContext = function (selector, rootPath, data) {
+    this.id = (Math.random() + "").replace("0.", "");
+    this.data = data;
+    this.query = this.url.query;
+    this.logs = [];
+    this.path = selector;
+    if (rootPath) {
+        this.rootPath = rootPath.toLowerCase().substring(1).replace(">", "").replace("<", "");
+        pathname = pathname.replace(this.rootPath, "");
     }
-};
+    this.paths = pathname.split('/');
+    this.paths.shift();
+    for (var i = 0; i < this.paths.length; i++) {
+        var p = this.paths[i];
+        if (p == "") {
+            this.paths = this.paths.slice(0, i);
+            break;
+        }
+        this.paths[i] = p + "/";
+    }
+    this.startTime = new Date();
+    this.log("start: ", this.startTime);
+    this.callPlan = {};
+}
+
+RoutingContext.phaseTimeout = 30;
+
+Inherit(RoutingContext, {
+    getCallPlan: function (callPlan, mapNode, pathNum) {
+        if (!mapNode) {
+            //this.log("CallPlan: Node not found");
+            return;
+        }
+        this.getHandlers(callPlan, mapNode, mapNode[">"], ">", pathNum);
+        if (pathNum < this.paths.length) {
+            var path = this.paths[pathNum];
+            this.getCallPlan(callPlan, mapNode[path], pathNum + 1);
+        } else {
+            this.getHandlers(callPlan, mapNode, mapNode['/'], "/", pathNum);
+        }
+        this.getHandlers(callPlan, mapNode, mapNode["<"], "<", pathNum);
+    },
+
+    getHandlers: function (callPlan, mapNode, handlers, path, pathNum) {
+        var result = false;
+        if (handlers && handlers.length > 0) {
+            for (var g = 0; g < handlers.length; g++) {
+                var handler = handlers[g];
+                if (handler) {
+                    if (typeof handler == 'function') {
+                        this.log("CallPlanF ", pathNum, ": ", mapNode["//"], path);//  :", "\n   ", handler.toString());
+                        var hobj = {};
+                        hobj.handler = handler;
+                        hobj.pathNum = pathNum;
+                        hobj.node = mapNode;
+                        hobj.path = mapNode["//"];
+                        callPlan.push(hobj);
+                        result = true;
+                    }
+                    if (typeof handler == 'object' && typeof handler[this.req.method] == 'function') {
+                        this.log("CallPlanO ", pathNum, ": ", mapNode["//"], path);// :\n   ", handler[this.req.method].toString());
+                        var hobj = {};
+                        hobj.handler = handler[this.req.method];
+                        hobj.owner = handler;
+                        hobj.pathNum = pathNum;
+                        hobj.node = mapNode;
+                        hobj.path = mapNode["//"];
+                        callPlan.push(hobj);
+                        result = true;
+                    }
+                } else {
+                    this.log("CallPlan ", pathNum, ": ", mapNode["//"], path, " NULL handler!");
+                }
+            }
+        }
+        return result;
+    },
+
+    callChain: function (phaseNum, numSpaces) {
+        var context = this;
+        if (!numSpaces) numSpaces = 0;
+        var maxSpaces = 5000 / RoutingContext.phaseTimeout;
+        if (this.router && this.router.timeout) {
+            maxSpaces = this.router.timeout / RoutingContext.phaseTimeout;
+        }
+        if (!context.longPhase && numSpaces > maxSpaces) {
+            this.finish(500, "Response timeout " + (maxSpaces * RoutingContext.phaseTimeout / 1000) + " seconds ");
+            return;
+        }
+        if (this.completed) {
+            this.log("RoutingContext completed");
+            this.finishHandler(this);
+            return;
+        }
+        if (this.phaseProcessed) {
+            if (phaseNum < this.phases.length) {
+                var phaseName = this.phases[phaseNum];
+
+                this.callPlan = this.callPlans[phaseName];
+                this.phaseProcessed = false;
+                this.handlerNum = -1;
+                //Тут должно произойти собственно выполнение найденных ф-й согласно плану вызовов.
+                this.log("Phase ", phaseNum, "[", phaseName, "] Starting");
+                var result = this.continue(this);
+                this.log("Phase ", phaseNum, "[", phaseName, "] Called " + result);
+                if (result) {
+                    if (phaseNum + 1 < this.phases.length) {
+                        this.callPhaseChain(phaseNum + 1, numSpaces + 1);
+                    } else {
+                        this.finishHandler(this);
+                    }
+                } else {
+                    if (!this._aborted) {
+                        if (this.router && !this.router.WaitingContexts[this.id]) {
+                            this.router.WaitingContexts[this.id] = this;
+                            this.router.WaitingContextsCount++;
+                        }
+                        this._currentTimeout = setTimeout(function () {
+                            context.log("New Phase ", phaseNum, " [", context.phases[phaseNum], "] WAITING!", numSpaces);
+                            context.callPhaseChain(phaseNum, numSpaces + 1);
+                        }, RoutingContext.phaseTimeout);
+                    } else {
+                        this._abortProcessing();
+                    }
+                }
+            } else {
+                this.finishHandler(this);
+            }
+        } else {
+            if (!this._aborted) {
+                if (this.router && !this.router.WaitingContexts[this.id]) {
+                    this.router.WaitingContexts[this.id] = this;
+                    this.router.WaitingContextsCount++;
+                }
+                this._currentTimeout = setTimeout(function () {
+                    context.log("Last Phase ", phaseNum, " [", context.phases[phaseNum], "] WAITING!", numSpaces);
+                    context.callPhaseChain(phaseNum, numSpaces + 1);
+                }, RoutingContext.phaseTimeout);
+            } else {
+                this._abortProcessing();
+            }
+        }
+        this.log("Phase ", phaseNum, " Exited");
+    },
+
+    "continue": function () {
+        var context = this;
+        if (context.stop) {
+            return true;
+        }
+        context.handlerNum++;
+        if (context.handlerNum < context.callPlan.length) {
+            var hobj = context.callPlan[context.handlerNum];
+            context.nodePath = hobj.path.length > 1 ? hobj.path.slice(0, -1) : "/";
+            context.node = (context.paths[hobj.pathNum]) ? context.paths[hobj.pathNum].slice(0, -1) : "";
+            context.current = context.nodePath + "/" + context.node;
+            context.nodeName = context.path.substr(context.nodePath == '/' ? 1 : context.nodePath.length + 1, context.node.length);
+            context.prevNode = context.paths[hobj.pathNum - 1];
+            if (context.prevNode) context.prevNode = context.prevNode.slice(0, -1);
+            context.nextNode = context.paths[hobj.pathNum + 1];
+            if (context.nextNode) context.nextNode = context.nextNode.slice(0, -1);
+            context.tail = context.path.substr(context.current.length);
+            context.log("Calling ", context.nodePath, ' with ', context.tailPath);
+            try {
+                if (hobj.owner) {
+                    var result = hobj.handler.call(hobj.owner, context, context.continue);
+                } else {
+                    var result = hobj.handler(context, context.continue);
+                }
+                if (result == false) {
+                    context.waiting = true;
+                    return false;
+                }
+                if (context._aborted) {
+                    context.phaseProcessed = true;
+                    return false;
+                }
+            } catch (error) {
+                context.phaseProcessed = true;
+                context.error(error);
+                context._finishWithError(error);
+                return true;
+            }
+            return context.continue(context);
+        } else {
+            context.phaseProcessed = true;
+            return true;
+        }
+    },
+
+    abort: function () {
+        this._aborted = true;
+        clearTimeout(this._currentTimeout);
+        if (this.router) {
+            this.log("RoutingContext aborted");
+            if (this.router.WaitingContexts[this.id]) {
+                delete (this.router.WaitingContexts[this.id]);
+                this.router.WaitingContextsCount--;
+            }
+            if (this.router.ProcessingContexts[this.id]) {
+                delete (this.router.ProcessingContexts[this.id]);
+                this.router.ProcessingContextsCount--;
+            }
+            delete (this.router);
+        }
+        delete (this.callPlans);
+
+        if (this.finalized) return;
+        this.finalized = true;
+    },
+
+    finish: function (status, result) {
+        if (this.router) {
+            if (this.router.WaitingContexts[this.id]) {
+                delete (this.router.WaitingContexts[this.id]);
+                this.router.WaitingContextsCount--;
+            }
+            if (this.router.ProcessingContexts[this.id]) {
+                delete (this.router.ProcessingContexts[this.id]);
+                this.router.ProcessingContextsCount--;
+            }
+            delete (this.router);
+        }
+        delete (this.callPlan);
+
+        if (this.finalized) return;
+        this.finalized = true;
+    }
+});
 
 module.exports = XRouter;

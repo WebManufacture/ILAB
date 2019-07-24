@@ -235,7 +235,7 @@ function RootContainer() {
     }
 };
 
-var Frame = require("./Frame.js");
+var Frame = require("./System/FrameContainer.js");
 
 Inherit(RootContainer, Frame, {
 

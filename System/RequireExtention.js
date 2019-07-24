@@ -46,5 +46,8 @@ global.require = function (path) {
     if (path && typeof path == 'string' && path.toLowerCase() == "container"){
         return process.container;
     }
+    if (path && typeof path == 'string' && path.toLowerCase() == "router"){
+        return process.router;
+    }
     return oldRequire.apply(this, arguments);
 };

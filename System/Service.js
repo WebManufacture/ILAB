@@ -22,6 +22,11 @@ Service = function(params){
         return Service.GetDescription(self);
     }
 
+    this.container = require("container");
+    this.router = new XRouter();
+
+    this.on("message", this.messageHandler.bind(this));
+
     return EventEmitter.call(this);
 };
 
@@ -59,6 +64,10 @@ Service.CreateProxyObject = function (service) {
 };
 
 Inherit(Service, EventEmitter, {
+    messageHandler: function(message){
+
+    },
+
     connect: function (serviceSelector) {
         if (!serviceSelector) return null;
         if (typeof serviceSelector == 'string') {
@@ -66,9 +75,6 @@ Inherit(Service, EventEmitter, {
         }
         return new Promise((resolve, reject)=>{
             this.routeMessage(serviceSelector, XRouter.TYPE_LOOKUP,{ type: "lookup" });
-            this.on("message-result", ()=>{
-
-            });
         });
     },
 
@@ -84,7 +90,7 @@ Inherit(Service, EventEmitter, {
                 console.error(err);
             }
         });*/
-        return this.router.routeMessage({
+        return this.router.sendMessage({
             id : Date.now().valueOf() + (Math.random()  + "").replace("0.", ""),
             source : this.serviceType + "#" + this.serviceId,
             type: messageType,
