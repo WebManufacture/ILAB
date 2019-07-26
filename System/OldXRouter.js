@@ -56,7 +56,6 @@ Node may have another fields:
 
 //Аспекты передачи сообщений
 
-
 function XRouter(selector){
     if (selector) {
         selector = Selector.Parse(selector);

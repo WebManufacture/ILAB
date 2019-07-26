@@ -5,6 +5,8 @@ var EventEmitter = require("events").EventEmitter;
 var Selector = useModule("Selectors.js");
 var utils = useModule("utils.js");
 
+//Структура, Обходчик, Контекст
+
 StorageLayer = function(objects){
     if (!objects) objects = [];
     this.objects = objects;

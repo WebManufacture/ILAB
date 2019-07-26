@@ -57,24 +57,13 @@ Node may have another fields:
 
 //Аспекты передачи сообщений
 
-function MapNode(parentPath) {
-    this["/"] = [];
-    this["<"] = [];
-    this[">"] = [];
-    this["//"] = parentPath;
-};
-
-function XRouter() {
-    this.HandlersIndex = [];
-    this.Handlers = new MapNode("/");
-    this.basePath = "";
-    this.Enabled = true;
+function XRouter(structure) {
+    this.root = structure ? structure : {};
     this.WaitingContexts = {};
     this.WaitingContextsCount = 0;
     this.ProcessingContexts = {};
     this.ProcessingContextsCount = 0;
-    if (!timeout) timeout = 5000;
-    this.timeout = timeout;
+    this.timeout = 5000;
 }
 
 XRouter.TYPE_HI = "hi";        //used when new node up
@@ -103,7 +92,6 @@ XRouter.TYPE_DENIED = "denied";    //used for QOS
 XRouter.TYPE_TRACE = "trace";     //used for QOS
 XRouter.TYPE_NOTFOUND = "notfound";  //used for QOS
 XRouter.TYPE_CLOSED = "closed";    //used for QOS
-
 
 Inherit(XRouter, {
     on: function (path, handler) {
@@ -151,7 +139,7 @@ Inherit(XRouter, {
 
 
     _removeHandler: function (handler) {
-        const root = this.Handlers;
+        const root = this.root;
         if (!handler) {
             return null;
         }
@@ -179,8 +167,7 @@ Inherit(XRouter, {
         }
         if (!path || path == '') path = '/';
         if (!path.start("/")) path = '/' + path;
-        var parts = path.split('/');
-        parts.shift();
+        path = new Selector(path);
         var lastPart = parts[parts.length - 1];
         if (lastPart == "<") {
             parts = parts.slice(0, parts.length - 1);
@@ -218,36 +205,31 @@ Inherit(XRouter, {
         }
         return cg;
     },
+
+    goNext(root, selector, context, callback){
+        if (selector.is(root)){
+            callback()
+        } else {
+
+        }
+    },
 });
 
-RoutingContext = function (selector, rootPath, data) {
+RoutingMessage = function (from, to, selector, data) {
     this.id = (Math.random() + "").replace("0.", "");
     this.data = data;
-    this.query = this.url.query;
-    this.logs = [];
-    this.path = selector;
-    if (rootPath) {
-        this.rootPath = rootPath.toLowerCase().substring(1).replace(">", "").replace("<", "");
-        pathname = pathname.replace(this.rootPath, "");
+    this.from = from;
+    this.source = {
+        from: from,
+        to : to,
+        selector: selector
     }
-    this.paths = pathname.split('/');
-    this.paths.shift();
-    for (var i = 0; i < this.paths.length; i++) {
-        var p = this.paths[i];
-        if (p == "") {
-            this.paths = this.paths.slice(0, i);
-            break;
-        }
-        this.paths[i] = p + "/";
-    }
-    this.startTime = new Date();
-    this.log("start: ", this.startTime);
-    this.callPlan = {};
+    this.to = to;
+    Selector.apply(this, selector);
+    this._creationTime = new Date();
 }
 
-RoutingContext.phaseTimeout = 30;
-
-Inherit(RoutingContext, {
+Inherit(RoutingMessage, Selector, {
     getCallPlan: function (callPlan, mapNode, pathNum) {
         if (!mapNode) {
             //this.log("CallPlan: Node not found");

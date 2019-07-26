@@ -1,3 +1,5 @@
+//Структура, Обходчик, Контекст
+
 StorageLayer = function(objects){
     if (!objects) objects = [];
     this.objects = objects;
