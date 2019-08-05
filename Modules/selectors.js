@@ -24,6 +24,39 @@ Selector = function (str) {
                 }
             }
         }
+    } else {
+        var objType = typeof str;
+        var obj = str;
+        if (objType == "object"){
+            this.isRoot = true;
+            objType = Array.isArray(obj)? "array" :
+                (obj ?
+                    (obj.type ?
+                        obj.type
+                        : (obj.classType ?
+                            (obj.classType == "Object" ? (obj.constructor ? obj.constructor.name : "object") : obj.classType)
+                            : "object"
+                          )
+                    )
+                    : "undefined"
+                );
+            if (obj.id){
+                this.id = obj.id;
+            }
+            if (obj.tags){
+                this.tags = obj.tags + "";
+            }
+            if (obj.classes){
+                this.classes = obj.classes;
+            }
+        }
+        if (objType == "function"){
+            this.isRoot = true;
+            if (obj.name){
+                this.id = obj.name;
+            }
+        }
+        this.type = objType;
     }
 }
 

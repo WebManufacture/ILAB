@@ -14,7 +14,6 @@ function Container(params) {
 
     this._super();
 
-
     var self = this;
 
     this.fatal = (err) => {

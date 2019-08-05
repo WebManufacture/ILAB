@@ -108,8 +108,6 @@ function Frame(params){
 
 };
 
-//Оставлено для совместимости!
-
 require(Path.resolve('System/RequireExtention.js'));
 
 Inherit(Frame, useSystem('Container'), {
