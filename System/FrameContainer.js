@@ -106,6 +106,12 @@ function Frame(params){
         throw ("Cannot start container " + this.id + " on " + this.pipeId + "\n" + error.message);
     }
 
+
+    this.sendParent = function (arg1, arg2) {
+        if (process.isChild && process.connected) {
+            return process.send(arg1, arg2);
+        }
+    };
 };
 
 require(Path.resolve('System/RequireExtention.js'));

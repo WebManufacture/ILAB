@@ -16,27 +16,9 @@ function Container(params) {
 
     var self = this;
 
-    this.fatal = (err) => {
-        this.error(err);
-        setImmediate(function () {
-            process.exit();
-        });
-    };
-
-    this.debug = (log) => {
-        return this.log(log);
-    }
-
-    this.log = function (log) {
-        if (this.isChild) {
-            process.send({type: "log", item: log});
-        }
-
-        console.log(log);
-    };
 
     var oldLog = console.log;
-    console.log = function (){
+    console.log = function () {
         var log = arguments[0];
         if (typeof log == "string" && log.indexOf(self.id) < 0) {
             arguments[0] = (self.type ? self.type : "") + (self.id ? "#" + (self.localId ? self.localId : self.id) : "") + ": " + log;
@@ -44,36 +26,53 @@ function Container(params) {
         oldLog.apply(this, arguments);
     };
 
-    this.send = function (arg1, arg2) {
-        if (process.isChild && process.connected) {
-            return process.send(arg1, arg2);
-        }
-    };
+    this.infoDescriptor = {};
 
-
-    this.error = function (err) {
-        if (process.connected) {
-            if (typeof (err) == "object") {
-                process.send({type: "error", message: err.message, item: err.stack});
-            } else {
-                process.send({type: "error", message: err, item: null});
-            }
-        }
-        console.error(err);
-    };
+    this.redirect("#" + this.id, "/")
 }
 
 Inherit(Container, XRouter, {
-    newId : function () {
+    newId: function () {
         return require('uuid/v4')();
     },
 
-    getPipe : function () {
+    redirect: function(from, to){
+        this.on(from, (message, selector, route) => {
+            message.from = message.from.toString().replace(to.toString(), "");
+            message.to = to;
+            this.route(message);
+        });
+    },
+
+    follow: function(from, to){
+        this.on(from, (message) => {
+            this.send(to, message);
+        });
+    },
+
+    getPipe: function () {
         return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + this.localId : '/tmp/ilab-3-' + this.localId;
     },
 
-    registerService(service){
+    onSelf: function(selector, handler){
+        return this.on(this. selector, handler);
+    },
 
+    registerService(service) {
+        /* на случай если в контракте понадобятся методы класса сервиса, а не только его экземпляра
+         service = service.__proto__;
+         for (var item in service){
+         if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
+         obj[item] = "method";
+         }
+         }
+         */
+        for (var item in service) {
+            if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)) {
+                this.infoDescriptor[item] = "method";
+
+            }
+        }
     },
 
     execCode: function (code, params) {
@@ -106,8 +105,8 @@ Inherit(Container, XRouter, {
                     config: params
                 };
                 if (result) message.result = result;
-                this.send(message);
-                return message;
+                this.send(XRouter.TYPE_EVENT, message);
+                return result;
 
             } catch (err) {
                 this.error(err);
@@ -173,6 +172,38 @@ Inherit(Container, XRouter, {
         } catch (err) {
             this.error(err);
         }
+    },
+
+
+    fatal: function (err) {
+        if (typeof (err) == "object") {
+            this.send(XRouter.TYPE_FATAL, {message: err.message, item: err.stack});
+        } else {
+            this.send(XRouter.TYPE_FATAL, {message: err, item: null});
+        }
+        console.error(err);
+        setImmediate(function () {
+            process.exit();
+        });
+    },
+
+    debug: function (log) {
+        this.send(XRouter.TYPE_TRACE, {item: log});
+        console.log(log);
+    },
+
+    log: function (log) {
+        this.send(XRouter.TYPE_INFO, {item: log});
+        console.log(log);
+    },
+
+    error: function (err) {
+        if (typeof (err) == "object") {
+            this.send(XRouter.TYPE_ERROR, {message: err.message, item: err.stack});
+        } else {
+            this.send(XRouter.TYPE_ERROR, {message: err, item: null});
+        }
+        console.error(err);
     }
 });
 
