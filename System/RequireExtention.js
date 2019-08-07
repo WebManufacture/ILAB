@@ -40,14 +40,17 @@ global.useSystem = prepareArgAspect(function(path){
     return require(Path.resolve(process.SystemPath + path));
 });
 
-var oldRequire = global.require;
+var Module = require('module');
+var originalRequire = Module.prototype.require;
 
-global.require = function (path) {
+require = global.require = Module.prototype.require = function(path){
     if (path && typeof path == 'string' && path.toLowerCase() == "container"){
         return process.container;
     }
     if (path && typeof path == 'string' && path.toLowerCase() == "router"){
         return process.router;
     }
-    return oldRequire.apply(this, arguments);
+    return originalRequire.apply(this, arguments);
 };
+
+module.exports = require;
