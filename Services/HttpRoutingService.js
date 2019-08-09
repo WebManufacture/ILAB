@@ -32,17 +32,17 @@ HttpRoutingService = function(params){
             pfx: fs.readFileSync(Path.resolve(params.keyFile)),
             passphrase: params.pass
         };
-        this.server =  https.createServer(options, process);
+        this.server =  https.createServer(options, this.process);
     }
     if (params.useSecureProtocol == 'pem'){
         let options = {
             key: fs.readFileSync(Path.resolve(params.keyFile), 'utf8'),
             cert: fs.readFileSync(Path.resolve(params.certFile), 'utf8')
         };
-        this.server =  https.createServer(options, process);
+        this.server =  https.createServer(options, this.process);
     }
     if (!this.server){
-        this.server =  http.createServer(process);
+        this.server =  http.createServer(this.process);
     }
     this.server.listen(port);
     console.log("Static service on " + port);

@@ -85,7 +85,7 @@ Inherit(Service, EventEmitter, {
     },
 
     _subscribeMethod: function(service, name){
-        this.container.onSelf("/" + name + "/call", (message)=>{
+        this.container.onSelf("/" + name, (message)=>{
             service.callMethodHandler(message.id, name, message.data, message);
         });
     },
