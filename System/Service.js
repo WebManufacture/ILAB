@@ -10,22 +10,20 @@ if (!global.useModule){
 var JsonSocket = useModule('jsonsocket');
 var util = useModule('utils');
 var Selector = useModule('selectors');
-const stream = require('stream');
-var ServiceProxy = useSystem('ServiceProxy');
 var XRouter = useSystem('XRouter');
 
 Service = function(params){
     var self = this;
     this._config = params ? params : {};
 
+    this.serviceType = this._config.type ? this._config.type : this.classType;
+
     this.GetDescription = function () {
         return Service.GetDescription(self);
-    }
+    };
 
     this.container = require("container");
-    this.router = new XRouter();
-
-    this.on("message", this.messageHandler.bind(this));
+    this.channel = self.serviceType;
 
     return EventEmitter.call(this);
 };
@@ -64,8 +62,36 @@ Service.CreateProxyObject = function (service) {
 };
 
 Inherit(Service, EventEmitter, {
-    messageHandler: function(message){
 
+    init: function(descriptor){
+        var service = this;
+
+        this.container.onSelf(this.channel, (message, selector)=> {
+            if (!selector) {
+                this.processMessage(message);
+            }
+        });
+
+        this.container.onSelf(this.channel + "/response", (message)=> {
+            this.processResult(message);
+        });
+
+        for (var item in service) {
+            if (service.hasOwnProperty(item) && typeof (service[item]) == "function" && item.indexOf("_") != 0 ) {
+                descriptor[item] = 'method';
+                this._subscribeMethod(service, item);
+            }
+        }
+    },
+
+    _subscribeMethod: function(service, name){
+        this.container.onSelf("/" + name + "/call", (message)=>{
+            service.callMethodHandler(message.id, name, message.data, message);
+        });
+    },
+
+    processMessage: function(message){
+        //return this.externalMessageHandler(message.data);
     },
 
     connect: function (serviceSelector) {
@@ -73,74 +99,122 @@ Inherit(Service, EventEmitter, {
         if (typeof serviceSelector == 'string') {
             serviceSelector = new Selector(serviceSelector);
         }
-        return new Promise((resolve, reject)=>{
-            this.routeMessage(serviceSelector, XRouter.TYPE_LOOKUP,{ type: "lookup" });
-        });
-    },
-
-    routeMessage: function(destination, messageType, content){
-        //var socket = new JsonSocket(node.data.tcpPort, "127.0.0.1", function (err) {
-        /*var socket = new JsonSocket(process.getPipe(serviceId), function (err) {
-            //console.log(process.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
-            try {
-                socket.write(packet);
-                socket.end();
-            }
-            catch(err){
-                console.error(err);
-            }
-        });*/
-        return this.router.sendMessage({
-            id : Date.now().valueOf() + (Math.random()  + "").replace("0.", ""),
-            source : this.serviceType + "#" + this.serviceId,
-            type: messageType,
-            destination: destination,
-            content: content
-        });
-    },
-
-    routeDefault: function(message){
-        if (message.type == "method"){
-            try {
-                this._calleeFunctionMessage = message;
-                var result = self._callMethod(message.name, message.args);
-                this._calleeFunctionMessage = null;
-            }
-            catch (err){
-                if (message.id) {
-                    return ({"type": "error", id: message.id, result: err, message: err.message, stack: err.stack});
+        var self = this;
+        return new Promise(function(resolve, reject){
+            self.container.send(serviceSelector, {
+                from: "/" + self.serviceType + "#" + self.serviceId,
+                to: serviceSelector,
+                type: XRouter.TYPE_LOOKUP
+            });
+            let proxyObject = new Proxy({
+                _path : serviceSelector
+            }, {
+                get(target, prop) {
+                    if (prop === 'then') return null; //TO PREVENT PROMISE CALLS
+                    if (prop in target) {
+                        return target[prop];
+                    } else {
+                        return function () {
+                            return self.callRemote(prop, arguments);
+                        }
+                    }
                 }
-                return;
-            }
-            if (result instanceof Promise){
-                result.then(function (result) {
-                    try {
-                        return ({"type": "result", id: message.id, result: result});
-                    }
-                    catch (error){
-                        throw error;
-                    }
-                }).catch(function (error) {
-                    if (typeof error == "string") {
-                        return ({"type": "error", id: message.id, result: error, message: error});
+            });
+            resolve(proxyObject);
+        });
+    },
+
+    callRemote: function(name, args){
+        var self = this;
+        return new Promise((resolve, reject) => {
+            // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
+            var id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
+            var obj =
+                {
+                    id : id,
+                    from: "/self/" + self.channel,
+                    to: "/self/" + name + "/call#" + id,
+                    data: args
+                };
+            this.once("result#" + id, (message, xmessage) => {
+                if (message.type == "result") {
+                    resolve(message.result);
+                }
+                if (message.type == "stream") {
+                    socket.goStreamMode();
+                    message.stream = socket.netSocket;
+                    message.stream.length = message.length;
+                    if (message.encoding){
+                        socket.netSocket.setEncoding(message.encoding);
                     }
                     else {
-                        return ({"type": "error", id: message.id, result: error.message, message: error.message, stack: error.stack});
+                        socket.netSocket.setEncoding(null);
+                        /* fix due to issues in node */
+                        socket.netSocket._readableState.decoder = null;
+                        socket.netSocket._readableState.encoding = null;
                     }
-                });
+                    resolve(message.stream);
+                }
+                if (message.type == "error") {
+                    var err = new Error(message.result);
+                    console.log("Error while calling", xmessage.from);
+                    if (message.stack){
+                        err.stack = message.stack;
+                    }
+                    //console.error(err);
+                    reject(err);
+                }
+            });
+            self.container.route(obj);
+        });
+    },
+
+    processResult: function(message){
+        self.emit("result#" + message.id, message.data, message);
+    },
+
+    callMethodHandler: function(id, name, args, message){
+        var response =
+            {
+                id : id,
+                from: message.to,
+                to: message.from + "/response#" + id,
+            };
+        var self = this;
+        const sendResponse = (data)=> {
+            response.data = data;
+            return self.container.route(response);
+        };
+        try {
+            this._calleeFunctionMessage = message;
+            var result = self._callMethod(name, args);
+            this._calleeFunctionMessage = null;
+        }
+        catch (err){
+            if (id) {
+                return sendResponse({"type": "error", id: id, result: err, message: err.message, stack: err.stack});
             }
-            else {
-                return {"type": "result", id: message.id, result: result};
-            }
+            return;
         }
-        if (message.type == "startup") {
-            return Service.CreateProxyObject(self);
+        if (result instanceof Promise){
+            result.then(function (result) {
+                try {
+                    return sendResponse({"type": "result", id: id, result: result});
+                }
+                catch (error){
+                    throw error;
+                }
+            }).catch(function (error) {
+                if (typeof error == "string") {
+                    return sendResponse({"type": "error", id: id, result: error, message: error});
+                }
+                else {
+                    return sendResponse({"type": "error", id: id, result: error.message, message: error.message, stack: error.stack});
+                }
+            });
         }
-        if (message.type == "subscribe") {
-            //self.on("internal-event", internalEventHandler);
-        }
-        if (message.type == "result"){
-            self.emit("message-result", message);
+        else {
+            return sendResponse({"type": "result", id: id, result: result});
         }
     },
 
@@ -157,6 +231,7 @@ Inherit(Service, EventEmitter, {
         return undefined;
     },
 
+    /*
     emit: function (eventName) {
         if (eventName != "error" && eventName != "internal-event") {
             var args = Array.from(arguments);
@@ -178,7 +253,7 @@ Inherit(Service, EventEmitter, {
             }
         }
         Service.base.emit.apply(this, arguments);
-    },
+    },*/
 
     register: function (eventName, description) {
         if (eventName) {

@@ -55,7 +55,7 @@ HttpProxyService.serviceId = ("ServicesHttpProxy");
 
 Inherit(HttpProxyService, Service, {
     listServices : function () {
-        var self = this;
+        var self = this;/*
         ServicesManager.GetServices().then((services) => {
             console.log("HttpProxy got services: " + JSON.stringify(services));
             self.services = services;
@@ -64,7 +64,7 @@ Inherit(HttpProxyService, Service, {
             }
         }).catch(function (err) {
             throw err;
-        });
+        });*/
     },
 
     addServiceHandler : function (name, port) {

@@ -16,7 +16,6 @@ function Container(params) {
 
     var self = this;
 
-
     var oldLog = console.log;
     console.log = function () {
         var log = arguments[0];
@@ -28,7 +27,11 @@ function Container(params) {
 
     this.infoDescriptor = {};
 
-    this.redirect("#" + this.id, "/")
+    this.follow(this.type + "#" + this.id, "self");
+    this.follow("#" + this.id, "self");
+    this.follow(this.type + "#" + this.localId, "self");
+    this.follow("#" + this.localId, "self");
+    this.follow(this.type, "self");
 }
 
 Inherit(Container, XRouter, {
@@ -46,7 +49,7 @@ Inherit(Container, XRouter, {
 
     follow: function(from, to){
         this.on(from, (message) => {
-            this.send(to, message);
+            this.route(message, to);
         });
     },
 
@@ -55,7 +58,7 @@ Inherit(Container, XRouter, {
     },
 
     onSelf: function(selector, handler){
-        return this.on(this. selector, handler);
+        return this.on("/self" + (selector.indexOf('/') == 0 ? selector : "/" + selector), handler);
     },
 
     registerService(service) {
@@ -67,12 +70,7 @@ Inherit(Container, XRouter, {
          }
          }
          */
-        for (var item in service) {
-            if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)) {
-                this.infoDescriptor[item] = "method";
-
-            }
-        }
+        service.init(this.infoDescriptor);
     },
 
     execCode: function (code, params) {

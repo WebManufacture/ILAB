@@ -19,7 +19,7 @@ function UdpServer(netInterface, config) {
     this.udpServer = new UdpJsonServer({port: this.localPort, address: this.localAddress, broadcast: true});
     this.udpServer.once("connect", ()=>{
         this.myLocalAddress = this.udpServer.address().address;
-        process.log("My local address " + this.myLocalAddress);
+        this.log("My local address " + this.myLocalAddress);
         this.emit("ready");
     });
     this.udpServer.on("json", (obj, rinfo) => {
@@ -185,10 +185,8 @@ function DiscoveryService(config){
             serviceType: route.serviceType
         });
     });
-
-    var router = require('router');
     var container = require('container');
-
+/*
     router.getTable.forEach((route)=> {
         this.registerNode({
             id: route.id,
@@ -197,7 +195,7 @@ function DiscoveryService(config){
             serviceType: route.serviceType
         });
     });
-
+*/
 
     var interfaces = os.networkInterfaces();
     for (var item in interfaces){
@@ -388,7 +386,7 @@ function DiscoveryService(config){
                 });
             }
         });
-        process.log("Discovery server at " + server.localAddress + ":" + server.localPort);
+        log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
 
     this.configuredHosts = config.hosts;

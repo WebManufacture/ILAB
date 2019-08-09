@@ -10,7 +10,6 @@ var EventEmitter = require('events');
 var Service = useSystem("Service.js");
 var ServiceProxy = useSystem("ServiceProxy.js");
 
-
 StaticContentService = function (params) {
     var result = Service.apply(this, arguments);
     var self = this;
@@ -35,11 +34,11 @@ StaticContentService = function (params) {
 
     this.config = params;
 
-    this.connect(params.filesServiceId).then(function (proxy) {
+    this.connect(params.filesServiceId).then((proxy) => {
         self.fs = proxy;
         self.enabled = true;
         console.log("connected to FS: " + params.filesServiceId);
-    }).catch(function (err) {
+    }).catch((err) => {
         console.error(err);
         console.error("can't connect to FS service " + params.filesServiceId)
     });
@@ -217,7 +216,9 @@ Inherit(StaticContentService, Service, {
                                 }*/
                                 serv.fs.ReadStream(fpath, encoding).then((stream) => {
                                     //stream.setEncoding('bi');
-                                    res.setHeader("request-id", stream.id);
+                                    if (stream.id) {
+                                        res.setHeader("request-id", stream.id);
+                                    }
                                     if (ext) {
                                         res.setHeader("Content-Type", ext);
                                     }
@@ -225,24 +226,28 @@ Inherit(StaticContentService, Service, {
                                         res.setHeader("Content-Type", "text/plain; charset=utf-8");
                                     }
                                     //res.outputEncodings.push("binary");
-                                    res.setHeader("Content-Length", stream.length);
-                                    const useStreams = true;
-                                    if (useStreams) {
-                                        stream.pipe(res);
+                                    if (stream) {
+                                        res.setHeader("Content-Length", stream.length);
+                                        const useStreams = true;
+                                        if (useStreams) {
+                                            stream.pipe(res);
+                                        } else {
+                                            var actualLength = 0;
+                                            stream.on('data', (data) => {
+                                                data = Buffer.from(data, 'binary');
+                                                res.write(data);
+                                                actualLength += data.length;
+                                            });
+                                            stream.on('end', (chunk) => {
+                                                if (chunk) {
+                                                    actualLength += chunk.length;
+                                                }
+                                                //console.log("actual length " + actualLength);
+                                                res.end(chunk);
+                                            });
+                                        }
                                     } else {
-                                        var actualLength = 0;
-                                        stream.on('data', (data) => {
-                                            data = Buffer.from(data, 'binary');
-                                            res.write(data);
-                                            actualLength += data.length;
-                                        });
-                                        stream.on('end', (chunk) => {
-                                            if(chunk) {
-                                                actualLength += chunk.length;
-                                            }
-                                            //console.log("actual length " + actualLength);
-                                            res.end(chunk);
-                                        });
+                                        res.end(JSON.stringify(stream));
                                     }
                                 }).catch(function (err) {
                                     res.setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -254,6 +259,7 @@ Inherit(StaticContentService, Service, {
                         }
                     ).catch(function (err) {
                         res.statusCode = 500;
+                        console.error(err);
                         if (err.message) {
                             res.end(err.message);
                         } else {

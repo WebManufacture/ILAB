@@ -26,6 +26,8 @@ function Frame(params){
 
     this.exit = function(){
         if (this.exitingInteval == null) {
+            wasExiting = true;
+            this._closeServer();
             process.emit("exiting");
             var date = (new Date());
             //console.log(process.id + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
@@ -38,29 +40,22 @@ function Frame(params){
     var wasExiting = false;
     process.once("SIGTERM", () =>{
         if (!wasExiting){
-            wasExiting = true;
-            this._closeServer();
             this.exit();
         };
     });
     process.once("SIGINT", () =>{
         if (!wasExiting){
-            wasExiting = true;
-            this._closeServer();
             this.exit();
         };
-
     });
     process.once("exiting", () =>{
         if (!wasExiting) {
-            wasExiting = true;
-            this._closeServer();
+            this.exit();
         }
     });
     process.once("exit", () =>{
         if (!wasExiting){
-            wasExiting = true;
-            this._closeServer();
+            this.exit();
         }
         if (this.exitingInteval){
             clearTimeout(this.exitingInteval);
@@ -279,8 +274,5 @@ process.on('unhandledRejection', (reason, p) => {
     console.log('Unhandled Rejection at:', p, 'reason:', reason);
     // application specific logging, throwing an error, or other logic here
 });
-
-process.once("SIGTERM", process.exit);
-process.once("SIGINT", process.exit);
 
 module.exports = Frame;

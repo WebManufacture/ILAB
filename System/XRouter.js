@@ -92,6 +92,16 @@ Inherit(XRouter, {
         return this._subscribe(selector, this.structure, handler);
     },
 
+    once: function (selector, handler) {
+        selector = new Selector(selector);
+        if (selector.isRoot){
+            //Имеет ли это значение тут
+        }
+        return this._subscribe(selector, this.structure, (message, route, other)=>{
+            handler.apply(this, arguments);
+        });
+    },
+
     _subscribe(selector, route, handler){
         var sel = undefined;
         if (!selector){
@@ -124,8 +134,9 @@ Inherit(XRouter, {
         return this;
     },
 
-    route: function (message){
-        var selector = new Selector(message.to);
+    route: function (message, overrideTo){
+        var selector = new Selector(overrideTo ? overrideTo : message.to);
+        //console.log("Routing to: ", selector.source)
         if (selector.isRoot){
             if (!selector.type && !selector.id){
                 return this._routeInternal(null, this.structure, message);
@@ -148,12 +159,11 @@ Inherit(XRouter, {
                 if (route[sel]){
                     return this._routeInternal(selector.next, route[sel], message);
                 }
-            } else {
-                if (selector.type){
-                    sel = selector.type;
-                    if (route[sel]){
-                        return this._routeInternal(selector.next, route[sel], message);
-                    }
+            }
+            if (selector.type){
+                sel = selector.type;
+                if (route[sel]){
+                    return this._routeInternal(selector.next, route[sel], message);
                 }
             }
             if (route["*"]){
@@ -175,6 +185,13 @@ Inherit(XRouter, {
     }
 });
 
+/*
+    вообще-то есть другая модель
+    TAKE
+    GET
+    SEARCH (LOOKUP)
+*/
+
 XRouter.TYPE_HI = "hi";        //used when new node up
 XRouter.TYPE_LOOKUP = "lookup";    //used for node search and getting info
 XRouter.TYPE_SEEYOU = "seeyou";    //response to lookup packet, or to hi packet
@@ -183,7 +200,7 @@ XRouter.TYPE_REDIRECT = "redirect";  //used for subscriptions mechanism, will re
 XRouter.TYPE_FOLLOW = "follow";    //used for subscriptions mechanism, will translate the path to node
 XRouter.TYPE_UNSCRIBE = "unscribe";    //used for subscriptions mechanism, will translate the path to node
 
-XRouter.TYPE_GET_TUNNEL = "get-tunnel";//used for streaming, or direct containers communication
+XRouter.TYPE_TUNNEL = "tunnel";  //used for streaming, or direct containers communication
 XRouter.TYPE_AUTO = "auto";      //used for auto-routing
 XRouter.TYPE_LIVE = "live";      //used for "live" messages (which code should run on each route point)
 
@@ -206,20 +223,16 @@ XRouter.TYPE_TRACE = "trace";     //used for QOS
 XRouter.TYPE_NOTFOUND = "notfound";  //used for QOS
 XRouter.TYPE_CLOSED = "closed";    //used for QOS
 
-RoutingMessage = function (type, from, to, data) {
+RoutingMessage = function (from, to, data) {
     this.id = (Math.random() + "").replace("0.", "");
     this.data = data;
-    this.source = {
-        from: from,
-        to : to,
-        type : type
-    }
-    this.type = type;
-    this.selector = new Selector(type);
-    if (this.selector.id) this.id = this.selector.id;
-    if (this.selector.type) this.type = this.selector.type;
     this.from = new Selector(from);
     this.to = new Selector(to);
+    this.selector = this.from.getLastNode();
+    if (this.selector.id) this.id = this.selector.id;
+    if (this.selector.type) this.type = this.selector.type;
+    this.selector.from = from;
+    this.selector.to = to;
     this._creationTime = new Date();
 };
 

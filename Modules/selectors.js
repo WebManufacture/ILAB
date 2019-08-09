@@ -5,7 +5,7 @@ Selector = function (str) {
         //while (str.indexOf('') > 0)
         if (str.start("/") || str.start(">")) {
             this.isRoot = true;
-            this.source = str;
+            /*this.source = str;*/
             str = str.substr(1);
         }
         var regex = new RegExp(Selector._regex, "ig");
@@ -24,11 +24,13 @@ Selector = function (str) {
                 }
             }
         }
+        this.source = str;
     } else {
         var objType = typeof str;
         var obj = str;
         if (objType == "object"){
             this.isRoot = true;
+            this.source += '/';
             objType = Array.isArray(obj)? "array" :
                 (obj ?
                     (obj.type ?
@@ -57,6 +59,7 @@ Selector = function (str) {
             }
         }
         this.type = objType;
+        this.source += (this.type ? this.type : "") + (this.id ? "#" + this.id: "") + (this.classes && this.classes.length ? "." + this.classes.join(".") : "")
     }
 }
 
@@ -113,6 +116,12 @@ Selector.prototype = {
                 }
             }
         }
+    },
+
+    getLastNode: function(){
+       if (this.next) return this.next.getLastNode();
+       if (this.follow) return this.follow.getLastNode();
+       return this;
     },
 
     is : function(obj){

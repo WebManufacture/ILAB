@@ -201,8 +201,8 @@ function RootContainer() {
         });
         var frames = [];
         for (var i = 0; i < servicesToStart.length; i++) {
-            ((service)=> {
-                var servicePath = service.path;
+            ((serviceParams)=> {
+                var servicePath = serviceParams.path;
                 if (servicePath) {
                     if (servicePath.indexOf("http://") != 0 && servicePath.indexOf("https://") != 0) {
                         if (servicePath.indexOf(".js") != servicePath.length - 3) {
@@ -215,7 +215,7 @@ function RootContainer() {
                         }
                     }
                 }
-                var frame = this.start(servicePath);
+                var frame = this.start(servicePath, serviceParams);
                 if (frame) {
                     frames.push(new Promise((resolve, reject) => {
                         process.once("started", (cp) => {
