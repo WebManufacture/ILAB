@@ -1,5 +1,6 @@
 var fs = require('fs');
 var http = require('http');
+var Url = require('url');
 var stream = require('stream');
 var EventEmitter = require('events');
 var Service = useSystem("Service.js");
@@ -9,15 +10,15 @@ HttpProxyService = function(params){
     var self = this;
     var port = 5100;
     if (params && params.port) port = params.port;
+    this.headers = params.headers ? params.headers: {};
     this.allowOrigin = params.allowOrigin ? params.allowOrigin : "*";
     this.allowMethods = params.allowMethods ? params.allowMethods: "all";
     this.allowPreflight = params.allowPreflight ? params.allowPreflight : true;
-    this.info("http-port", port);
     if (!this.server){
-        this.server =  http.createServer(()=>{
-            this.process.apply(this, arguments);
-        });
+        this.server =  http.createServer(this.process.bind(this));
     }
+    this.port = port;
+    this.server.listen(this.port);
     this.container.on("/", (context) => {
         try {
             context.finish(self.services);
@@ -28,7 +29,7 @@ HttpProxyService = function(params){
         }
         return false;
     });
-    console.log("HTTP PROXY ON " + this.router.port);
+    console.log("HTTP PROXY ON " + this.port);
     process.once('exiting', () => {
         self.server.close();
     });
@@ -83,16 +84,27 @@ Inherit(HttpProxyService, Service, {
     },
 
     processRequest : function (req, res) {
-        var url = Url.parse(req.url);
         var method = req.method;
         var data = "";
         req.on("data", (chunk)=>{
-            data += chunk;
+            if (chunk) {
+                data += chunk;
+            }
         });
+        var id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
         req.on("end", (chunk)=>{
-            data += chunk;
-            data = JSON.parse(data);
-            this.container.send(url + "/" + method, data);
+            if (chunk) {
+                data += chunk;
+            }
+            if (data){
+                data = JSON.parse(data);
+            }
+            if (req.url == "/") {
+                this.container.send(req.url + "/hi#" + id, data);
+            }
+            else {
+                this.container.send(req.url + "/" + method.toLowerCase() + "#" + id, data);
+            }
         });
     },
 
