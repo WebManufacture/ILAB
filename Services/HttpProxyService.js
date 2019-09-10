@@ -147,13 +147,19 @@ Inherit(HttpProxyService, Service, {
         try{
             if (self.enabled){
                 var url = Url.parse(self.protocol + req.headers.host + req.url, true);
+                var redirect = null;
                 if (self.hosts[url.hostname]){
-                   // console.log("Proxying " + req.method.toUpperCase() + ":" + url.href + "  -->  " + self.hosts[url.hostname]);
-                    self.proxy.web(req, res, {target: self.protocol + self.hosts[url.hostname]});
+                    redirect = self.hosts[url.hostname];
+                    redirect = redirect.indexOf("://") >= 0 ? redirect : self.protocol + redirect;
                 }
-                if (self.hosts['*']) {
+                if (!redirect && self.hosts['*']) {
                    // console.log("Proxying " + req.method.toUpperCase() + ":" + url.href +  "  -->  " + self.hosts["*"]);
-                    self.proxy.web(req, res, {target: self.protocol + self.hosts['*']});
+                    redirect = self.hosts['*'];
+                    redirect = redirect.indexOf("://") >= 0 ? redirect : self.protocol + redirect;
+                }
+                if (redirect){
+                    console.log("Proxying " + req.method.toUpperCase() + ":" + url.href + "  -->  " + redirect);
+                    self.proxy.web(req, res, {target: redirect});
                     return;
                 }
                 res.statusCode = 404;
