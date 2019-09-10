@@ -19,7 +19,6 @@
   },
   "homepage": "https://github.com/WebManufacture/ILAB-3.0#readme",
   "dependencies": {
-    "child-process-debug": "latest",
     "npm": "^6.4.1",
     "serialport": "latest",
     "usb-detection": "latest",

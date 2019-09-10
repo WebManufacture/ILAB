@@ -4,7 +4,7 @@ var http = require('http');
 var os = require('os');
 var vm = require('vm');
 var ChildProcess = require('child_process');
-require('child-process-debug');
+//require('child-process-debug');
 
 if (!global.Frame) {
     Frame = {isChild: true};

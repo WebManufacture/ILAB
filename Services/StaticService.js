@@ -307,26 +307,24 @@ Inherit(StaticContentService, Service, {
             res.setHeader("Content-Type", query["content-type"] + "");
         }
         var self = this;
-        this.fs.Browse(fpath).then(function (err, files) {
+        this.fs.Browse(fpath).then(function (files) {
             try {
                 var collector = new Async.Collector(files.length);
                 for (var i = 0; i < files.length; i++) {
-                    var fname = fpath + "\\" + files[i];
-                    //console.log('concat ' + fname);
-                    collector.createParametrizedCallback(fname, function (file, callback) {
-                        self.fs.Stats(file).then(function (stat) {
-                            var ext = Path.extname(file);
-                            ext = ext.replace(".", "");
-                            ext = serv.mime[ext];
-                            if (stat.isFile()) {
-                                serv.fs.Read(file, 'utf-8').then(function (result) {
-                                    callback(result);
-                                });
-                            }
-                            else {
-                                callback("");
-                            }
-                        });
+                    files[i].fileName = fpath + "\\" + files[i].name;
+                    collector.createParametrizedCallback(files[i], function (fileInfo, callback) {
+                        var file = fileInfo.fileName
+                        var ext = Path.extname(file);
+                        ext = ext.replace(".", "");
+                        ext = self.mime[ext];
+                        if (fileInfo.fileType == "file") {
+                            self.fs.Read(file, 'utf-8').then(function (result) {
+                                callback(result);
+                            });
+                        }
+                        else {
+                            callback("");
+                        }
                     });
                 }
                 /*
