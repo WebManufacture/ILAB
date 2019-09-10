@@ -164,7 +164,7 @@ Inherit(WebSocketProxyService, Service, {
                         } else {
                             var serviceByType = services.find(s => s.serviceType == serviceId);
                             if (serviceByType){
-                                servicePort = serviceById.port;
+                                servicePort = serviceByType.port;
                                 self.knownServices[serviceId] = servicePort;
                                 connectService(serviceId, servicePort);
                             } else {

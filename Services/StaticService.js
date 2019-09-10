@@ -105,11 +105,11 @@ StaticContentService.MimeTypes = {
 };
 
 Inherit(StaticContentService, Service, {
-    formatPath: function (path) {
-        if (this.config.rootFile && path == "/") {
+    formatPath: function (path, method) {
+        if (this.config.rootFile && path == "/" && method == "GET") {
             return this.config.rootFile;
         }
-        if (this.config.settingsRequest && path == "/" + this.config.settingsRequest){
+        if (this.config.settingsRequest && path == "/" + this.config.settingsRequest && method == "GET"){
             return '/settings';
         }
         return this.config.basepath ? this.config.basepath + path : path;
@@ -119,7 +119,7 @@ Inherit(StaticContentService, Service, {
         var serv = self = this;
         var url = Url.parse(req.url, true);
         var ptail = url.pathname;
-        var fpath = self.formatPath(ptail);
+        var fpath = self.formatPath(ptail, req.method);
         var params = self.params;
         if (params.headers && typeof params.headers == "object") {
             for (var key in params.headers) {
@@ -152,7 +152,7 @@ Inherit(StaticContentService, Service, {
         var context = null;
         try {
             if (self.enabled) {
-                if (req.method == "GET") {
+                if (req.method == "GET" || req.method == "SEARCH") {
                     if (fpath == "/settings"){
                         if (serv.config.allowSettings) {
                             var settings = {};
@@ -184,72 +184,81 @@ Inherit(StaticContentService, Service, {
                             res.end("Not allowed by config");
                         }
                     };
-                    return this.fs.Stats(fpath).then(
-                        function (stats, err) {
-                            if (stats.isDirectory) {
-                                if (url.query && url.query["join"]) {
-                                    serv.ConcatDir(req, res, fpath, url.query);
+                    return self.fs.Stats(fpath).then(
+                        (stats, err) => {
+                            try {
+                                if (stats.isDirectory) {
+                                    if (url.query && url.query["join"]) {
+                                        serv.ConcatDir(req, res, fpath, url.query);
+                                    }
+                                    else {
+                                        if (serv.config.allowBrowse) {
+                                            serv.fs.Browse(fpath).then(function (dir) {
+                                                res.setHeader("Content-Type", "application/json");
+                                                res.statusCode = 200;
+                                                res.end(JSON.stringify(dir));
+                                            }).catch(function (err) {
+                                                console.log("Reading dir error " + err);
+                                                res.statusCode = 500;
+                                                res.end(err.message);
+                                            })
+                                        }
+                                        else {
+                                            console.log("NOT ALLOWED ");
+                                            res.statusCode = 403;
+                                            res.end("Directory listening not allowed");
+                                        }
+                                    }
                                 }
                                 else {
-                                    if (serv.config.allowBrowse) {
-                                        serv.fs.Browse(fpath).then(function (dir) {
-                                            res.setHeader("Content-Type", "application/json");
-                                            res.statusCode = 200;
-                                            res.end(JSON.stringify(dir));
-                                        }).catch(function (err) {
-                                            res.statusCode = 500;
-                                            res.end(err.message);
-                                        })
-                                    }
-                                    else {
-                                        res.statusCode = 403;
-                                        res.end("Directory listening not allowed");
-                                    }
-                                }
-                            }
-                            else {
-                                var ext = Path.extname(fpath);
-                                ext = ext.replace(".", "");
-                                ext = serv.mime[ext];
-                                var encoding = null;
-                                /*if (ext && ext.indexOf("text/") >= 0) {
-                                    encoding = 'utf8';
-                                }*/
-                                serv.fs.ReadStream(fpath, encoding).then((stream) => {
-                                    //stream.setEncoding('bi');
-                                    res.setHeader("request-id", stream.id);
-                                    if (ext) {
-                                        res.setHeader("Content-Type", ext);
-                                    }
-                                    else {
+                                    var ext = Path.extname(fpath);
+                                    ext = ext.replace(".", "");
+                                    ext = serv.mime[ext];
+                                    var encoding = null;
+                                    /*if (ext && ext.indexOf("text/") >= 0) {
+                                     encoding = 'utf8';
+                                     }*/
+                                    serv.fs.ReadStream(fpath, encoding).then((stream) => {
+                                        //stream.setEncoding('bi');
+                                        res.setHeader("request-id", stream.id);
+                                        if (ext) {
+                                            res.setHeader("Content-Type", ext);
+                                        }
+                                        else {
+                                            res.setHeader("Content-Type", "text/plain; charset=utf-8");
+                                        }
+                                        //res.outputEncodings.push("binary");
+                                        res.setHeader("Content-Length", stream.length);
+                                        const useStreams = true;
+                                        if (useStreams) {
+                                            stream.pipe(res);
+                                        } else {
+                                            var actualLength = 0;
+                                            stream.on('data', (data) => {
+                                                data = Buffer.from(data, 'binary');
+                                                res.write(data);
+                                                actualLength += data.length;
+                                            });
+                                            stream.on('end', (chunk) => {
+                                                if (chunk) {
+                                                    actualLength += chunk.length;
+                                                }
+                                                //console.log("actual length " + actualLength);
+                                                res.end(chunk);
+                                            });
+                                        }
+                                    }).catch(function (err) {
                                         res.setHeader("Content-Type", "text/plain; charset=utf-8");
-                                    }
-                                    //res.outputEncodings.push("binary");
-                                    res.setHeader("Content-Length", stream.length);
-                                    const useStreams = true;
-                                    if (useStreams) {
-                                        stream.pipe(res);
-                                    } else {
-                                        var actualLength = 0;
-                                        stream.on('data', (data) => {
-                                            data = Buffer.from(data, 'binary');
-                                            res.write(data);
-                                            actualLength += data.length;
-                                        });
-                                        stream.on('end', (chunk) => {
-                                            if(chunk) {
-                                                actualLength += chunk.length;
-                                            }
-                                            //console.log("actual length " + actualLength);
-                                            res.end(chunk);
-                                        });
-                                    }
-                                }).catch(function (err) {
-                                    res.setHeader("Content-Type", "text/plain; charset=utf-8");
-                                    res.statusCode = 500;
-                                    res.end(err.message);
-                                    console.error(err);
-                                });
+                                        res.statusCode = 500;
+                                        res.end(err.message);
+                                        console.error(err);
+                                    });
+                                }
+                            } catch (err){
+                                res.setHeader("Content-Type", "text/plain; charset=utf-8");
+                                res.statusCode = 500;
+                                res.end(err.message);
+                                console.log(err);
                             }
                         }
                     ).catch(function (err) {
@@ -261,7 +270,7 @@ Inherit(StaticContentService, Service, {
                         }
                     });
                 }
-                if (req.method == "POST" && self.config.allowSave) {
+                if ((req.method == "POST" || req.method == "PATCH" || req.method == "PUT")  && self.config.allowSave) {
                     var ext = Path.extname(fpath);
                     ext = ext.replace(".", "");
                     ext = serv.mime[ext];
@@ -289,6 +298,8 @@ Inherit(StaticContentService, Service, {
                                     res.end(err.message);
                                 });
                 }
+                res.statusCode = 403;
+                res.end("Unknown method " + req.method);
             }
             else {
                 res.statusCode = 403;
