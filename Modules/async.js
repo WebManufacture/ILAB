@@ -1,8 +1,9 @@
-var EventEmitter = require("events").EventEmitter;
+const EventEmitter = require("events").EventEmitter;
+const util = require('util');
 
 if (!global.Inherit){
 	global.Inherit = function (Child, Parent, mixin){
-		utils.inherits(Child, Parent);
+		util.inherits(Child, Parent);
 		if (mixin){
 			for (var item in mixin){
 				Child.prototype[item] = mixin[item];

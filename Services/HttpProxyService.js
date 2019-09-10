@@ -1,5 +1,4 @@
 var fs = require('fs');
-var Async = useModule('async');
 var Path = require('path');
 var Url = require('url');
 var http = require('http');
@@ -15,15 +14,19 @@ HttpProxyService = function(params){
     if (params.aliases && typeof params.aliases == "object"){
         this.aliases = params.aliases;
     }
-    this.enabled = false;
+    this.enabled = true;
+    if (params.enabled !== undefined){
+        this.enabled = params.enabled;
+    }
     var port = 80;
     if (params && params.port && params.port != "default") port = parseInt(params.port);
     if (isNaN(port)) port = 1500;
-
+    this.httpPort = port;
     this.config = params;
-
+    this.protocol = "http://";
 
     if (params.useSecureProtocol == 'pfx'){
+        this.protocol = "https://";
         let options = {
             pfx: fs.readFileSync(Path.resolve(params.keyFile)),
             passphrase: params.pass
@@ -31,6 +34,7 @@ HttpProxyService = function(params){
         this.server =  https.createServer(options, this.process.bind(this));
     }
     if (params.useSecureProtocol == 'pem'){
+        this.protocol = "https://";
         let options = {
             key: fs.readFileSync(Path.resolve(params.keyFile), 'utf8'),
             cert: fs.readFileSync(Path.resolve(params.certFile), 'utf8')
@@ -40,13 +44,50 @@ HttpProxyService = function(params){
     if (!this.server){
         this.server =  http.createServer(this.process.bind(this));
     }
-
-
+    this.server.listen(port);
+    this.proxy = httpProxy.createProxyServer({});
+    this.proxy.on('error', (err,req,res) => {
+        var url = Url.parse(this.protocol + req.headers.host + req.url, true);
+        if (params.headers && typeof params.headers == "object") {
+            for (var key in params.headers){
+                res.setHeader(key, params.headers[key]);
+            }
+        }
+        if (params.allowOrigin) {
+            res.setHeader("Access-Control-Allow-Origin", params.allowOrigin);
+            if (params.allowMethods){
+                if (params.allowMethods.toLowerCase() == "all") {
+                    res.setHeader("Access-Control-Allow-Methods", "GET, DELETE, PUT, POST, HEAD, OPTIONS, SEARCH");
+                }
+                else{
+                    res.setHeader("Access-Control-Allow-Methods", "GET, DELETE, PUT, POST, HEAD, OPTIONS, SEARCH");
+                }
+            }
+            else{
+                if (params.allowPreflight){
+                    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                }
+                else {
+                    res.setHeader("Access-Control-Allow-Methods", "GET");
+                }
+            }
+        }
+        res.writeHead(500, {
+            'Content-Type': 'text/plain'
+        });
+        console.error("Proxy Error " + req.method.toUpperCase() + ":" + url.href);
+        console.error(err);
+        res.end(err.message);
+    });
     console.log("HttpProxy service on " + port);
 
     this.hosts = {
         ...params.hosts
     };
+
+    for (let item in this.hosts){
+        console.log("Proxying " + item + ":" + port + "  -->  " + this.hosts[item]);
+    }
 
     this.StartEndpoint = (host, path) => {
         return this.hosts[host] = path;
@@ -105,13 +146,14 @@ Inherit(HttpProxyService, Service, {
         var self = this;
         try{
             if (self.enabled){
-                console.log(req.url);
-                var url = Url.parse(req.url);
+                var url = Url.parse(self.protocol + req.headers.host + req.url, true);
                 if (self.hosts[url.hostname]){
-                    proxy.web(req, res, {target: self.hosts[url.hostname]});
+                   // console.log("Proxying " + req.method.toUpperCase() + ":" + url.href + "  -->  " + self.hosts[url.hostname]);
+                    self.proxy.web(req, res, {target: self.protocol + self.hosts[url.hostname]});
                 }
                 if (self.hosts['*']) {
-                    proxy.web(req, res, {target: self.hosts['*']});
+                   // console.log("Proxying " + req.method.toUpperCase() + ":" + url.href +  "  -->  " + self.hosts["*"]);
+                    self.proxy.web(req, res, {target: self.protocol + self.hosts['*']});
                     return;
                 }
                 res.statusCode = 404;
