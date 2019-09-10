@@ -23,6 +23,7 @@
     "npm": "^6.4.1",
     "serialport": "latest",
     "usb-detection": "latest",
+    "http-proxy": "latest",
     "uuid": "^3.2.1"
   }
 }

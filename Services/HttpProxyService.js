@@ -5,9 +5,9 @@ var Url = require('url');
 var http = require('http');
 var https = require('https');
 var Service = useSystem("Service.js");
-var HttpRouter = useModule('HttpRouter');
+var httpProxy = require('http-proxy');
 
-HttpRoutingService = function(params){
+HttpProxyService = function(params){
     var result = Service.apply(this, arguments);
     var self = this;
 
@@ -40,46 +40,40 @@ HttpRoutingService = function(params){
     if (!this.server){
         this.server =  http.createServer(this.process.bind(this));
     }
-    this.server.listen(port);
-    console.log("Static service on " + port);
+
+
+    console.log("HttpProxy service on " + port);
 
     this.hosts = {
         ...params.hosts
     };
 
-    this.StartEndpoint = function (host, path) {
-        return null;
+    this.StartEndpoint = (host, path) => {
+        return this.hosts[host] = path;
     };
 
-    this.Endpoints = function () {
+    this.Endpoints = () => {
         return this.hosts;
     };
 
-    this.StopEndpoint = function (host) {
-        return null;
+    this.StopEndpoint = (host) => {
+        return this.hosts[host] = null;
     };
 
-    this.RoutePath = function (path) {
-
+    this.Enable = () => {
+        this.enabled = true;
     };
 
-    this.UnroutePath = function (path) {
-
+    this.Disable = () => {
+        this.enabled = false;
     };
 
     return result;
 };
 
-Inherit(HttpRoutingService, Service, {
-    formatPath : function (path) {
-        if (this.config.defaultFile && (ptail == "" || ptail == "/")){
-            ptail += serv.config.defaultFile;
-        }
-        return path;
-    },
-
+Inherit(HttpProxyService, Service, {
     process : function(req, res) {
-        var params = this.headers;
+        var params = this.config;
         if (params.headers && typeof params.headers == "object") {
             for (var key in params.headers){
                 res.setHeader(key, params.headers[key]);
@@ -104,17 +98,24 @@ Inherit(HttpRoutingService, Service, {
                 }
             }
         }
-        if (req.method == 'OPTIONS'){
+        if (req.method === 'OPTIONS'){
             res.statusCode = 200;
             res.end("OK");
         }
         var self = this;
         try{
             if (self.enabled){
-
-
-
-                //self.process(req, res);
+                console.log(req.url);
+                var url = Url.parse(req.url);
+                if (self.hosts[url.hostname]){
+                    proxy.web(req, res, {target: self.hosts[url.hostname]});
+                }
+                if (self.hosts['*']) {
+                    proxy.web(req, res, {target: self.hosts['*']});
+                    return;
+                }
+                res.statusCode = 404;
+                res.end("Proxy config not found for the path" + req.url);
             }
             else{
                 res.statusCode = 403;
@@ -129,4 +130,4 @@ Inherit(HttpRoutingService, Service, {
     }
 });
 
-module.exports = HttpRoutingService;
+module.exports = HttpProxyService;
