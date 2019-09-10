@@ -20,7 +20,7 @@ Router = function(port, timeout){
 	this.timeout = timeout;
     if (port){
         this.port = port;
-        var http = useSystem('http');
+        var http = require('http');
         this.server = http.createServer((req, res) => {
             res.setHeader("Access-Control-Allow-Origin", "*");
             res.setHeader("Access-Control-Allow-Methods", "GET, DELETE, PUT, POST, HEAD, OPTIONS, SEARCH");

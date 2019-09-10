@@ -1,16 +1,17 @@
-var fs = useSystem('fs');
+var fs = require('fs');
 var JsonSocket = useModule('jsonsocket');
-var net = useSystem('net');
-var Path = useSystem('path');
-var EventEmitter = useSystem('events');
+var net = require('net');
+var Path = require('path');
+var EventEmitter = require('events');
 var util = useModule('utils');
 const stream = require('stream');
-var ServiceProxy = useRoot('System/ServiceProxy');
+var ServiceProxy = useSystem('ServiceProxy');
 
 Service = function(params){
     var self = this;
     this._config = {};
     this._eventsDescriptions = {};
+
     this.register("error", {
         args: [
             {
@@ -19,10 +20,13 @@ Service = function(params){
             }
         ],
     });
+    if (params.type){
+        this.serviceType = params.type;
+    }
     if (!this.serviceId) {
         if (params && params.id) {
             if (params.id == "auto") {
-                this.serviceId = useSystem('uuid/v4')();
+                this.serviceId = require('uuid/v4')();
             } else {
                 this.serviceId = params.id;
             }
@@ -30,15 +34,26 @@ Service = function(params){
             if (Frame.serviceId) {
                 this.serviceId = Frame.serviceId;
             } else {
-                this.serviceId = useSystem('uuid/v4')();
+                this.serviceId = require('uuid/v4')();
             }
         }
     }
+    //console.log(process.channel);
+    this._pipesServerForBaseInteraction = net.createServer({
+        allowHalfOpen: false,
+        pauseOnConnect: false
+    });
+    this._pipesServerForBaseInteraction.on("connection", (socket) => {
+        self._onConnection(socket);
+    });
     this.port = Frame.servicePort;
     this._netServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,
         pauseOnConnect: false
-    }, this._onConnection.bind(this));
+    });
+    this._netServerForBaseInteraction.on("connection", (socket) => {
+        self._onConnection(socket);
+    });
     self.setMaxListeners(100);
     this._netServerForBaseInteraction.on("error", function (err) {
         try {
@@ -50,6 +65,11 @@ Service = function(params){
         }
     });
     try {
+        var pipeId = Frame.pipeId;
+        this._pipesServerForBaseInteraction.listen(pipeId, function () {
+            Frame.log("Listening pipe " + pipeId);
+        });
+
         this._netServerForBaseInteraction.listen(this.port, function () {
             //console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
         });
@@ -62,13 +82,34 @@ Service = function(params){
         args: []
     });
     var wasExiting = false;
+    process.once("SIGTERM", () =>{
+        if (!wasExiting){
+            wasExiting = true;
+            console.log("SIGTERM:closing " + Frame.pipeId);
+            self._closeServer();
+        };
+        process.exit();
+    });
+    process.once("SIGINT", () =>{
+        if (!wasExiting){
+            wasExiting = true;
+            console.log("SIGINT:closing " + Frame.pipeId);
+            self._closeServer();
+        };
+        process.exit();
+    });
     process.once("exiting", () =>{
-        self.emit("exiting");
-        self._closeServer();
-        wasExiting = true;
+        if (!wasExiting) {
+            wasExiting = true;
+            console.log("exiting:closing " + Frame.pipeId);
+            self.emit("exiting");
+            self._closeServer();
+        }
     });
     process.once("exit", () =>{
         if (!wasExiting){
+            wasExiting = true;
+            console.log("exit:closing " + Frame.pipeId);
             self.emit("exiting");
             self._closeServer();
         }
@@ -124,6 +165,62 @@ Service.CreateProxyObject = function (service) {
 Inherit(Service, EventEmitter, {
     connect: function (serviceId) {
         return ServiceProxy.connect(serviceId);
+    },
+
+    routeLocal: function(serviceId, packet){
+        //var socket = new JsonSocket(node.data.tcpPort, "127.0.0.1", function (err) {
+        var socket = new JsonSocket(Frame.getPipe(serviceId), function (err) {
+            //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
+            try {
+                socket.write(packet);
+                socket.end();
+            }
+            catch(err){
+                console.error(err);
+            }
+        });
+    },
+
+    routeInternal: function(message){
+        if (message.type == "method"){
+            try {
+                this._calleeFunctionMessage = message;
+                var result = self._callMethod(message.name, message.args);
+                this._calleeFunctionMessage = null;
+            }
+            catch (err){
+                if (message.id) {
+                    return ({"type": "error", id: message.id, result: err, message: err.message, stack: err.stack});
+                }
+                return;
+            }
+            if (result instanceof Promise){
+                result.then(function (result) {
+                    try {
+                        return ({"type": "result", id: message.id, result: result});
+                    }
+                    catch (error){
+                        throw error;
+                    }
+                }).catch(function (error) {
+                    if (typeof error == "string") {
+                        return ({"type": "error", id: message.id, result: error, message: error});
+                    }
+                    else {
+                        return ({"type": "error", id: message.id, result: error.message, message: error.message, stack: error.stack});
+                    }
+                });
+            }
+            else {
+                return {"type": "result", id: message.id, result: result};
+            }
+        }
+        if (message.type == "startup") {
+            return Service.CreateProxyObject(self);
+        }
+        if (message.type == "subscribe") {
+            //self.on("internal-event", internalEventHandler);
+        }
     },
 
     createStreamMethod : function (func) {
@@ -266,6 +363,7 @@ Inherit(Service, EventEmitter, {
 
     _closeServer : function(){
         this._netServerForBaseInteraction.close();
+        this._pipesServerForBaseInteraction.close();
         this.emit("closing-server");
     },
 

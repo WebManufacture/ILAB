@@ -1,8 +1,8 @@
-var fs = useSystem('fs');
-var Path = useSystem('path');
-var EventEmitter = useSystem('events');
-var os = useSystem("os");
-var ChildProcess = useSystem('child_process');
+var fs = require('fs');
+var Path = require('path');
+var EventEmitter = require('events');
+var os = require("os");
+var ChildProcess = require('child_process');
 var util = useModule('utils');
 
 function ForkMon(path, args, env){
@@ -20,6 +20,9 @@ function ForkMon(path, args, env){
     this.on("stop", function(message){
         fork.stop();
     });
+    process.once("exit", ()=>{
+        this.exit();
+    })
 };
 
 ForkMon.Statuses = ["new", "killed", "exited", "paused", "error", "reserved", "stopping", "working"];
@@ -34,7 +37,7 @@ ForkMon.STATUS_WORKING = 7;
 Inherit(ForkMon, EventEmitter, {
     start : function(params){
         if (this.code >= ForkMon.STATUS_WORKING){
-            return;
+            throw "trying to start working node";
         }
         if (typeof (params) == 'function'){
             var callback = params;
@@ -45,6 +48,8 @@ Inherit(ForkMon, EventEmitter, {
             silent: false,
             cwd : process.cwd(),
             env : {
+                parentId: Frame.serviceId,
+                rootId: Frame.rootId,
                 params: JSON.stringify(params)
             }
         };
@@ -58,9 +63,8 @@ Inherit(ForkMon, EventEmitter, {
         if (params && params.cwd){
             options.cwd = params.cwd;
         };
-        if (this.env.debugPort){
-            const key = this.env.debugMode == 'debug' ? "--inspect-brk" : "--inspect";
-            options.execArgv = [key + "=" + this.env.debugPort];
+        if (Frame.debugMode && process.debugPort){
+            options.execArgv = ["--inspect-brk=" + (parseInt(process.debugPort) + Math.floor(Math.random()*1000))];
         }
         var cp = this.process = ChildProcess.fork(this.path, this.args, options);
         this.code = ForkMon.STATUS_WORKING;
@@ -84,9 +88,12 @@ Inherit(ForkMon, EventEmitter, {
         if (global.Frame){
             if (!global.Frame.childProcesses) global.Frame.childProcesses = [];
             global.Frame.childProcesses.push(cp);
-            process.on('exit', function () {
-                cp.kill();
-            });
+            /*process.once('exit', function () {
+                if (!cp.killed){
+                    console.log("process-exit:killing cp");
+                    cp.kill();
+                }
+            });*/
         }
         return cp;
     },
@@ -138,13 +145,15 @@ Inherit(ForkMon, EventEmitter, {
     },
 
     exit : function(){
-        if (this.process){
+        if (this.process && this.process.connected){
             var self = this;
             var proc = this.process;
             var exited = false;
             this.process.send("EXIT-REQUEST");
+            //console.log("process-exit:EXIT-REQUEST");
             var exitTimeout = setTimeout(function(){
                 if (!exited){
+                    console.log("process-exit:SIGINT");
                     self.emit("killing", "ForkMon: " + self.id + " KILLED BY TIMEOUT!");
                     proc.kill('SIGINT');
                     self.emit("exited", ForkMon.STATUS_KILLED);

@@ -2,7 +2,7 @@ var Path = require('path');
 var fs = require('fs');
 var os = require("os");
 useModule("utils.js");
-var Service = useRoot("/System/Service.js");
+var Service = useSystem("Service.js");
 var usbDetect = require('usb-detection');
 
 

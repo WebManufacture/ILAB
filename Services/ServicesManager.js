@@ -1,9 +1,9 @@
-var fs = useSystem('fs');
-var Path = useSystem('path');
-var stream = useSystem('stream');
-var EventEmitter = useSystem('events');
-var os = useSystem("os");
-var ChildProcess = useSystem('child_process');
+var fs = require('fs');
+var Path = require('path');
+var stream = require('stream');
+var EventEmitter = require('events');
+var os = require("os");
+var ChildProcess = require('child_process');
 var util = useModule('utils');
 var ForkMon = useModule("forkmon");
 var Service = useRoot("System/Service");
@@ -22,17 +22,20 @@ function ServicesManager(config, portCountingFunc){
         }
     }
     this._getPort = portCountingFunc;
-    this.StartService = function (serviceId, params) {
-        return self.startServiceAsync(serviceId, params).then(function () {
+
+    this.StartService = function (service) {
+        if (!service) return null;
+        return self.startServiceAsync(service.id, service).then(function () {
             return serviceId + " started";
         });
     };
-    this.StartServices = function (services, params) {
+    this.StartServices = function (services) {
+        if (!services) return null;
         var index = 0;
         function startNext(resolve, reject) {
-            var key = services[index];
-            if (key && index < services.length){
-                self.startServiceAsync(key, params[index]).then(()=>{
+            var service = services[index];
+            if (service && index < services.length){
+                self.startServiceAsync(service.id, service).then(()=>{
                     startNext(resolve, reject);
                 }).catch((error)=>{
                     reject(error);
@@ -116,6 +119,7 @@ function ServicesManager(config, portCountingFunc){
         if (typeof options != "object") options = {};
         options.serviceId = id;
         options.servicePort = port;
+        options.managerPort = self.port;
         if (!options.debugMode){
             options.debugMode = self.debugMode;
         }
@@ -126,7 +130,7 @@ function ServicesManager(config, portCountingFunc){
             }
             //console.log("Debugger activated on " + options.debugPort);
         }
-        var mon = new ForkMon(Frame.ilabPath + "/System/ServiceFrame.js", [], options);
+        var mon = new ForkMon(Frame.ilabPath + "/Frame.js", [], options);
         self.forksCount++;
         mon.serviceId = id;
         mon.port = port;
@@ -202,23 +206,24 @@ Inherit(ServicesManager, Service, {
             params.path = serviceId;
         }
         if (params && params.id) {
-            params.serviceType = serviceId;
             if (params.id == "auto") {
-                serviceId = params.id = useSystem('uuid/v4')();
+                serviceId = params.id = require('uuid/v4')();
             } else {
                 serviceId = params.id;
             }
         } else {
             if (serviceId) {
-                params.serviceType = serviceId;
                 params.id = serviceId;
             }
             else {
-                params.serviceType = 'unknown';
-                serviceId = params.id = useSystem('uuid/v4')();
+                if (!params.id || params.id == "auto") {
+                    params.id = require('uuid/v4')();
+                }
+                serviceId = params.id;
             }
         }
         this.params[serviceId] = params;
+        //console.log("Starting " + serviceId);
         var promise = new Promise((resolve, reject) =>{
             try {
                 if (this.isServiceLoaded(serviceId)){
@@ -315,10 +320,14 @@ Inherit(ServicesManager, Service, {
             env.nodePath = servicePath;
             params._internalPort = self._getPort();
             var service = this.CreateFork(serviceId, params._internalPort, env);
-            service.once("service-started", function (newServiceId, service) {
+            service.once("service-started", function (newServiceId, serviceParam) {
                 serviceId = newServiceId;
                 service.resultId = newServiceId;
-                service.resultType = service.serviceType;
+                if (serviceParam.type) {
+                    service.serviceType = serviceParam.type;
+                }
+                service.port = serviceParam._internalPort;
+                service.resultType = serviceParam.serviceType;
                 self.services[serviceId] = service;
                 if (typeof callback == "function"){
                     callback.call(service, serviceId, service.id);
@@ -415,7 +424,7 @@ Inherit(ServicesManager, Service, {
         var services = { "ServicesManager" : this.port };
         for (var name in this.services){
             if (this.services[name] != null){
-                services[name] = this.services[name]._internalPort;
+                services[name] = this.services[name].port;
             }
         }
         return services;
@@ -438,10 +447,10 @@ Inherit(ServicesManager, Service, {
                 services.push({
                     id: name,
                     path: service.path,
-                    serviceType: service.resultType,
+                    serviceType: service.resultType ? service.resultType : service.serviceType,
                     resultId: service.resultId,
                     status: Service.States[service.code],
-                    port: service._internalPort,
+                    port: service.port,
                     type: "service",
                     state: service.code
                 });

@@ -1,4 +1,5 @@
-var EventEmitter = require("events").EventEmitter;
+const EventEmitter = require("events").EventEmitter;
+const util = require('util');
 
 if (!global.Inherit){
 	global.Inherit = function (Child, Parent, mixin){

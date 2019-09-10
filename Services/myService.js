@@ -1,4 +1,4 @@
-var Service = useRoot("/System/Service.js");
+var Service = useSystem("Service.js");
 useModule("utils.js");
 
 function myService(params){

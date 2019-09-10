@@ -1,13 +1,14 @@
-var fs = useSystem('fs');
+var fs = require('fs');
+var Path = require('path');
+var Url = require('url');
+var http = require('http');
+var https = require('https');
+var stream = require('stream');
+var utils = useModule('utils');
 var Async = useModule('async');
-var Path = useSystem('path');
-var Url = useSystem('url');
-var http = useSystem('http');
-var https = useSystem('https');
-var stream = useSystem('stream');
-var EventEmitter = useSystem('events');
-var Service = useRoot("/System/Service.js");
-var ServiceProxy = useRoot("/System/ServiceProxy.js");
+var EventEmitter = require('events');
+var Service = useSystem("Service.js");
+var ServiceProxy = useSystem("ServiceProxy.js");
 
 
 StaticContentService = function (params) {

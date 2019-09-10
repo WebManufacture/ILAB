@@ -1,8 +1,8 @@
-var fs = useSystem('fs');
-var http = useSystem('http');
+var fs = require('fs');
+var http = require('http');
 var util = useModule('utils');
 var WebSocketServer = useModule('WebSocket/WebSocketServer');
-var Service = useRoot("/System/Service.js");
+var Service = useSystem("Service.js");
 var JsonSocket = useModule('jsonsocket');
 
 function WebSocketProxyService(param1){
@@ -51,11 +51,9 @@ function WebSocketProxyService(param1){
             autoAcceptConnections: true
         });
         wss.on('connect', this._onSocketConnection.bind(this));
-        process.on('exiting', () => {
-            wss.close();
-        });
-        process.on('exit', () => {
-            wss.close();
+        process.once('exiting', () => {
+            wss.unmount();
+            server.close();
         });
         return true;
     };
@@ -157,10 +155,22 @@ Inherit(WebSocketProxyService, Service, {
                     connectService(serviceId, servicePort);
                 }
                 else{
-                    ServicesManager.GetServices().then((services) => {
-                        servicePort = services[serviceId];
-                        self.knownServices[serviceId] = servicePort;
-                        connectService(serviceId, servicePort);
+                    ServicesManager.GetServicesInfo().then((services) => {
+                        var serviceById = services.find(s => s.id == serviceId);
+                        if (serviceById) {
+                            servicePort = serviceById.port;
+                            self.knownServices[serviceId] = servicePort;
+                            connectService(serviceId, servicePort);
+                        } else {
+                            var serviceByType = services.find(s => s.serviceType == serviceId);
+                            if (serviceByType){
+                                servicePort = serviceById.port;
+                                self.knownServices[serviceId] = servicePort;
+                                connectService(serviceId, servicePort);
+                            } else {
+                                throw "No service found for: " + serviceId;
+                            }
+                        }
                     }).catch(function (err) {
                         throw err;
                     });
@@ -189,7 +199,7 @@ Inherit(WebSocketProxyService, Service, {
             //console.dir(proxyObj);//debug
             self.serviceId = proxyObj.serviceId;
             //if (self.serviceId != "ServicesManager")
-            console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
+            console.log("Service proxy connected to " + self.serviceId);
             for (var item in proxyObj){
                 if (proxyObj[item] == "method") {
                     self._createFakeMethod(item, proxyObj[item]);

@@ -1,15 +1,11 @@
-var fs = useSystem('fs');
+var fs = require('fs');
 var Async = useModule('async');
-var Path = useSystem('path');
-var Url = useSystem('url');
-var http = useSystem('http');
-var https = useSystem('https');
-var stream = useSystem('stream');
-var EventEmitter = useSystem('events');
-var Service = useRoot("/System/Service.js");
-var ServiceProxy = useRoot("/System/Service.js");
+var Path = require('path');
+var Url = require('url');
+var http = require('http');
+var https = require('https');
+var Service = useSystem("Service.js");
 var HttpRouter = useModule('HttpRouter');
-
 
 HttpRoutingService = function(params){
     var result = Service.apply(this, arguments);
@@ -32,40 +28,43 @@ HttpRoutingService = function(params){
             pfx: fs.readFileSync(Path.resolve(params.keyFile)),
             passphrase: params.pass
         };
-        this.server =  https.createServer(options, process);
+        this.server =  https.createServer(options, this.process.bind(this));
     }
     if (params.useSecureProtocol == 'pem'){
         let options = {
             key: fs.readFileSync(Path.resolve(params.keyFile), 'utf8'),
             cert: fs.readFileSync(Path.resolve(params.certFile), 'utf8')
         };
-        this.server =  https.createServer(options, process);
+        this.server =  https.createServer(options, this.process.bind(this));
     }
     if (!this.server){
-        this.server =  http.createServer(process);
+        this.server =  http.createServer(this.process.bind(this));
     }
     this.server.listen(port);
     console.log("Static service on " + port);
 
+    this.hosts = {
+        ...params.hosts
+    };
 
-    this.StartEndpoint = function (params, path) {
-        return serv.fs.Read(this.formatPath(path));
+    this.StartEndpoint = function (host, path) {
+        return null;
     };
 
     this.Endpoints = function () {
-        return serv.fs.Browse(this.formatPath(path));
+        return this.hosts;
     };
 
-    this.StopEndpoint = function (host, port, path) {
-        return this.concatDir(this.formatPath(path));
+    this.StopEndpoint = function (host) {
+        return null;
     };
 
     this.RoutePath = function (path) {
-        return serv.fs.Read(this.formatPath(path));
+
     };
 
     this.UnroutePath = function (path) {
-        return serv.fs.Browse(this.formatPath(path));
+
     };
 
     return result;
@@ -112,7 +111,10 @@ Inherit(HttpRoutingService, Service, {
         var self = this;
         try{
             if (self.enabled){
-                self.process(req, res);
+
+
+
+                //self.process(req, res);
             }
             else{
                 res.statusCode = 403;

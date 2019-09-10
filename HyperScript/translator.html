@@ -1,0 +1,21 @@
+
+<html>
+<head>
+    <link type="text/css" rel="stylesheet" href="http://Services.web-manufacture.net/Styles/System.default.css">
+    <script type="text/javascript" src="http://Services.web-manufacture.net/Base/v1.5/?join=true"></script>
+</head>
+<body>
+<script src='translator.js'></script>
+<script>
+
+    fetch("translator.hs").then(function(resp){
+        return resp.text();
+    }).then(function(text){
+        var code = translator(text);
+        console.log(code);
+        var func = new Function(code);
+        console.log(func());
+    });
+</script>
+</body>
+</html>

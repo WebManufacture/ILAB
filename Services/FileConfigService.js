@@ -6,7 +6,6 @@ var Path = require('path');
 var ConfigService = useService('ConfigService.js');
 useModule("Utils.js");
 useModule("Channels.js");
-var Logger = useModule('Logger.js');
 useModule('Async.js');
 
 function FileConfigService(parentNode){

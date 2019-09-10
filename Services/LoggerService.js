@@ -1,4 +1,4 @@
-var fs = useSystem('fs');
+var fs = require('fs');
 var Service = useModule('Service');
 var ServiceProxy = useModule('ServiceProxy');
 

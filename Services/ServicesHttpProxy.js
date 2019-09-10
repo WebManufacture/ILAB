@@ -1,9 +1,9 @@
-var fs = useSystem('fs');
-var http = useSystem('http');
-var stream = useSystem('stream');
-var EventEmitter = useSystem('events');
+var fs = require('fs');
+var http = require('http');
+var stream = require('stream');
+var EventEmitter = require('events');
 var HttpRouter = useModule('HttpRouter');
-var Service = useRoot("/System/Service.js");
+var Service = useSystem("Service.js");
 
 HttpProxyService = function(params){
     var result = Service.apply(this, arguments);
@@ -29,10 +29,13 @@ HttpProxyService = function(params){
         }
         return false;
     });
-    ServicesManager.on("service-started", function (serviceId, servicePort) {
+    ServicesManager.on("service-started", function (serviceId, servicePort, config) {
         //console.log("HttpProxy catch service start: " + serviceId + ":" + servicePort);
         self.services[serviceId] = servicePort;
         self.addServiceHandler(serviceId, servicePort);
+        if (serviceId != config.type){
+            self.addServiceHandler(config.type, servicePort);
+        }
     });
     ServicesManager.on("service-exited", function (serviceId, servicePort) {
         console.log("HttpProxy catch service exited: " + serviceId + ":" + servicePort);
