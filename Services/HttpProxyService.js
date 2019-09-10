@@ -159,7 +159,10 @@ Inherit(HttpProxyService, Service, {
                 }
                 if (redirect){
                     console.log("Proxying " + req.method.toUpperCase() + ":" + url.href + "  -->  " + redirect);
-                    self.proxy.web(req, res, {target: redirect});
+                    self.proxy.web(req, res, {
+                        target: redirect,
+                        ws: true
+                    });
                     return;
                 }
                 res.statusCode = 404;

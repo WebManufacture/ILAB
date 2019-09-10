@@ -118,7 +118,7 @@ Inherit(StaticContentService, Service, {
 
     process: function (req, res) {
         var serv = self = this;
-        var url = Url.parse(req.url);
+        var url = Url.parse(req.url, true);
         var ptail = url.pathname;
         var fpath = self.formatPath(ptail);
         var params = self.params;
