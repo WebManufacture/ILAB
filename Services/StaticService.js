@@ -319,10 +319,10 @@ Inherit(StaticContentService, Service, {
         var self = this;
         this.fs.Browse(fpath).then(function (files) {
             try {
-                var collector = new Async.Collector(files.length);
+                var collector = new Async.Waterfall();
                 for (var i = 0; i < files.length; i++) {
                     files[i].fileName = fpath + "\\" + files[i].name;
-                    collector.createParametrizedCallback(files[i], function (fileInfo, callback) {
+                    collector.add(function (fileInfo, callback) {
                         var file = fileInfo.fileName
                         var ext = Path.extname(file);
                         ext = ext.replace(".", "");
@@ -335,13 +335,13 @@ Inherit(StaticContentService, Service, {
                         else {
                             callback("");
                         }
-                    });
+                    }, this, files[i]);
                 }
                 /*
                                  collector.on('handler', function(param, count){
                                  console.log('Handler complete ' + this.count + " " + count);
                                  });*/
-                collector.on('done', function (results) {
+                collector.run(function (results) {
                     var result = "";
                     if (query.first) {
                         result += query.first;
@@ -361,11 +361,11 @@ Inherit(StaticContentService, Service, {
                     res.statusCode = 200;
                     res.end(result);
                 });
-                collector.run();
             }
             catch (error) {
                 res.statusCode = 500;
                 res.end(error);
+                console.error(error);
                 return;
             }
         }).catch(function (err) {

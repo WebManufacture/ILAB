@@ -223,7 +223,7 @@ Inherit(Async.Waterfall, EventEmitter, {
 	},
 	
 	add : function(callback, thisParam){
-		if (thisParam) callback = CreateClosure(callback, thisParam);
+		if (thisParam) callback = CreateClosure.apply(this, arguments);
 		this.handlers.push(callback);
 		return callback;
 	},
@@ -234,8 +234,8 @@ Inherit(Async.Waterfall, EventEmitter, {
 			this.counter--;
 		}
 	},
-	
-	check : function(emitter, event){
+
+    check : function(emitter, event){
 		var self = this;
 		if (this.counter == 0){
 			setImmediate(function(){
