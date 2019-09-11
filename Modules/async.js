@@ -224,7 +224,7 @@ Inherit(Async.Waterfall, EventEmitter, {
 	
 	add : function(callback, thisParam){
 		if (thisParam) callback = CreateClosure.apply(this, arguments);
-		this.handlers.push(callback);
+		this.handlers.push();
 		return callback;
 	},
 	

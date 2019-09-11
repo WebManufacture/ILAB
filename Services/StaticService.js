@@ -28,8 +28,7 @@ StaticContentService = function (params) {
 
     if (params.mime) {
         this.mime = params.mime;
-    }
-    else {
+    } else {
         this.mime = StaticContentService.MimeTypes;
     }
 
@@ -39,6 +38,13 @@ StaticContentService = function (params) {
         self.fs = proxy;
         self.enabled = true;
         console.log("connected to FS: " + params.filesServiceId);
+        if (params.template) {
+            console.log("Reading template: " + params.template);
+            proxy.Read(params.template).then((template) => {
+                console.log("Template set: " + params.template);
+                self.template = template;
+            });
+        }
     }).catch(function (err) {
         console.error(err);
         console.error("can't connect to FS service " + params.filesServiceId)
@@ -69,7 +75,7 @@ StaticContentService = function (params) {
     this.server.listen(port);
     console.log("Static service on " + port);
 
-
+    this.cache = {};
     process.once('exiting', () => {
         self.server.close();
     });
@@ -109,7 +115,7 @@ Inherit(StaticContentService, Service, {
         if (this.config.rootFile && path == "/" && method == "GET") {
             return this.config.rootFile;
         }
-        if (this.config.settingsRequest && path == "/" + this.config.settingsRequest && method == "GET"){
+        if (this.config.settingsRequest && path == "/" + this.config.settingsRequest && method == "GET") {
             return '/settings';
         }
         return this.config.basepath ? this.config.basepath + path : path;
@@ -131,16 +137,13 @@ Inherit(StaticContentService, Service, {
             if (params.allowMethods) {
                 if (params.allowMethods.toLowerCase() == "all") {
                     res.setHeader("Access-Control-Allow-Methods", "GET, DELETE, PUT, POST, HEAD, OPTIONS, SEARCH");
-                }
-                else {
+                } else {
                     res.setHeader("Access-Control-Allow-Methods", "GET, DELETE, PUT, POST, HEAD, OPTIONS, SEARCH");
                 }
-            }
-            else {
+            } else {
                 if (params.allowPreflight) {
                     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                }
-                else {
+                } else {
                     res.setHeader("Access-Control-Allow-Methods", "GET");
                 }
             }
@@ -151,29 +154,29 @@ Inherit(StaticContentService, Service, {
         }
         var context = null;
         try {
-            if (self.enabled) {
+            if (serv.enabled) {
                 if (req.method == "GET" || req.method == "SEARCH") {
-                    if (fpath == "/settings"){
+                    if (fpath == "/settings") {
                         if (serv.config.allowSettings) {
                             var settings = {};
                             return Promise.all([
-                                ServicesManager.GetService("ServicesWebSocketProxy").then((proxy)=>{
+                                ServicesManager.GetService("ServicesWebSocketProxy").then((proxy) => {
                                     settings.ServicesWebSocketProxy = proxy;
                                 }),
-                                ServicesManager.GetService("ServicesHttpProxy").then((proxy)=>{
+                                ServicesManager.GetService("ServicesHttpProxy").then((proxy) => {
                                     settings.ServicesHttpProxy = proxy;
                                 }),
-                                ServicesManager.GetService("StaticService").then((proxy)=>{
+                                ServicesManager.GetService("StaticService").then((proxy) => {
                                     settings.StaticService = proxy;
                                 }),
-                                ServicesManager.GetServices().then((proxy)=>{
+                                ServicesManager.GetServices().then((proxy) => {
                                     settings.OtherServices = proxy;
                                 })
-                            ]).then(()=>{
+                            ]).then(() => {
                                 res.setHeader("Content-Type", "application/json");
                                 res.statusCode = 200;
                                 res.end("window.LocalIlabSettings = " + JSON.stringify(settings));
-                            }).catch((err)=>{
+                            }).catch((err) => {
                                 res.statusCode = 500;
                                 Frame.error(err);
                                 res.end(JSON.stringify(err));
@@ -183,34 +186,45 @@ Inherit(StaticContentService, Service, {
                             res.statusCode = 403;
                             res.end("Not allowed by config");
                         }
-                    };
+                    }
+                    ;
+                    if (req.method == "GET" && serv.config.allowCache) {
+                        var result = serv.ProcessCache(req, res, fpath, url.query);
+                        if (result > 0) {
+                            res.statusCode = result;
+                            res.end();
+                            return;
+                        }
+                    }
                     return self.fs.Stats(fpath).then(
                         (stats, err) => {
                             try {
                                 if (stats.isDirectory) {
                                     if (url.query && url.query["join"]) {
                                         serv.ConcatDir(req, res, fpath, url.query);
-                                    }
-                                    else {
-                                        if (serv.config.allowBrowse) {
-                                            serv.fs.Browse(fpath).then(function (dir) {
-                                                res.setHeader("Content-Type", "application/json");
-                                                res.statusCode = 200;
-                                                res.end(JSON.stringify(dir));
-                                            }).catch(function (err) {
-                                                console.log("Reading dir error " + err);
-                                                res.statusCode = 500;
-                                                res.end(err.message);
-                                            })
+                                    } else {
+                                        if (req.method == "GET" && serv.template) {
+                                            res.setHeader("Content-Type", "application/html");
+                                            serv.ApplyTemplate(req, res, fpath, url.query, serv.template);
+                                        } else {
+                                            if (req.method == "SEARCH" || serv.config.allowBrowse) {
+                                                serv.fs.Browse(fpath).then(function (dir) {
+                                                    res.setHeader("Content-Type", "application/json");
+                                                    res.statusCode = 200;
+                                                    res.end(JSON.stringify(dir));
+                                                }).catch(function (err) {
+                                                    console.log("Reading dir error " + err);
+                                                    res.statusCode = 500;
+                                                    res.end(err.message);
+                                                })
+                                            } else {
+                                                console.log("NOT ALLOWED ");
+                                                res.statusCode = 403;
+                                                res.end("Directory listening not allowed");
+                                            }
                                         }
-                                        else {
-                                            console.log("NOT ALLOWED ");
-                                            res.statusCode = 403;
-                                            res.end("Directory listening not allowed");
-                                        }
                                     }
-                                }
-                                else {
+                                } else {
                                     var ext = Path.extname(fpath);
                                     ext = ext.replace(".", "");
                                     ext = serv.mime[ext];
@@ -223,8 +237,7 @@ Inherit(StaticContentService, Service, {
                                         res.setHeader("request-id", stream.id);
                                         if (ext) {
                                             res.setHeader("Content-Type", ext);
-                                        }
-                                        else {
+                                        } else {
                                             res.setHeader("Content-Type", "text/plain; charset=utf-8");
                                         }
                                         //res.outputEncodings.push("binary");
@@ -254,7 +267,7 @@ Inherit(StaticContentService, Service, {
                                         console.error(err);
                                     });
                                 }
-                            } catch (err){
+                            } catch (err) {
                                 res.setHeader("Content-Type", "text/plain; charset=utf-8");
                                 res.statusCode = 500;
                                 res.end(err.message);
@@ -270,14 +283,13 @@ Inherit(StaticContentService, Service, {
                         }
                     });
                 }
-                if ((req.method == "POST" || req.method == "PATCH" || req.method == "PUT")  && self.config.allowSave) {
+                if ((req.method == "POST" || req.method == "PATCH" || req.method == "PUT") && self.config.allowSave) {
                     var ext = Path.extname(fpath);
                     ext = ext.replace(".", "");
                     ext = serv.mime[ext];
                     if (ext) {
                         res.setHeader("Content-Type", ext);
-                    }
-                    else {
+                    } else {
                         res.setHeader("Content-Type", "text/plain; charset=utf-8");
                     }
                     var encoding = null;
@@ -285,28 +297,26 @@ Inherit(StaticContentService, Service, {
                         encoding = 'utf8';
                     }
                     return serv.fs.WriteStream(fpath, encoding).then(function (stream) {
-                                    req.on("data", (chunk)=>{
-                                        stream.write(chunk, encoding);
-                                    });
-                                    req.on("end", (chunk)=>{
-                                        stream.end(chunk);
-                                        res.statusCode = 200;
-                                        res.end("OK");
-                                    });
-                                }).catch(function (err) {
-                                    res.statusCode = 500;
-                                    res.end(err.message);
-                                });
+                        req.on("data", (chunk) => {
+                            stream.write(chunk, encoding);
+                        });
+                        req.on("end", (chunk) => {
+                            stream.end(chunk);
+                            res.statusCode = 200;
+                            res.end("OK");
+                        });
+                    }).catch(function (err) {
+                        res.statusCode = 500;
+                        res.end(err.message);
+                    });
                 }
                 res.statusCode = 403;
                 res.end("Unknown method " + req.method);
-            }
-            else {
+            } else {
                 res.statusCode = 403;
                 res.end("Server disabled");
             }
-        }
-        catch (e) {
+        } catch (e) {
             res.statusCode = 500;
             res.end(e.message);
         }
@@ -331,8 +341,7 @@ Inherit(StaticContentService, Service, {
                             self.fs.Read(file, 'utf-8').then(function (result) {
                                 callback(result);
                             });
-                        }
-                        else {
+                        } else {
                             callback("");
                         }
                     }, this, files[i]);
@@ -361,8 +370,7 @@ Inherit(StaticContentService, Service, {
                     res.statusCode = 200;
                     res.end(result);
                 });
-            }
-            catch (error) {
+            } catch (error) {
                 res.statusCode = 500;
                 res.end(error);
                 console.error(error);
@@ -393,8 +401,7 @@ Inherit(StaticContentService, Service, {
                                     self.fs.Read(file, 'utf-8').then(function (result) {
                                         callback(result);
                                     });
-                                }
-                                else {
+                                } else {
                                     callback("");
                                 }
                             });
@@ -424,8 +431,7 @@ Inherit(StaticContentService, Service, {
                         resolve(result);
                     });
                     collector.run();
-                }
-                catch (error) {
+                } catch (error) {
                     reject(error);
                 }
             }).catch(function (err) {
@@ -434,6 +440,112 @@ Inherit(StaticContentService, Service, {
         });
         return promise;
     },
+
+    ApplyTemplate: function (req, res, fpath, query, template) {
+        var params = {
+            content: template,
+            url: query,
+            statusCode: 200,
+            req: req,
+            res: res,
+            fpath: fpath
+        };
+        var regex = /<:(\w+)([^>]*)>?(.*)<\/:\1>/ig;
+        var match;
+        var processed = true;
+        var fb = new Async.Collector(false, function (results) {
+            var resNum = 0;
+            var content = template.replace(regex, function (src) {
+                if (results[resNum]) return results[resNum++];
+                return "";
+            });
+            res.statusCode = 200;
+            res.end(content);
+        });
+        while ((match = regex.exec(template)) !== null) {
+            var pname = match[1];
+            var pconf = match[2];
+            var pval = match[3];
+            var cp = this.ContentProcessors[pname];
+            if (cp) {
+                processed = false;
+                fb.addClosureCallback(cp, this, [params, pval, pconf]);
+            }
+        }
+        if (!processed) fb.run();
+        return processed;
+    },
+
+    ContentProcessors: {
+        file: function (params, value, pconf, callback) {
+            var fpath = params.fpath + "\\" + value;
+            console.log("Templating file: " + fpath);
+            this.fs.Read(fpath).then((result) => {
+                callback(result);
+            }).catch((err)=>{
+                callback(err);
+            });
+        },
+
+        http: function (params, value, pconf, callback) {
+            var fpath = this.formatPath(value);
+            var lf = this.cache[fpath];
+            if (lf) {
+                callback(lf);
+            } else {
+                console.log("Getting " + fpath);
+                callback("");
+            }
+        },
+
+        path: function (params, value, pconf, callback) {
+            var fpath = this.formatPath(value);
+            console.log("Templating " + fpath);
+            this.fs.Read(fpath).then((result) => {
+                callback(result);
+            }).catch((err)=>{
+                callback(err);
+            });
+        },
+
+        eval: function (params, value, pconf, callback) {
+            try {
+                var result = EvalInContext(value, this, params);
+            } catch (error) {
+                callback(error + "");
+                return;
+            }
+            callback(result);
+        }
+    },
+
+    ProcessCache: function (req, res, fpath, query) {
+        var serv = this;
+        if (query["content-type"]) {
+            res.setHeader("Content-Type", query["content-type"] + "");
+        } else {
+            //res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        }
+        var dnow = new Date();
+        res.setHeader("Cache-Control", "max-age=3600");
+        res.setHeader("Expires", new Date(dnow.valueOf() + 1000 * 3600).toString());
+        var inm = req.headers["if-none-match"];
+        //console.log(inm + " " + serv.cache[fpath] + " " + fpath);
+        var etag = serv.cache[fpath];
+        if (!etag) {
+            etag = (Math.random() + "").replace("0.", "");
+            //console.log(etag + " " + fpath);
+            serv.cache[fpath] = etag;
+        }
+        res.setHeader("ETag", etag);
+        if (etag == inm) {
+            if (serv.cache[fpath]) {
+                res.setHeader("Content-Type", serv.cache[fpath]);
+            }
+            return 304;
+        }
+        return 0;
+    }
 });
 
 module.exports = StaticContentService;
