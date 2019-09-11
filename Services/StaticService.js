@@ -204,7 +204,7 @@ Inherit(StaticContentService, Service, {
                                         serv.ConcatDir(req, res, fpath, url.query);
                                     } else {
                                         if (req.method == "GET" && serv.template) {
-                                            res.setHeader("Content-Type", "application/html");
+                                            res.setHeader("Content-Type", StaticContentService.MimeTypes.html);
                                             serv.ApplyTemplate(req, res, fpath, url.query, serv.template);
                                         } else {
                                             if (req.method == "SEARCH" || serv.config.allowBrowse) {
