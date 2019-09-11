@@ -329,41 +329,27 @@ Inherit(StaticContentService, Service, {
         var self = this;
         this.fs.Browse(fpath).then(function (files) {
             try {
-                var collector = new Async.Waterfall();
-                for (var i = 0; i < files.length; i++) {
-                    files[i].fileName = fpath + "\\" + files[i].name;
-                    collector.add(function (fileInfo, callback) {
-                        var file = fileInfo.fileName
-                        var ext = Path.extname(file);
-                        ext = ext.replace(".", "");
-                        ext = self.mime[ext];
-                        if (fileInfo.fileType == "file") {
-                            self.fs.Read(file, 'utf-8').then(function (result) {
-                                callback(result);
-                            });
-                        } else {
-                            callback("");
-                        }
-                    }, this, files[i]);
-                }
-                /*
-                                 collector.on('handler', function(param, count){
-                                 console.log('Handler complete ' + this.count + " " + count);
-                                 });*/
-                collector.run(function (results) {
-                    var result = "";
+                var first = new Promise(function(resolve, reject){
                     if (query.first) {
-                        result += query.first;
+                        resolve(query.first);
+                    } else {
+                        resolve("");
                     }
-                    for (var i = 0; i < results.length; i++) {
-                        if (results[i] && results[i] != "") {
-                            result += results[i];
-                            if (query.delimeter && i < results.length - 1) {
-                                result += query.delimeter;
-                            }
-                        }
+                });
+                files.forEach((fileInfo) => {
+                    const file = fpath + "\\" + fileInfo.name;
+                    var ext = Path.extname(file);
+                    ext = ext.replace(".", "");
+                    ext = self.mime[ext];
+                    if (fileInfo.fileType == "file") {
+                        first = first.then((result1) => {
+                            return self.fs.Read(file, 'utf-8').then((result)=>{
+                                return (result1 ? result1 : "") + (query.delimeter && result1 ? query.delimeter : "") + result;
+                            });
+                        });
                     }
-                    ;
+                });
+                first.then((result)=>{
                     if (query.last) {
                         result += query.last;
                     }
@@ -372,13 +358,14 @@ Inherit(StaticContentService, Service, {
                 });
             } catch (error) {
                 res.statusCode = 500;
-                res.end(error);
+                res.end(error.message);
                 console.error(error);
                 return;
             }
         }).catch(function (err) {
             res.statusCode = 500;
             res.end("readdir " + fpath + " error " + err);
+            console.error(err);
         });
     },
 
