@@ -40,10 +40,14 @@ StaticContentService = function (params) {
         console.log("connected to FS: " + params.filesServiceId);
         if (params.template) {
             console.log("Reading template: " + params.template);
-            proxy.Read(params.template).then((template) => {
-                console.log("Template set: " + params.template);
-                self.template = template;
-            });
+			proxy.Watch(params.template).then((changes) => {
+				console.log("Watching " + params.template);
+			});
+			proxy.on("watch:" + params.template, ()=>{
+				console.log("Template " + params.template + " changed, reloading.");
+				self.loadTemplate(params.template);
+			})
+			self.loadTemplate(params.template);
         }
     }).catch(function (err) {
         console.error(err);
@@ -111,6 +115,17 @@ StaticContentService.MimeTypes = {
 };
 
 Inherit(StaticContentService, Service, {
+	loadTemplate: function(templatePath){
+		if (templatePath) {
+            console.log("Reading template: " + templatePath);
+            return this.fs.Read(templatePath).then((template) => {
+                console.log("Template set: " + templatePath);
+                this.template = template;
+            });
+        }
+		return null;
+	},
+	
     formatPath: function (path, method) {
         if (this.config.rootFile && path == "/" && method == "GET") {
             return this.config.rootFile;
@@ -464,6 +479,14 @@ Inherit(StaticContentService, Service, {
     },
 
     ContentProcessors: {
+        config: function (params, value, pconf, callback) {
+            callback(JSON.stringify(this.config));
+        },
+
+        param: function (params, value, pconf, callback) {
+            callback(JSON.stringify(this.config[value]));
+        },
+
         file: function (params, value, pconf, callback) {
             var fpath = params.fpath + "\\" + value;
             console.log("Templating file: " + fpath);
