@@ -40,10 +40,14 @@ StaticContentService = function (params) {
         console.log("connected to FS: " + params.filesServiceId);
         if (params.template) {
             console.log("Reading template: " + params.template);
-            proxy.Read(params.template).then((template) => {
-                console.log("Template set: " + params.template);
-                self.template = template;
-            });
+			proxy.Watch(params.template).then((changes) => {
+				console.log("Watching " + params.template);
+			});
+			proxy.on("watch:" + params.template, ()=>{
+				console.log("Template " + params.template + " changed, reloading.");
+				self.loadTemplate(params.template);
+			})
+			self.loadTemplate(params.template);
         }
     }).catch(function (err) {
         console.error(err);
@@ -111,6 +115,17 @@ StaticContentService.MimeTypes = {
 };
 
 Inherit(StaticContentService, Service, {
+	loadTemplate: function(templatePath){
+		if (templatePath) {
+            console.log("Reading template: " + templatePath);
+            return this.fs.Read(templatePath).then((template) => {
+                console.log("Template set: " + templatePath);
+                this.template = template;
+            });
+        }
+		return null;
+	},
+	
     formatPath: function (path, method) {
         if (this.config.rootFile && path == "/" && method == "GET") {
             return this.config.rootFile;
@@ -204,7 +219,7 @@ Inherit(StaticContentService, Service, {
                                         serv.ConcatDir(req, res, fpath, url.query);
                                     } else {
                                         if (req.method == "GET" && serv.template) {
-                                            res.setHeader("Content-Type", "application/html");
+                                            res.setHeader("Content-Type", StaticContentService.MimeTypes.html);
                                             serv.ApplyTemplate(req, res, fpath, url.query, serv.template);
                                         } else {
                                             if (req.method == "SEARCH" || serv.config.allowBrowse) {
@@ -329,41 +344,27 @@ Inherit(StaticContentService, Service, {
         var self = this;
         this.fs.Browse(fpath).then(function (files) {
             try {
-                var collector = new Async.Waterfall();
-                for (var i = 0; i < files.length; i++) {
-                    files[i].fileName = fpath + "\\" + files[i].name;
-                    collector.add(function (fileInfo, callback) {
-                        var file = fileInfo.fileName
-                        var ext = Path.extname(file);
-                        ext = ext.replace(".", "");
-                        ext = self.mime[ext];
-                        if (fileInfo.fileType == "file") {
-                            self.fs.Read(file, 'utf-8').then(function (result) {
-                                callback(result);
-                            });
-                        } else {
-                            callback("");
-                        }
-                    }, this, files[i]);
-                }
-                /*
-                                 collector.on('handler', function(param, count){
-                                 console.log('Handler complete ' + this.count + " " + count);
-                                 });*/
-                collector.run(function (results) {
-                    var result = "";
+                var first = new Promise(function(resolve, reject){
                     if (query.first) {
-                        result += query.first;
+                        resolve(query.first);
+                    } else {
+                        resolve("");
                     }
-                    for (var i = 0; i < results.length; i++) {
-                        if (results[i] && results[i] != "") {
-                            result += results[i];
-                            if (query.delimeter && i < results.length - 1) {
-                                result += query.delimeter;
-                            }
-                        }
+                });
+                files.forEach((fileInfo) => {
+                    const file = fpath + "\\" + fileInfo.name;
+                    var ext = Path.extname(file);
+                    ext = ext.replace(".", "");
+                    ext = self.mime[ext];
+                    if (fileInfo.fileType == "file") {
+                        first = first.then((result1) => {
+                            return self.fs.Read(file, 'utf-8').then((result)=>{
+                                return (result1 ? result1 : "") + (query.delimeter && result1 ? query.delimeter : "") + result;
+                            });
+                        });
                     }
-                    ;
+                });
+                first.then((result)=>{
                     if (query.last) {
                         result += query.last;
                     }
@@ -372,13 +373,14 @@ Inherit(StaticContentService, Service, {
                 });
             } catch (error) {
                 res.statusCode = 500;
-                res.end(error);
+                res.end(error.message);
                 console.error(error);
                 return;
             }
         }).catch(function (err) {
             res.statusCode = 500;
             res.end("readdir " + fpath + " error " + err);
+            console.error(err);
         });
     },
 
@@ -477,6 +479,14 @@ Inherit(StaticContentService, Service, {
     },
 
     ContentProcessors: {
+        config: function (params, value, pconf, callback) {
+            callback(JSON.stringify(this.config));
+        },
+
+        param: function (params, value, pconf, callback) {
+            callback(JSON.stringify(this.config[value]));
+        },
+
         file: function (params, value, pconf, callback) {
             var fpath = params.fpath + "\\" + value;
             console.log("Templating file: " + fpath);
