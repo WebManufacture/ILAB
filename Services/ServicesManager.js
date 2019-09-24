@@ -25,8 +25,9 @@ function ServicesManager(config, portCountingFunc){
 
     this.StartService = function (service) {
         if (!service) return null;
+        console.log("Starting service:", service);
         return self.startServiceAsync(service.id, service).then(function () {
-            return serviceId + " started";
+            return service.id + " started";
         });
     };
     this.StartServices = function (services) {

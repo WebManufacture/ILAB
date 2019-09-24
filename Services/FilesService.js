@@ -20,6 +20,7 @@ function FilesService(config){
                         reject(err);
                         return;
                     }
+                    stat.fpath = fpath;
                     stat.isDirectory = stat.isDirectory();
                     stat.isFile = stat.isFile();
                     resolve(stat);
