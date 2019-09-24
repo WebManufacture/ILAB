@@ -10,13 +10,17 @@ var Service = useSystem("Service.js");
 var ServiceProxy = useSystem("Service.js");
 
 
-StorageService = function (params) {
+AuthService = function (params) {
     var result = Service.apply(this, arguments);
 
+
+    this.Authenticate = (user, key) => {
+
+    }
 };
 
-Inherit(StorageService, Service, {
+Inherit(AuthService, Service, {
 
 });
 
-module.exports = StorageService;
+module.exports = AuthService;

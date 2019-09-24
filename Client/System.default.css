@@ -5,16 +5,17 @@ body {
   
 html
 {
-  height: 99.9%;
-  width: 99.9%;
+  height: 100%;
+  width: 100%;
 }
 
 body
 {
-  height: 99.9%;
-  width: 99.9%;
+  height: 100%;
+  width: 100%;
   margin: 0;
   padding: 0;
+  display: flex;
 }
 
 h2

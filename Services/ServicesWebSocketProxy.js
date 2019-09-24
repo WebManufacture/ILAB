@@ -155,10 +155,22 @@ Inherit(WebSocketProxyService, Service, {
                     connectService(serviceId, servicePort);
                 }
                 else{
-                    ServicesManager.GetServices().then((services) => {
-                        servicePort = services[serviceId];
-                        self.knownServices[serviceId] = servicePort;
-                        connectService(serviceId, servicePort);
+                    ServicesManager.GetServicesInfo().then((services) => {
+                        var serviceById = services.find(s => s.id == serviceId);
+                        if (serviceById) {
+                            servicePort = serviceById.port;
+                            self.knownServices[serviceId] = servicePort;
+                            connectService(serviceId, servicePort);
+                        } else {
+                            var serviceByType = services.find(s => s.serviceType == serviceId);
+                            if (serviceByType){
+                                servicePort = serviceByType.port;
+                                self.knownServices[serviceId] = servicePort;
+                                connectService(serviceId, servicePort);
+                            } else {
+                                throw "No service found for: " + serviceId;
+                            }
+                        }
                     }).catch(function (err) {
                         throw err;
                     });

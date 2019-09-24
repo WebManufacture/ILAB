@@ -20,6 +20,7 @@ function FilesService(config){
                         reject(err);
                         return;
                     }
+                    stat.fpath = fpath;
                     stat.isDirectory = stat.isDirectory();
                     stat.isFile = stat.isFile();
                     resolve(stat);
@@ -52,6 +53,91 @@ function FilesService(config){
             catch (err){
                 reject(err);
             }	
+        });
+    };
+
+    this.Move = function(path1, path2) {
+        const fpath = Path.resolve(self.preparePath(path));
+        return new Promise(function (resolve, reject) {
+            try {
+                fs.stat(fpath, function (err, stat) {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    stat.isDirectory = stat.isDirectory();
+                    stat.isFile = stat.isFile();
+                    resolve(stat);
+                });
+            }
+            catch (err){
+                reject(err);
+            }
+        });
+    };
+
+    this.Copy = function(path1, path2) {
+        const fpath1 = Path.resolve(self.preparePath(path1));
+        const fpath2 = Path.resolve(self.preparePath(path2));
+
+        return new Promise(function (resolve, reject) {
+            try {
+                fs.copyFile(fpath1, fpath2, function (err) {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve([fpath1, fpath2]);
+                });
+            }
+            catch (err){
+                reject(err);
+            }
+        });
+    };
+
+    this.Move = function(path1, path2) {
+        const fpath1 = Path.resolve(self.preparePath(path1));
+        const fpath2 = Path.resolve(self.preparePath(path2));
+
+        return new Promise(function (resolve, reject) {
+            try {
+                fs.copyFile(fpath1, fpath2, function (err) {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    fs.stat(fpath2, function (err, stat) {
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+                        if (stat.isDirectory()) {
+                            fs.rmdir(fpath1, function (err, result) {
+                                if (err) {
+                                    reject("Delete error " + path + " " + err);
+                                    return;
+                                }
+                                self.emit("deleted", path);
+                                resolve(path2, result);
+                            });
+                        }
+                        else {
+                            fs.unlink(fpath1, function (err, result) {
+                                if (err) {
+                                    reject("Delete error " + path + " " + err);
+                                    return;
+                                }
+                                self.emit("deleted", path);
+                                resolve(path2, result);
+                            });
+                        }
+                    });
+                });
+            }
+            catch (err){
+                reject(err);
+            }
         });
     };
 
