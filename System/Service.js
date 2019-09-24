@@ -71,7 +71,7 @@ Service = function(params){
         });
 
         this._netServerForBaseInteraction.listen(this.port, function () {
-            //console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
+            console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
         });
     }
     catch (error){
