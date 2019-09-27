@@ -14,8 +14,8 @@ function WebSocketProxyService(param1){
     };
     var wsPort = 5700;
     if (typeof param1 == "object"){
-        if (typeof param1.port == "number"){
-            wsPort = param1.port;
+        if (typeof param1.wsPort == "number"){
+            wsPort = param1.wsPort;
         }
     }
     else{
@@ -26,6 +26,14 @@ function WebSocketProxyService(param1){
     if (!wsPort) wsPort = 5700;
     this.info("web-socket-port", wsPort);
     this.proxies = {};
+
+    var baseGetDescription = this.GetDescription;
+
+    this.GetDescription = ()=>{
+        var descr = baseGetDescription.apply(this, arguments);
+        descr.wsPort = wsPort;
+        return descr;
+    }
 
     this.GetConnections = function () {
 

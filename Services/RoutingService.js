@@ -67,14 +67,14 @@ function RoutingService(config){
         });
     });
 
-    ServicesManager.on("service-started", (serviceId, servicePort, config) => {
+    ServicesManager.on("service-started", (serviceId, config, description) => {
         self.registerNode({
             id: serviceId,
             type: "local",
             rank: 5,
-            serviceType: config.serviceType,
+            serviceType: description.serviceType,
             data: {
-                tcpPort: servicePort
+                tcpPort: description.tcpPort
             }
         });
     });

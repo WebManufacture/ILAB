@@ -227,11 +227,11 @@ function _init() {
                         params.push(service);
                     });
                     console.log("Detected " + params.length + " services to start");
-                    servicesManager.on("service-started", function (serviceId, port, config) {
-                        if (config) {
-                            console.log("Service started: " + config.type + "#" + serviceId + " on TCP " + port);
+                    servicesManager.on("service-started", function (serviceId, config, description) {
+                        if (description && description.serviceType) {
+                            console.log("Service started: " + description.serviceType + "#" + serviceId + " on TCP " + description.tcpPort);
                         } else {
-                            console.log("Service started: " + serviceId + " on TCP " + port);
+                            console.log("Service started: " + serviceId + " on TCP " + description.tcpPort);
                         }
                     })
                     servicesManager.StartServices(params).then(function (result) {
@@ -250,9 +250,9 @@ function _init() {
                     console.error(err);
                     err.handled = true;
                 });
-                this.on("child-started", function (serviceId, port, config) {
-                    if (config) {
-                        console.log("Service started: " + config.serviceType + "#" + serviceId + " on TCP " + port);
+                this.on("child-started", function (serviceId, port, config, serviceType) {
+                    if (serviceType) {
+                        console.log("Service started: " + serviceType + "#" + serviceId + " on TCP " + port);
                     } else {
                         console.log("Service started: " + serviceId + " on TCP " + port);
                     }

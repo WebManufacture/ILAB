@@ -3,6 +3,7 @@ var fs = require('fs');
 var http = require('http');
 var os = require('os');
 var vm = require('vm');
+var net = require('net');
 var ChildProcess = require('child_process');
 //require('child-process-debug');
 
@@ -36,6 +37,7 @@ Frame.parentId = getEnvParam("parentId", null);
 Frame.rootId = getEnvParam("rootId", null);
 Frame.managerPort = getEnvParam("managerPort", null);
 Frame.servicePort = getEnvParam("servicePort", null);
+Frame.servicePipe = getEnvParam("servicePipe", null);
 Frame.basePath = process.cwd();
 Frame.ilabPath = Frame.basePath;
 if (Frame.ilabPath.indexOf("/") != Frame.ilabPath.length - 1) Frame.ilabPath += "/";
@@ -297,7 +299,7 @@ Frame._startFrame = function (node) {
                         sm.GetServices = ServiceProxy.GetServices;
                         sm.GetServicesInfo = ServiceProxy.instance.GetServicesInfo;
                         sm.GetService = ServiceProxy.GetService;
-
+                        var description = {codePath : Frame.nodePath};
                         var oldLog = console.log;
                         console.log = function () {
                             if (typeof arguments[0] == "string" && arguments[0].indexOf(Frame.serviceId) != 0) {
@@ -305,11 +307,14 @@ Frame._startFrame = function (node) {
                             }
                             oldLog.apply(this, arguments);
                         };
-                        if (node.hasPrototype("Service")) {
-                            service = new node(params);
+                        if (node.hasPrototype && node.hasPrototype("Service")) {
+                            node = service = new node(params);
                             if (service.serviceId) {
                                 Frame.serviceId = service.serviceId;
                             }
+                            description = service.GetDescription();
+                            description.codePath = Frame.nodePath;
+                            //console.log(node.serviceType + "#" + node.serviceId);
                             service.on("error", function (err) {
                                 // console.error(err);
                                 Frame.error(err);
@@ -318,13 +323,33 @@ Frame._startFrame = function (node) {
                                 Frame.error(err);
                                 process.exit();
                             });
+                            Frame.send({type: "control",
+                                state: "started",
+                                nodeType: "service",
+                                serviceId: Frame.serviceId,
+                                serviceType: node.serviceType,
+                                description: description,
+                                port: node.port,
+                                tcpPort: node.port,
+                                config : params,
+                                codePath: Frame.nodePath
+                            });
                         }
                         else {
                             console.log(Frame.node + " node starting...");
                             node = node(params);
+                            //description = {};
                             console.log(Frame.nodePath + " node started");
+                            Frame.send({type: "control",
+                                state: "started",
+                                nodeType: "node",
+                                port: node.port,
+                                description: description,
+                                tcpPort: node.port,
+                                config : params,
+                                codePath: Frame.nodePath
+                            });
                         }
-                        Frame.send({type: "control", state: "started", serviceId: Frame.serviceId, config : params });
                     }
                     catch (err){
                         Frame.error(err);
@@ -360,7 +385,7 @@ Frame._startFrame = function (node) {
                 });*/
             }
         }
-        Frame.send({type: "control", state: "started",serviceId: Frame.serviceId, serviceType: Frame.serviceType, pipe: Frame.pipeId, config : params });
+        Frame.send({type: "control", state: "loaded", serviceId: Frame.serviceId, serviceType: Frame.serviceType, pipe: Frame.pipeId, config : params });
     }
     catch (err){
         Frame.error(err);
@@ -580,7 +605,42 @@ if (Frame.isChild) {
     Frame.serviceId = getEnvParam("serviceId", Frame.newId());
     var nodesConfig = Frame._parseCmd();
     Frame.setId(Frame.serviceId);
-    Frame.send({type: "control", state: "loaded",serviceId: Frame.serviceId, pipe: Frame.pipeId, config : nodesConfig });
+
+    if (Frame.servicePipe) {
+        Frame._pipesServerForBaseInteraction = net.createServer({
+            allowHalfOpen: false,
+            pauseOnConnect: false
+        });
+        try {
+            Frame._pipesServerForBaseInteraction.listen(Frame.servicePipe, function (socket) {
+                Frame.log("Listening frame pipe " + Frame.servicePipe);
+            });
+            Frame._pipesServerForBaseInteraction.on("connection", (socket) => {
+                console.log("CONNECTED TO SERVICE PIPE", Frame.servicePipe);
+                var oldsend = process.send;
+                process.send = function(msg){
+                    socket.write(JSON.stringify(arguments), 'utf8');
+                    oldsend.apply(this, arguments);
+                };
+                var consoleLog = console.log;
+                console.log = function(msg){
+                    socket.write(JSON.stringify(arguments));
+                    consoleLog.apply(this, arguments);
+                }
+                var consoleError = console.error;
+                console.error = function(msg){
+                    socket.write(JSON.stringify(arguments));
+                    consoleLog.apply(this, arguments);
+                }
+            });
+        }
+        catch (error) {
+            console.error("Cannot start frame pipe server " + Frame.servicePipe, error.message);
+        }
+    }
+
+
+    Frame.send({type: "control", state: "loaded",serviceId: Frame.serviceId, servicePipe: Frame.servicePipe, pipe: Frame.pipeId, config : nodesConfig });
     if (nodesConfig && nodesConfig.length) {
         if (!Frame.nodePath) {
             Frame.nodePath = nodesConfig[0].path;

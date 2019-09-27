@@ -18,12 +18,22 @@ HttpProxyService = function(params){
     if (params.enabled !== undefined){
         this.enabled = params.enabled;
     }
-    var port = 80;
-    if (params && params.port && params.port != "default") port = parseInt(params.port);
-    if (isNaN(port)) port = 1500;
-    this.httpPort = port;
+    var httpPort = 80;
+    if (params && params.httpPort && params.httpPort != "default") httpPort = parseInt(params.httpPort);
+    if (isNaN(httpPort)) httpPort = 1500;
+    this.httpPort = httpPort;
     this.config = params;
     this.protocol = "http://";
+
+    var baseGetDescription = this.GetDescription;
+
+    this.GetDescription = ()=>{
+        var descr = baseGetDescription.apply(this, arguments);
+        descr.httpPort = httpPort;
+        descr.protocol = this.protocol;
+        descr.hosts = this.hosts;
+        return descr;
+    };
 
     if (params.useSecureProtocol == 'pfx'){
         this.protocol = "https://";
@@ -44,7 +54,7 @@ HttpProxyService = function(params){
     if (!this.server){
         this.server =  http.createServer(this.process.bind(this));
     }
-    this.server.listen(port);
+    this.server.listen(httpPort);
     this.proxy = httpProxy.createProxyServer({});
     this.proxy.on('error', (err,req,res) => {
         var url = Url.parse(this.protocol + req.headers.host + req.url, true);
@@ -79,14 +89,14 @@ HttpProxyService = function(params){
         console.error(err);
         res.end(err.message);
     });
-    console.log("HttpProxy service on " + port);
+    console.log("HttpProxy service on " + httpPort);
 
     this.hosts = {
         ...params.hosts
     };
 
     for (let item in this.hosts){
-        console.log("Proxying " + item + ":" + port + "  -->  " + this.hosts[item]);
+        console.log("Proxying " + item + ":" + httpPort + "  -->  " + this.hosts[item]);
     }
 
     this.StartEndpoint = (host, path) => {

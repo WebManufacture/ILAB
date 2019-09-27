@@ -9,7 +9,7 @@ var ServiceProxy = useSystem('ServiceProxy');
 
 Service = function(params){
     var self = this;
-    this._config = {};
+    this._config = params;
     this._eventsDescriptions = {};
 
     this.register("error", {
@@ -22,6 +22,8 @@ Service = function(params){
     });
     if (params.type){
         this.serviceType = params.type;
+    } else {
+        this.serviceType = this.constructor.name;
     }
     if (!this.serviceId) {
         if (params && params.id) {
@@ -69,7 +71,7 @@ Service = function(params){
         this._pipesServerForBaseInteraction.listen(pipeId, function () {
             Frame.log("Listening pipe " + pipeId);
         });
-
+        this.pipe = pipeId;
         this._netServerForBaseInteraction.listen(this.port, function () {
             console.log("Service listener ready -- " + self.serviceId + ":" + self.port);
         });
@@ -86,7 +88,7 @@ Service = function(params){
         if (!wasExiting){
             wasExiting = true;
             console.log("SIGTERM:closing " + Frame.pipeId);
-            self._closeServer();
+            self._closeServer(true);
         };
         process.exit();
     });
@@ -94,7 +96,7 @@ Service = function(params){
         if (!wasExiting){
             wasExiting = true;
             console.log("SIGINT:closing " + Frame.pipeId);
-            self._closeServer();
+            self._closeServer(true);
         };
         process.exit();
     });
@@ -103,7 +105,7 @@ Service = function(params){
             wasExiting = true;
             console.log("exiting:closing " + Frame.pipeId);
             self.emit("exiting");
-            self._closeServer();
+            self._closeServer(true);
         }
     });
     process.once("exit", () =>{
@@ -111,11 +113,11 @@ Service = function(params){
             wasExiting = true;
             console.log("exit:closing " + Frame.pipeId);
             self.emit("exiting");
-            self._closeServer();
+            self._closeServer(true);
         }
     });
-    this.GetDescription = function () {
-        return Service.GetDescription(self);
+    this.GetDescription = function (addConfig) {
+        return Service.GetDescription(self, addConfig);
     }
     return EventEmitter.call(this);
 };
@@ -129,10 +131,13 @@ Service.STATUS_ERROR = 4;
 Service.STATUS_STOPPING = 6;
 Service.STATUS_WORKING = 7;
 
-Service.GetDescription = function (service) {
-    var obj = { serviceId : service.serviceId };
+Service.GetDescription = function (service, addConfig) {
+    var obj = { serviceId : service.serviceId, serviceType : service.serviceType, tcpPort: service.port };
     if (service.id){
         obj.id = service.id;
+    }
+    if (service.pipe){
+        obj._pipe = service.pipe;
     }
     if (service._eventsDescriptions){
         obj._events = JSON.parse(JSON.stringify(service._eventsDescriptions));
@@ -147,18 +152,18 @@ Service.GetDescription = function (service) {
             }
         }
     }
-    if (service._config){
+    if (service._config && addConfig){
         obj._config = service._config
     }
     return obj;
 }
 
-Service.CreateProxyObject = function (service) {
+Service.CreateProxyObject = function (service, addConfig) {
     if (!service) return {};
     if (service.GetDescription) {
-        return service.GetDescription();
+        return service.GetDescription(addConfig);
     } else {
-        return Service.GetDescription(service);
+        return Service.GetDescription(service, addConfig);
     }
 };
 
@@ -261,6 +266,7 @@ Inherit(Service, EventEmitter, {
                         result.pipe(socket.netSocket);
                     }
                     if (result instanceof stream.Writable) {
+                        socket.goStreamMode(message.id);
                         socket.netSocket.pipe(result);
                     }
                 } else {
@@ -327,7 +333,7 @@ Inherit(Service, EventEmitter, {
         var internalEventHandler = function (eventName, args) {
             //args.shift();
             try {
-                if (!socket.closed) {
+                if (!socket.closed && !socket.destroyed && socket.writable) {
                     socket.write({
                         type: "event",
                         name: eventName,
@@ -346,11 +352,13 @@ Inherit(Service, EventEmitter, {
         self.once("closing-server", serverClosingHandler);
 
         socket.once("close", function (isError) {
+            socket.closed = true;
             self.removeListener("internal-event", internalEventHandler);
             self.removeListener("closing-server", serverClosingHandler);
             socket.removeAllListeners();
         });
         socket.once("end", function (isError) {
+            socket.closed = true;
             self.removeListener("internal-event", internalEventHandler);
             self.removeListener("closing-server", serverClosingHandler);
             socket.removeAllListeners();
@@ -361,10 +369,14 @@ Inherit(Service, EventEmitter, {
         });
     },
 
-    _closeServer : function(){
+    _closeServer : function(preventSending){
+        if (!preventSending) {
+            this.emit("closing-server");
+        } else {
+            this.closed = true;
+        }
         this._netServerForBaseInteraction.close();
         this._pipesServerForBaseInteraction.close();
-        this.emit("closing-server");
     },
 
     emit: function (eventName) {

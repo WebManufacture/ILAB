@@ -9,6 +9,7 @@ var Async = useModule('async');
 var EventEmitter = require('events');
 var Service = useSystem("Service.js");
 var ServiceProxy = useSystem("ServiceProxy.js");
+const zlib = require('zlib');
 
 
 StaticContentService = function (params) {
@@ -20,9 +21,18 @@ StaticContentService = function (params) {
         this.aliases = params.aliases;
     }
     this.enabled = false;
-    var port = 80;
-    if (params && params.port && params.port != "default") port = parseInt(params.port);
-    if (isNaN(port)) port = 1500;
+    var httpPort = 80;
+    if (params && params.httpPort && params.httpPort != "default") httpPort = parseInt(params.httpPort);
+    if (isNaN(httpPort)) httpPort = 1500;
+
+
+    var baseGetDescription = this.GetDescription;
+
+    this.GetDescription = ()=>{
+        var descr = baseGetDescription.apply(this, arguments);
+        descr.httpPort = httpPort;
+        return descr;
+    }
 
     if (!params.filesServiceId) params.filesServiceId = "FilesService";
 
@@ -76,8 +86,8 @@ StaticContentService = function (params) {
     if (!this.server) {
         this.server = http.createServer(processFunc);
     }
-    this.server.listen(port);
-    console.log("Static service on " + port);
+    this.server.listen(httpPort);
+    console.log("Static service on " + httpPort);
 
     this.cache = {};
     process.once('exiting', () => {
@@ -299,32 +309,51 @@ Inherit(StaticContentService, Service, {
                     });
                 }
                 if ((req.method == "POST" || req.method == "PATCH" || req.method == "PUT") && self.config.allowSave) {
-                    var ext = Path.extname(fpath);
-                    ext = ext.replace(".", "");
-                    ext = serv.mime[ext];
-                    if (ext) {
-                        res.setHeader("Content-Type", ext);
-                    } else {
-                        res.setHeader("Content-Type", "text/plain; charset=utf-8");
-                    }
-                    var encoding = null;
-                    if (ext.indexOf("text/") >= 0) {
-                        encoding = 'utf8';
-                    }
-                    return serv.fs.WriteStream(fpath, encoding).then(function (stream) {
-                        req.on("data", (chunk) => {
-                            stream.write(chunk, encoding);
+                    try {
+                        var ext = Path.extname(fpath);
+                        ext = ext.replace(".", "");
+                        ext = serv.mime[ext];
+                        var resEncoding = "binary";
+                        if (ext) {
+                            res.setHeader("Content-Type", ext);
+                        } else {
+                            resEncoding = "utf8"
+                            res.setHeader("Content-Type", "text/plain; charset=utf-8");
+                        }
+                        return serv.fs.WriteStream(fpath, resEncoding).then(function (stream) {
+                            console.log("Writing:", fpath);
+                            var length = 0;
+                            var finalChunk = 0;
+                            var reqLength = req.headers["content-length"];
+                            /*req.on("data", (chunk) => {
+                               // chunk = Buffer.from(chunk, 'ascii');
+                                length += chunk.length;
+                                stream.write(chunk);
+                            });*/
+                            req.on("end", (chunk) => {
+                                if (chunk) {
+                                    finalChunk += chunk.length;
+                                    stream.end(chunk);
+                                } else {
+                                    stream.end();
+                                }
+                                res.statusCode = 200;
+                                res.end("OK");
+                                console.log("Writed:", fpath,  " of ", reqLength);
+                            });
+                            req.pipe(stream);
+                        }).catch(function (err) {
+                            res.statusCode = 500;
+                            res.end(err.message);
+                            console.error(err)
                         });
-                        req.on("end", (chunk) => {
-                            stream.end(chunk);
-                            res.statusCode = 200;
-                            res.end("OK");
-                        });
-                    }).catch(function (err) {
+                    } catch (err){
                         res.statusCode = 500;
                         res.end(err.message);
-                    });
+                        console.error(err);
+                    }
                 }
+                console.log("Unknown method " + req.method, fpath);
                 res.statusCode = 403;
                 res.end("Unknown method " + req.method);
             } else {

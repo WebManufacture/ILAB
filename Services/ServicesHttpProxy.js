@@ -10,10 +10,20 @@ HttpProxyService = function(params){
     var self = this;
     this.services = {};
     this.listServices();
-    var port = 5100;
-    if (params && params.port) port = params.port;
-    this.info("http-port", port);
-    this.router = new HttpRouter(port, 15000);
+    var httpPort = 5100;
+    if (params && params.httpPort) httpPort = params.httpPort;
+    this.info("http-port", httpPort);
+
+
+    var baseGetDescription = this.GetDescription;
+
+    this.GetDescription = ()=>{
+        var descr = baseGetDescription.apply(this, arguments);
+        descr.httpPort = httpPort;
+        return descr;
+    }
+
+    this.router = new HttpRouter(httpPort, 15000);
     //this.router.debugMode = "trace";
     this.router.on("/<", (context) => {
         //Frame.error("No service found " + context.path);
@@ -29,12 +39,12 @@ HttpProxyService = function(params){
         }
         return false;
     });
-    ServicesManager.on("service-started", function (serviceId, servicePort, config) {
+    ServicesManager.on("service-started", function (serviceId, config, description) {
         //console.log("HttpProxy catch service start: " + serviceId + ":" + servicePort);
-        self.services[serviceId] = servicePort;
-        self.addServiceHandler(serviceId, servicePort);
-        if (serviceId != config.type){
-            self.addServiceHandler(config.type, servicePort);
+        self.services[serviceId] = description.tcpPort;
+        self.addServiceHandler(serviceId, description.tcpPort);
+        if (serviceId != description.serviceType){
+            self.addServiceHandler(description.serviceType, description.tcpPort);
         }
     });
     ServicesManager.on("service-exited", function (serviceId, servicePort) {

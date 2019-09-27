@@ -246,9 +246,18 @@ function FilesService(config){
     this.WriteStream = function(path, encoding){
         self.emit("writing", this.formatPath(path));
         const fpath = Path.resolve(self.preparePath(path));
-        var socket = this;
-        var stream = encoding ? fs.createWriteStream(fpath, socket, encoding) :  fs.createWriteStream(fpath, socket);
-        stream.once("finish", ()=> {
+        //var socket = this;
+        //var buffer = new Buffer();
+        var stream = fs.createWriteStream(fpath);
+        stream.setDefaultEncoding('ascii');
+        /*var length = 0;
+        stream.on('data', (chunk)=>{
+            for (var i = 0; i < chunk.length; i++){
+                console.log(length + i, ":", chunk[i]);
+            }
+            length += chunk.length;
+        });*/
+        stream.once("finish", (stat)=> {
             self.emit("writed", this.formatPath(path));
         });
         return stream;

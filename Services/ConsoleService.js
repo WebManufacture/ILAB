@@ -35,6 +35,7 @@ function ConsoleService(params){
     this.Stop = function (options) {
         return self.stop(options)
     };
+
     self.start();
     return Service.call(this, params);
 }
