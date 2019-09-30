@@ -1,8 +1,10 @@
 var fs = require('fs');
 var Path = require('path');
 var stream = require('stream');
+var net = require('net');
 var EventEmitter = require('events');
 var os = require("os");
+var JsonSocket = useModule('jsonsocket');
 var ChildProcess = require('child_process');
 var util = useModule('utils');
 var ForkMon = useModule("forkmon");
@@ -22,10 +24,40 @@ function ServicesManager(config, portCountingFunc){
         }
     }
     this._getPort = portCountingFunc;
+
+    this.StartServiceStream = function (service) {
+        if (!service) return null;
+        console.log("Starting service stream:", service);
+        service = self.startServiceStream(service);
+        if (service){
+            return new Promise((resolve, reject) => {
+                if (service.servicePipe) {
+                    var socket = net.connect(service.servicePipe, () => {
+                        console.log("StartServiceStream connected to ", service.servicePipe);
+                        resolve(socket);
+                    });
+                } else {
+                    service.once("service-loaded", (id, params)=> {
+                        if (params && params.servicePipe) {
+                            var socket = net.connect(params.servicePipe, () => {
+                                console.log("StartServiceStream lazy connected to ", params.servicePipe);
+                                resolve(socket);
+                            });
+                        } else {
+                            reject("service " + id + " not have a service pipe");
+                        }
+                    });
+                }
+            });
+        }
+        return service;
+    };
+
     this.StartService = function (service) {
         if (!service) return null;
-        return self.startServiceAsync(service.id, service).then(function () {
-            return serviceId + " started";
+        console.log("Starting service:", service);
+        return self.startServiceAsync(service.id, service).then(function (service) {
+            return service.description;
         });
     };
     this.StartServices = function (services) {
@@ -34,7 +66,7 @@ function ServicesManager(config, portCountingFunc){
         function startNext(resolve, reject) {
             var service = services[index];
             if (service && index < services.length){
-                self.startServiceAsync(service.id, service).then(()=>{
+                self.startServiceAsync(service.id, service).then((service, serviceId, params, serviceType)=>{
                     startNext(resolve, reject);
                 }).catch((error)=>{
                     reject(error);
@@ -76,12 +108,12 @@ function ServicesManager(config, portCountingFunc){
         if (this.isServiceAvailable(serviceId)){
             return self.stopServiceAsync(serviceId, params).then(()=>{
                 return self.startServiceAsync(serviceId, params);
-            }).then(() => {
-                return serviceId + " restarted";
+            }).then((service, serviceId, config, description) => {
+                return description;
             });
         } else {
-            return self.startServiceAsync(serviceId, params).then(() => {
-                return serviceId + " restarted";
+            return self.startServiceAsync(serviceId, params).then((service, serviceId, config, description) => {
+                return description;
             });
         }
     };
@@ -118,6 +150,7 @@ function ServicesManager(config, portCountingFunc){
         if (typeof options != "object") options = {};
         options.serviceId = id;
         options.servicePort = port;
+        options.managerPort = self.port;
         if (!options.debugMode){
             options.debugMode = self.debugMode;
         }
@@ -128,6 +161,7 @@ function ServicesManager(config, portCountingFunc){
             }
             //console.log("Debugger activated on " + options.debugPort);
         }
+        options.servicePipe = (os.type() == "Windows_NT" ? '\\\\?\\pipe\\' : '/tmp/ilab-3-') + require('uuid/v4')();
         var mon = new ForkMon(Frame.ilabPath + "/Frame.js", [], options);
         self.forksCount++;
         mon.serviceId = id;
@@ -164,8 +198,8 @@ Inherit(ServicesManager, Service, {
         }
         service.on("error", subEvent("error"));
         service.on("message", subEvent("message"));
-        service.on("service-started", function(serviceId, serviceConfig) {
-            self.emit.call(self, "service-started", serviceId, service.port, serviceConfig);
+        service.on("service-started", function() {
+            self.emit("service-started", arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5]);
         });
         service.on("service-loaded", subEvent("loaded"));
         service.on("service-connected", subEvent("connected"));
@@ -185,10 +219,11 @@ Inherit(ServicesManager, Service, {
                 return  this.emit("message", obj.item);
             }
             if (obj.type == "control" && obj.state == "started"){
-                return this.emit("service-started", obj.serviceId, obj.config);
+                //console.log("message - started", obj);
+                return this.emit("service-started", obj.serviceId, obj.config, obj.description);
             }
             if (obj.type == "control" && obj.state == "loaded"){
-                return this.emit("service-loaded", obj.serviceId);
+                return this.emit("service-loaded", obj.serviceId, obj);
             }
             if (obj.type == "control" && obj.state == "connected"){
                 return this.emit("service-connected", obj.serviceId);
@@ -197,7 +232,41 @@ Inherit(ServicesManager, Service, {
         this.emit("message", obj);
     },
 
-    startServiceAsync : function(serviceId, params){
+    startServiceStream : function(service){
+        var self = this;
+        if (!service) {
+            return null;
+        }
+        if (!service.path){
+            service.path = service.id;
+        }
+        var serviceId = service.id;
+        if (service.id) {
+            if (service.id == "auto") {
+                serviceId = service.id = require('uuid/v4')();
+            } else {
+                serviceId = service.id;
+            }
+        } else {
+            if (serviceId) {
+                service.id = serviceId;
+            }
+            else {
+                if (!service.id || service.id == "auto") {
+                    service.id = require('uuid/v4')();
+                }
+                serviceId = service.id;
+            }
+        }
+        //console.log("Starting " + serviceId);
+        var serviceInstance = self.startService(serviceId, service);
+        if (serviceInstance) {
+            return serviceInstance;
+        }
+        return null;
+    },
+
+    startServiceAsync : function(serviceId, params, returnStream){
         var self = this;
         if (!params) params = {};
         if (!params.path){
@@ -227,9 +296,9 @@ Inherit(ServicesManager, Service, {
                 if (this.isServiceLoaded(serviceId)){
                     service = this.services[serviceId];
                     if (service.code < ForkMon.STATUS_WORKING) {
-                        service.once("service-started", function (serviceId, serviceType) {
+                        service.once("service-started", function (serviceId, config, description) {
                             service.removeListener("error", reject);
-                            resolve(service, serviceId, params, serviceType);
+                            resolve(service, serviceId, config, description);
                         });
                         service.once("error", reject);
                         service.start(params);
@@ -239,9 +308,9 @@ Inherit(ServicesManager, Service, {
                     }
                 }
                 else{
-                    var service = self.startService(serviceId, params, function (serviceId, serviceType) {
+                    var service = self.startService(serviceId, params, function (serviceId, config, description) {
                         service.removeListener("error", reject);
-                        resolve(service, serviceId, params, serviceType);
+                        resolve(service, serviceId, config, description);
                     });
                     if (service) {
                         service.once("error", reject);
@@ -285,11 +354,11 @@ Inherit(ServicesManager, Service, {
         var self = this;
 		if (typeof params == "function") {
 			callback = params;
-			params = null;
+			params = {};
 		}
         function startService(service) {
             if (service.code < ForkMon.STATUS_WORKING) {
-                service.start(params);
+                return service.start(params);
             }
             else{
                 this.emit("error", new Error("Service " + serviceId + " already work!"));
@@ -318,17 +387,26 @@ Inherit(ServicesManager, Service, {
             env.nodePath = servicePath;
             params._internalPort = self._getPort();
             var service = this.CreateFork(serviceId, params._internalPort, env);
-            service.once("service-started", function (newServiceId, serviceParam) {
+            service.once("service-started", function (newServiceId, serviceParam, description) {
                 serviceId = newServiceId;
                 service.resultId = newServiceId;
-                if (serviceParam.type) {
-                    service.serviceType = serviceParam.type;
+                service.serviceType = description.serviceType;
+                service.description = description;
+                service.codePath = description.codePath;
+                service.config = serviceParam;
+                if (description.tcpPort){
+                    service.port = description.tcpPort;
                 }
-                service.port = serviceParam._internalPort;
-                service.resultType = serviceParam.serviceType;
                 self.services[serviceId] = service;
                 if (typeof callback == "function"){
-                    callback.call(service, serviceId, service.id);
+                    callback.call(service, serviceId, serviceParam, description);
+                }
+            });
+
+            service.once("service-loaded", function (serviceId, params) {
+               // console.log("Service loaded", serviceId, params);
+                if (params.servicePipe) {
+                    service.servicePipe = params.servicePipe;
                 }
             });
 
@@ -345,12 +423,12 @@ Inherit(ServicesManager, Service, {
                    self.emit("error", new Error("Service " + serviceId + " open error! " + err));
                 }
             });*/
+            return service;
         }
         else{
             startService(this.services[serviceId]);
+            return this.services[serviceId];
         }
-
-        return service;
     },
 
     startNode : function(nodeId, nodePath, params, callback){
@@ -422,7 +500,7 @@ Inherit(ServicesManager, Service, {
         var services = { "ServicesManager" : this.port };
         for (var name in this.services){
             if (this.services[name] != null){
-                services[name] = this.services[name]._internalPort;
+                services[name] = this.services[name].port;
             }
         }
         return services;
@@ -442,16 +520,21 @@ Inherit(ServicesManager, Service, {
         for (var name in this.services){
             var service = this.services[name];
             if (service){
-                services.push({
+                var info = {
                     id: name,
-                    path: service.path,
-                    serviceType: service.resultType,
+                    path: service.codePath,
+                    serviceType: service.resultType ? service.resultType : service.serviceType,
                     resultId: service.resultId,
                     status: Service.States[service.code],
-                    port: service._internalPort,
+                    port: service.port,
                     type: "service",
-                    state: service.code
-                });
+                    state: service.code,
+                    config: service.config,
+                    framePath: service.path,
+                    description: service.description
+                };
+                //console.log(info)
+                services.push(info);
             }
         }
         return services;

@@ -1,8 +1,9 @@
-var EventEmitter = require("events").EventEmitter;
+const EventEmitter = require("events").EventEmitter;
+const util = require('util');
 
 if (!global.Inherit){
 	global.Inherit = function (Child, Parent, mixin){
-		utils.inherits(Child, Parent);
+		util.inherits(Child, Parent);
 		if (mixin){
 			for (var item in mixin){
 				Child.prototype[item] = mixin[item];
@@ -222,8 +223,8 @@ Inherit(Async.Waterfall, EventEmitter, {
 	},
 	
 	add : function(callback, thisParam){
-		if (thisParam) callback = CreateClosure(callback, thisParam);
-		this.handlers.push(callback);
+		if (thisParam) callback = CreateClosure.apply(this, arguments);
+		this.handlers.push();
 		return callback;
 	},
 	
@@ -233,8 +234,8 @@ Inherit(Async.Waterfall, EventEmitter, {
 			this.counter--;
 		}
 	},
-	
-	check : function(emitter, event){
+
+    check : function(emitter, event){
 		var self = this;
 		if (this.counter == 0){
 			setImmediate(function(){

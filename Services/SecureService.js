@@ -10,13 +10,17 @@ var Service = useSystem("Service.js");
 var ServiceProxy = useSystem("Service.js");
 
 
-StorageService = function (params) {
+SecureService = function (params) {
     var result = Service.apply(this, arguments);
 
+
+    this.GetSecureInfo = (id, key) => {
+
+    }
 };
 
-Inherit(StorageService, Service, {
+Inherit(SecureService, Service, {
 
 });
 
-module.exports = StorageService;
+module.exports = SecureService;

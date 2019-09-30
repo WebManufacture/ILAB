@@ -14,8 +14,8 @@ function WebSocketProxyService(param1){
     };
     var wsPort = 5700;
     if (typeof param1 == "object"){
-        if (typeof param1.port == "number"){
-            wsPort = param1.port;
+        if (typeof param1.wsPort == "number"){
+            wsPort = param1.wsPort;
         }
     }
     else{
@@ -26,6 +26,14 @@ function WebSocketProxyService(param1){
     if (!wsPort) wsPort = 5700;
     this.info("web-socket-port", wsPort);
     this.proxies = {};
+
+    var baseGetDescription = this.GetDescription;
+
+    this.GetDescription = ()=>{
+        var descr = baseGetDescription.apply(this, arguments);
+        descr.wsPort = wsPort;
+        return descr;
+    }
 
     this.GetConnections = function () {
 
@@ -155,10 +163,22 @@ Inherit(WebSocketProxyService, Service, {
                     connectService(serviceId, servicePort);
                 }
                 else{
-                    ServicesManager.GetServices().then((services) => {
-                        servicePort = services[serviceId];
-                        self.knownServices[serviceId] = servicePort;
-                        connectService(serviceId, servicePort);
+                    ServicesManager.GetServicesInfo().then((services) => {
+                        var serviceById = services.find(s => s.id == serviceId);
+                        if (serviceById) {
+                            servicePort = serviceById.port;
+                            self.knownServices[serviceId] = servicePort;
+                            connectService(serviceId, servicePort);
+                        } else {
+                            var serviceByType = services.find(s => s.serviceType == serviceId);
+                            if (serviceByType){
+                                servicePort = serviceByType.port;
+                                self.knownServices[serviceId] = servicePort;
+                                connectService(serviceId, servicePort);
+                            } else {
+                                throw "No service found for: " + serviceId;
+                            }
+                        }
                     }).catch(function (err) {
                         throw err;
                     });
