@@ -177,7 +177,7 @@ function _init() {
     };
 
     global.RootService = function RootService() {
-        console.log("RootService for ILAB v3.6.1");
+        console.log("RootService for ILAB v3.8.1");
         this.serviceType = "RootService";
         try {
             var servicesToStart = _parseCmd();
