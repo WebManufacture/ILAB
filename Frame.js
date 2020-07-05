@@ -622,7 +622,7 @@ if (Frame.isChild) {
                     socket.write(JSON.stringify(arguments), 'utf8');
                     oldsend.apply(this, arguments);
                 };
-                var consoleLog = console.log;cd
+                var consoleLog = console.log;
                 console.log = function(msg){
                     socket.write(JSON.stringify(arguments));
                     consoleLog.apply(this, arguments);
