@@ -8,7 +8,7 @@ var ChildProcess = require('child_process');
 //require('child-process-debug');
 
 if (!global.Frame) {
-    Frame = {isChild: true};
+    Frame = {isChild: process.isChild};
 }
 
 function prepareArgAspect(func){
@@ -639,7 +639,6 @@ if (Frame.isChild) {
         }
     }
 
-
     Frame.send({type: "control", state: "loaded",serviceId: Frame.serviceId, servicePipe: Frame.servicePipe, pipe: Frame.pipeId, config : nodesConfig });
     if (nodesConfig && nodesConfig.length) {
         if (!Frame.nodePath) {
@@ -654,4 +653,10 @@ if (Frame.isChild) {
         }
         Frame._initFrame();
     }
+} else {
+    if (!Frame.nodePath) {
+        Frame.nodePath = Frame.ilabPath + "RootService.js";
+        Frame.node = "RootService";
+    }
+    Frame._initFrame();
 }
