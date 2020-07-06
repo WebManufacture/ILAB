@@ -333,7 +333,7 @@ Inherit(ServiceWrapper, {
         var internalEventHandler = function (eventName, args) {
             //args.shift();
             try {
-                if (!socket.closed && !socket.destroyed && socket.writable) {
+                if (!socket.closed && !socket.destroyed && socket.netSocket.writable) {
                     socket.write({
                         type: "event",
                         name: eventName,

@@ -8,7 +8,7 @@ var ChildProcess = require('child_process');
 //require('child-process-debug');
 
 if (!global.Frame) {
-    Frame = {isChild: process.isChild};
+    Frame = {isChild: process.isChild === undefined ? true : process.isChild};
 }
 
 function prepareArgAspect(func){
@@ -100,7 +100,7 @@ Frame.send = function(arg1, arg2){
     if (process.connected){
         return process.send(arg1, arg2);
     } else {
-        console.log(arg1);
+        //console.log("Frame message: ", arg1);
     }
 };
 
@@ -600,12 +600,10 @@ process.once("SIGTERM", Frame.exit);
 process.once("SIGINT", Frame.exit);
 
 //console.log(Frame.isChild ? "CHILD " : "" + "FRAME: " + Frame.id + "");
-
 if (Frame.isChild) {
     Frame.serviceId = getEnvParam("serviceId", Frame.newId());
     var nodesConfig = Frame._parseCmd();
     Frame.setId(Frame.serviceId);
-
     if (Frame.servicePipe) {
         Frame._pipesServerForBaseInteraction = net.createServer({
             allowHalfOpen: false,

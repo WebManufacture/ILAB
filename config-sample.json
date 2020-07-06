@@ -6,14 +6,11 @@
     "port": 5700
   },
   "FilesService":{
-    "basepath": ""
+    "basepath": "Test"
   },
   "StaticService":{
     "filesServiceId": "FilesService",
-    "rootFile":"klab/fs.html",
     "port": 80,
-    "keyFile": "./localhost.key",
-    "certFile": "./localhost.cert",
     "useSecureProtocol": false,
     "allowOrigin": "*",
     "allowMethods": "ALL",
@@ -21,6 +18,8 @@
     "aliases": {
 
     }
+  },
+  "SerialService":{
   },
   "myService":{
 

@@ -3,6 +3,7 @@
 <head>
 	<title>myService client</title>
 	<script src="http://services.web-manufacture.net/Base/v1.5?join=true" type="text/javascript"></script>
+	<script src="http://services.web-manufacture.net/ilab.js" type="text/javascript"></script>
 	<link href="http://services.web-manufacture.net/Styles/System.default.css" rel="stylesheet">
 	<meta content="text/html; charset=utf-8" http-equiv="Content-Type">
 	<style type="text/css">
@@ -17,7 +18,7 @@
 	<script src="../Client/WebSocketProxy.js" type="text/javascript"></script>
 	<script type="text/javascript">
 
-        
+
 
         WS.DOMload(function(){
             ServiceProxy.Connect("ws://localhost:5700/myService.js").then(function (myService) {
@@ -31,7 +32,7 @@
                 console.error(error);
             });
         });
-        
+
         function AddUser(){
             myService.PushUser(("User"+ Math.random()).replace("0.","")).then(function(user){
                 console.log(user);
@@ -39,7 +40,7 @@
                 console.error(error);
             });
         }
-        
+
 
 	</script>
 

@@ -110,9 +110,11 @@ function _init() {
                         var configFile = require(Path.resolve(configFileName));
                         if (Array.isArray(configFile)){
                             configFile.forEach((config)=>{
-                                config = parseConfig(config, key);
-                                if (config){
-                                    mergeConfig(config);
+                                if (typeof (config) == "object"){
+                                  config = parseConfig(config, key);
+                                  if (config){
+                                      mergeConfig(config);
+                                  }
                                 }
                             });
                         } else {
@@ -133,8 +135,13 @@ function _init() {
                                         continue;
                                     }
                                     var config = parseConfig(configFile[key], key);
-                                    if (config){
-                                        mergeConfig(config);
+                                    if (typeof (config) == "object"){
+                                      var config = parseConfig(configFile[key], key);
+                                      if (config){
+                                          mergeConfig(config);
+                                      }
+                                    } else {
+                                      servicesToStart[key] = config;
                                     }
                                 }
                             }
@@ -166,7 +173,6 @@ function _init() {
                 }
             }
             Frame.debugMode = typeof v8debug === 'object' || debugMode;
-            // console.log('Frame: servicesToStart ', servicesToStart)
             return servicesToStart;
         }
         catch (err) {
@@ -275,8 +281,10 @@ function _init() {
                 });
             }
             if (servicesToStart.useNewStart){
+                console.log("========== starting new method ==========");
                 startNewMethod();
             } else {
+                console.log("---------- starting old method ----------");
                 startOldMethod();
             }
         } catch (err) {
@@ -290,15 +298,16 @@ function _init() {
     });
 }
 
+process.isChild = false;
+
 if (!global.Frame){
-    Frame = { isChild: false }
+    Frame = global.Frame = { isChild: process.isChild }
     require(Path.resolve("./Frame.js"));
     _init();
     RootService();
     //Frame._startFrame(RootService);
 } else {
+    Frame.isChild = process.isChild;
     _init();
     module.exports = RootService;
 }
-
-

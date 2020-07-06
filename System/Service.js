@@ -276,7 +276,21 @@ Inherit(Service, EventEmitter, {
             socket.on('json', messageHandlerFunction);
 
         }
-
+        var internalEventHandler = function (eventName, args) {
+            //args.shift();
+            try {
+                if (!socket.closed && !socket.destroyed && socket.netSocket.writable) {
+                    socket.write({
+                        type: "event",
+                        name: eventName,
+                        calleeId: this._calleeFunctionMessage ? this._calleeFunctionMessage.id : null,
+                        calleeName: this._calleeFunctionMessage ? this._calleeFunctionMessage.name : null,
+                        args: args});
+                }
+            } catch(err){
+               //errorHandler(err);
+            }
+        };
         var messageHandlerFunction = function (message) {
             if (message.type == "method"){
                 try {
@@ -330,21 +344,6 @@ Inherit(Service, EventEmitter, {
                 self.on("internal-event", internalEventHandler);
             }
         };
-        var internalEventHandler = function (eventName, args) {
-            //args.shift();
-            try {
-                if (!socket.closed && !socket.destroyed && socket.writable) {
-                    socket.write({
-                        type: "event",
-                        name: eventName,
-                        calleeId: this._calleeFunctionMessage ? this._calleeFunctionMessage.id : null,
-                        calleeName: this._calleeFunctionMessage ? this._calleeFunctionMessage.name : null,
-                        args: args});
-                }
-            } catch(err){
-               //errorHandler(err);
-            }
-        };
         var serverClosingHandler = function (eventName, args) {
             socket.end();
         };
@@ -384,8 +383,6 @@ Inherit(Service, EventEmitter, {
             var args = Array.from(arguments);
             //args.shift();
             Service.base.emit.call(this, "internal-event", eventName, args);
-        } else {
-            //Self-descriptive events
             if (!this._eventsDescriptions) this._eventsDescriptions = {};
             if (!this._eventsDescriptions[eventName]){
                 var args = [];

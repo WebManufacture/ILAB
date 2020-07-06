@@ -162,6 +162,7 @@ function ServicesManager(config, portCountingFunc){
             //console.log("Debugger activated on " + options.debugPort);
         }
         options.servicePipe = (os.type() == "Windows_NT" ? '\\\\?\\pipe\\' : '/tmp/ilab-3-') + require('uuid/v4')();
+        options.serviceId = id;
         var mon = new ForkMon(Frame.ilabPath + "/Frame.js", [], options);
         self.forksCount++;
         mon.serviceId = id;
@@ -170,7 +171,7 @@ function ServicesManager(config, portCountingFunc){
         self._subscribeEvents(mon);
         return mon;
     };
-    
+
     //For system use! Do not use this method;
     this.Pipe = function(serviceId){
         return new Promise(function(resolve, reject){
