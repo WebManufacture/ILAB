@@ -6,7 +6,7 @@
     "port": 5700
   },
   "FilesService":{
-    "basepath": "Test"
+    "basepath": ""
   },
   "StaticService":{
     "filesServiceId": "FilesService",
