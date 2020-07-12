@@ -6,9 +6,11 @@
     "port": 5700
   },
   "FilesService":{
+    "path": "../KLAB/Services/FilesService",
     "basepath": ""
   },
   "StaticService":{
+    "path": "../KLAB/Services/StaticService",
     "filesServiceId": "FilesService",
     "port": 80,
     "useSecureProtocol": false,
