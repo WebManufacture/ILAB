@@ -53,9 +53,9 @@ var _send = (name, args)=>{
   }
 }
 
-sendLog = (args)=>{
+_sendWithDelay = (name, args)=>{
   if (mainWindow && mainWindowLoaded){
-    _send("console", args);
+    _send(name, args);
   } else {
     logDept.push(args);
     if (!_logSendingTimeout){
@@ -63,12 +63,20 @@ sendLog = (args)=>{
         if (mainWindow && mainWindowLoaded){
           clearInterval(_logSendingTimeout);
           logDept.forEach(item => {
-              _send("console", item);
+              _send(name, item);
           });
         }
       }, 100);
     }
   }
+}
+
+sendError = (args)=>{
+  _sendWithDelay("server-error", args);
+}
+
+sendLog = (args)=>{
+  _sendWithDelay("console", args);
 }
 
 sendMessage = (name, args)=>{
@@ -87,6 +95,16 @@ console.log = function () {
     _oldLog.apply(this, arguments);
 };
 
+var _oldLogError = console.error;
+console.error = function () {
+    const args = [];
+    for (var i = 0; i < arguments.length; i++){
+      args.push(arguments[i]);
+    }
+    sendError(args);
+    _oldLogError.apply(this, arguments);
+};
+
 function connectService(service){
 
 }
@@ -103,7 +121,7 @@ ipcMain.on('critical-error', (event, args) => {
 })
 
 if (process.argv.length < 2){
-  process.argv.push("RootService");
+  process.argv.push("");
   process.argv.push("--config=electron-config.json");
 } else {
   process.argv.push("--config=electron-config.json");
