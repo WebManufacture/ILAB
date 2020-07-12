@@ -9,7 +9,7 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
 * [УСТАНОВКА](#УСТАНОВКА)
 * [ЗАПУСК И ПЕРВЫЕ ШАГИ](#ЗАПУСК-И-ПЕРВЫЕ-ШАГИ)
 * [Запуск Electron](#Запуск-Electron)
-* [АРХИТЕКТУРА ILAB 3.0](#АРХИТЕКТУРА-ILAB-3.0)
+* [АРХИТЕКТУРА ILAB 3.0](#АРХИТЕКТУРА-ILAB-30)
 
 
 УСТАНОВКА
@@ -128,11 +128,11 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
 ЗАПУСК ELECTRON:
 ========================
 
-cd electron
-npm i
-npm i -g electron
-npm i -g electron-builder
-electron electron/electron-root.js
+    cd electron
+    npm i
+    npm i -g electron
+    npm i -g electron-builder
+    electron electron/electron-root.js
 
 АРХИТЕКТУРА ILAB 3.0
 ========================
