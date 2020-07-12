@@ -8,8 +8,9 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
 ========================
 * [УСТАНОВКА](#УСТАНОВКА)
 * [ЗАПУСК И ПЕРВЫЕ ШАГИ](#ЗАПУСК-И-ПЕРВЫЕ-ШАГИ)
-* [Запуск Electron](#Запуск-Electron)
-* [АРХИТЕКТУРА ILAB 3.0](#АРХИТЕКТУРА-ILAB-30)
+* [Для разработчиков](#Для-разработчиков)
+* [Сборка и отладка Electron](#Сборка-и-отладка-Electron)
+* [Архитектура ILAB 3.0](#АРХИТЕКТУРА-ILAB-30)
 
 
 УСТАНОВКА
@@ -125,14 +126,85 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
     //Для использования WebSocket версии через ServicesWebSocketProxy
     <script src="http://services.web-manufacture.net/ilab-socket.js" type="text/javascript"></script>
 
-ЗАПУСК ELECTRON:
+Для разработчиков:
 ========================
+
+Кроме того что вы установили ILAB, вам, скорее всего понадобятся дополнительные сервисы и компоненты из других репозиториев.
+
+Например: -
+* [DOM.JS](https://github.com/WebManufacture/DOM.JS) - Фреймворк для работы UI
+* [UI-Services](https://github.com/WebManufacture/UI-Services) - Набор UI компонентов на все случаи жизни )))
+* [KLAB](https://github.com/WebManufacture/KLAB) - Все что касается разработки и конфигурации для ILAB
+* [HLAB](https://github.com/WebManufacture/HLAB) - Инструметны для работы с "Железом"
+* [RoboPlatform](https://github.com/WebManufacture/RoboPlatform) - Тем, кто работает с этой платформой.
+
+Поэтому рекоммендуем создать общую папку, куда вы склонируете не только ILAB, но и другие проекты.
+Например:
+
+    ./WM
+      |___ ILAB-3.0
+          ...
+        |___ config.json
+      |___ KLAB
+      |___ HLAB
+
+Далее, вам необходимо создать в папке ILAB-3.0 свой конфигурационный файл (например - config.json).
+Тогда, вы сможете запускать все свои сервисы, одной командой
+    node RootService --config
+или
+    node RootService --config=config-sample.json
+
+Пример добавлений с config.json:
+    {
+      "ServicesHttpProxy": {
+        "port": 5100
+      },
+      "ServicesWebSocketProxy": {
+        "port": 5700
+      },
+      "FilesService":{
+        "basepath": ""
+      },
+      "StaticService":{
+        "filesServiceId": "FilesService",
+        "port": 80,
+        "useSecureProtocol": false,
+        "allowOrigin": "\*",
+        "allowMethods": "ALL",
+        "allowBrowse": true,
+        "aliases": {
+
+        }
+      },
+      "ConsoleService":{
+        "path": "../KLAB/ConfigService"
+      },
+      "SerialService":{
+        "path": "../HLAB/SerialService"
+      }
+    }
+
+
+Сборка и отладка Electron:
+========================
+
+Для работы с Electron необходимо его установить:
 
     cd electron
     npm i
     npm i -g electron
     npm i -g electron-builder
+    cd ..
+
+Для запуска приложения electron, находясь в папке ILAB-3.0 необходимо выполнить вот что:
+
     electron electron/electron-root.js
+
+Для сборки приложения нужно воспользоваться другой командой (если вы уже в папке Electron)
+
+    cd electron
+    electron-builder build --win
+    cd ..
 
 АРХИТЕКТУРА ILAB 3.0
 ========================

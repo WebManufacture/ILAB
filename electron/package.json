@@ -24,7 +24,38 @@
     "mac": {
       "category": "your.app.category.type"
     },
+    "extraFiles": [
+        {
+            "from": "Assets",
+            "to": "resources"
+        },
+        {
+            "from": "../Modules",
+            "to": "Modules"
+        },
+        {
+            "from": "../Services",
+            "to": "Services"
+        },
+        {
+            "from": "../System",
+            "to": "System"
+        },
+        {
+            "from": "../ILabClient",
+            "to": "ILabClient"
+        },
+        {
+            "from": "..",
+            "to": ".",
+            "filter":[
+                "*.js",
+                "electron-config.json"
+            ]
+        }
+    ],
     "win": {
+      "icon": "favicon.ico",
       "target": [
         {
           "target": "nsis",
@@ -37,9 +68,6 @@
   },
   "dependencies": {
     "http-proxy": "latest",
-    "node-hid": "latest",
-    "serialport": "latest",
-    "usb-detection": "latest",
     "uuid": "^3.2.1"
   },
   "devDependencies": {

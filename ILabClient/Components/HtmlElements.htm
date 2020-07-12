@@ -1,0 +1,940 @@
+<script type='text/javascript'>
+	SearchBox = {};
+	
+	SearchBox.InitElement = function(element){
+		var storageKey = element.get("@StorageKey");
+		if (!storageKey){
+			if (element.id){
+				storageKey = window.location.host + window.location.pathname + "/@Hint_" + element.id;
+			}
+			else{
+				return;
+			}
+		}
+		element.storageKey = storageKey;
+		element.addEventListener("focus", SearchBox.ElementFocused);		
+		//element.addEventListener("keypress", SearchBox.KeyPressed);
+		element.addEventListener("keyup", SearchBox.KeyDown);
+		element.addEventListener("blur", SearchBox.ElementBlur);
+		var sb =  element.searchBox = DOM.div(".search-box.invisible");
+		if (element.nextElementSibling){
+			element.parentNode.insertBefore(sb, element.nextElementSibling);
+		}
+		else{			
+			element.parentNode.add(sb);
+		}
+		SearchBox.FillBox(sb, element.storageKey);
+	};
+	
+	SearchBox.FillBox = function(elem, skey){
+		var searchItems = localStorage.getItem(skey);
+		if (searchItems){
+			searchItems = JSON.parse(searchItems);
+		}else{
+			searchItems = [];
+		};
+		searchItems = searchItems.sort(SearchBox.SortByRatingAndAlfabet);
+		for (var i = 0; i < searchItems.length; i++){
+			SearchBox.AddSearchText(elem, searchItems[i].rating, searchItems[i].query);
+		};
+	};
+	
+	SearchBox.SortByRatingAndAlfabet = function(a, b){
+		if (a.rating == b.rating){
+			return a.query > b.query ? 1: -1;
+		};
+		return a.rating < b.rating ? 1 : -1;
+	};
+	
+	SearchBox.AddSearchText = function(elem, rating, text){
+		var div = elem.div(".search-item");
+		div.textContent = text;
+		div.AttrProperty("Rating");
+		rating = parseInt(rating);
+		if (isNaN(rating)) rating = 0;
+		div.Rating = rating + "";
+		div.set("@search-value", text);
+		div.onclick = function(){
+			elem.value = this.textContent;	
+		}
+			return div;
+	};
+	
+	SearchBox.ElementFocused = function(){
+		this.searchBox.show();
+		SearchBox.FilterByText(this.searchBox, this.value);
+	};
+	
+	SearchBox.KeyPressed = function(){
+		SearchBox.FilterByText(this.searchBox, this.value);
+	};
+	
+	SearchBox.KeyDown = function(event){
+		if (event.keyCode == 40){//down
+			this.del(".selected");
+			var selected = this.searchBox.get(".search-item.selected");
+			var next = null;
+			if (selected){
+				var next = selected.nextElementSibling;
+				while(next && next.is(".invisible")){
+					next = next.nextElementSibling;
+				}
+				selected.del(".selected");
+			}			
+			if (!next){
+				next = this.searchBox.get(".search-item:not(.invisible)");
+			}
+			if (next){
+				next.add(".selected");
+				this.add(".selected");
+				this.value = next.textContent;
+			}
+			return true;
+		}
+		if (event.keyCode == 38){ //up
+			this.del(".selected");
+			var selected = this.searchBox.get(".search-item.selected");
+			var next = null;
+			if (selected){
+				var next = selected.previousElementSibling;
+				while(next && next.is(".invisible")){
+					next = next.previousElementSibling;
+				}
+				this.add(".selected");
+				selected.del(".selected");
+			}			
+			if (!next){
+				next = this.searchBox.all(".search-item:not(.invisible)");
+				if (next.length > 0){
+					next = next[next.length - 1];	
+				}
+				else{
+					next = null;	
+				}
+			}
+			if (next){
+				next.add(".selected");
+				this.add(".selected");
+				this.value = next.textContent;
+			}
+			return true;
+		}
+		if (event.keyCode == 13){ //up
+			var selected = this.searchBox.get(".search-item.selected");
+			if (selected){
+				this.value = selected.textContent;	
+				this.add(".selected");				
+			}
+			SearchBox.ElementBlur.call(this);
+			return true;
+		}
+		this.del(".selected");
+		SearchBox.FilterByText(this.searchBox, this.value);
+	};
+	
+	SearchBox.ElementBlur = function(){
+		this.searchBox.hide();
+		if (this.value == "" || this.is("empty")) return;
+		var elem = SearchBox.GetElemByText(this.searchBox, this.value);
+		if (elem){
+			elem.Rating = (parseInt(elem.Rating) + 1) + "";
+		}
+		else{
+			SearchBox.AddSearchText(this.searchBox, 0, this.value);
+		}
+		SearchBox.Save(this);
+	};
+	
+	SearchBox.GetElemByText = function(elem, text){
+		return elem.get(".search-item[search-value='" + text + "']");
+	};
+	
+	SearchBox.FilterByText = function(elem, text){
+		elem.all(".search-item.selected").del('.selected');
+		if (text == ""){
+			elem.all(".search-item").show();
+			return;
+		}
+		elem.all(".search-item").hide();
+		elem.all(".search-item[search-value^='" + text + "']").show();
+	};
+	
+	SearchBox.Save = function(inputObj){
+		var sitems = [];
+		var sbox = inputObj.searchBox;
+		sbox.all(".search-item").each(function(item){
+			sitems.push({rating: item.Rating, query : item.innerHTML});
+		});
+		localStorage.setItem(inputObj.storageKey, JSON.stringify(sitems));
+	};
+	
+	/*
+
+SearchBox.SetSearchValue = function(a){
+var attr = a.get('@hint');
+var inp = DOM.get('.search input');
+inp.value = attr;
+DOM.all('.fac.d').del();
+Plan.ShowSelectedByHint(attr);
+Plan.SearchEnding(inp);
+};
+
+
+
+SearchBox.SearchSpecRes = function(a){
+var search = a.value;
+if (!search) return;
+
+var proto=DOM.get('.fac.prototype');
+
+DOM.all('.fac.d').del();
+
+var SortedByRatingAndAlfabet = Plan.SearchTrot.sort(Plan.SortByRatingAndAlfabet);
+for(var i=0; i<SortedByRatingAndAlfabet.length; i++){
+var c=Plan.SearchTrot[i];//зачем объявлена переменная?
+var hint_proto=proto.clone();
+hint_proto.add('.hidden');
+hint_proto.add('.d');
+hint_proto.add('@hint',SortedByRatingAndAlfabet[i].query );
+DOM.get('.fac.container').add(hint_proto).set(null, SortedByRatingAndAlfabet[i].query);
+}
+
+DOM.all('.d[hint*="' + search.toLowerCase() + '"]').del('.hidden');
+SearchBox.ShowSelectedByHint(search);		
+};
+
+*/
+	
+	SearchBox.Context = { Condition: "ui-processing" };
+	SearchBox.Context.id = "UiSearchBoxContext";
+	SearchBox.Context.Selector = "input.hintable:not(.jasp-processed-UiSearchBoxContext)";
+	SearchBox.Context.Process = SearchBox.InitElement;
+	
+	C.Add(SearchBox.Context);
+	
+	InputWDT = {
+		
+		InitElement : function(elem){
+			elem.onfocus = InputWDT.InputFocused;
+			elem.onblur = InputWDT.InputBlur;
+			//elem.oninput = InputWDT.CheckChanges;
+			elem.update = InputWDT.CheckChanges;
+			if(!elem.value || elem.value == elem.get('@default-text')){
+				elem.add('.empty');
+				elem.value = elem.get('@default-text');
+			}
+		},
+		
+		CheckChanges : function(){
+			if (this.selfChanged) {
+				this.selfChanged = false;
+				return;
+			}
+			if(this.value && this.value != ""){
+				this.del('.empty');
+			}
+			else{
+				this.add('.empty');
+				this.selfChanged = true;
+				this.value = this.get('@default-text');
+			}
+		},
+		
+		InputFocused : function(){
+			if(this.is('.empty')){
+				this.del('.empty');
+				this.selfChanged = true;
+				this.value='';
+			}
+		},
+		
+		InputBlur : function(){
+			if(!this.value || this.value == ""){
+				this.add('.empty');
+				this.selfChanged = true;
+				this.value = this.get('@default-text');
+			}
+		}	
+	};
+	
+	
+	InputWDT.Context = { Condition: "ui-processing.ui-clone" };
+	InputWDT.Context.id = "inputWDT";
+	InputWDT.Context.Selector = "input[default-text]";
+	InputWDT.Context.Process = InputWDT.InitElement;
+	
+	C.Add(InputWDT.Context);
+	
+	LookupBox = {};
+	
+	LookupBox.InitElement = function(element){
+		var storageKey = element.get("@source");
+		element.addEventListener("focus", LookupBox.ElementFocused);		
+		//element.addEventListener("keypress", LookupBox.KeyPressed);
+		element.addEventListener("keyup", LookupBox.KeyDown);
+		element.addEventListener("blur", LookupBox.ElementBlur);
+		var sb = element.LookupBox = DOM.div(".search-box.invisible");
+		if (element.nextElementSibling){
+			element.parentNode.insertBefore(sb, element.nextElementSibling);
+		}
+		else{			
+			element.parentNode.add(sb);
+		}
+		if (storageKey){
+			element.storageKey = storageKey;
+			Net.get(storageKey, function(result){
+				LookupBox.FillBox.call(element, result);
+			});
+		}
+		else{
+			element.localKey = element.get("@local-source");
+			if (element.localKey){
+				LookupBox.FillBox.call(element, DOM.all(element.localKey));
+			}
+		}
+	};
+	
+	LookupBox.FillBox = function(result){
+		var element = this;
+		var searchBox = this.LookupBox;
+		if (!result){
+			result = [];
+		};
+		if (typeof this.onData == "function"){
+			if (this.onData(result)) return;
+		}
+		//searchItems = searchItems.sort(LookupBox.SortByRatingAndAlfabet);
+		searchBox.del(".search-item");
+		for (var i = 0; i < result.length; i++){
+			LookupBox.AddSearchText.call(element, searchBox, result[i].id, result[i]);
+		};
+	};
+
+	LookupBox.AddSearchText = function(searchBox, id, text){
+		var div = searchBox.div(".search-item");
+		if (text.textContent){
+			div.textContent = text.textContent;
+		}
+		else{
+			div.textContent = text;
+		}
+		if (id){
+			div.id = "sItem" + id;
+		}
+		div.set("@search-value", text);
+		var elem = this;
+		div.onclick = function(){
+			if (typeof elem.onHint == "function"){
+				if (elem.onHint(this)) return true;
+			}
+			elem.value = this.textContent;
+		}
+		return div;
+	};
+	
+	LookupBox.ElementFocused = function(){
+		this.LookupBox.show();
+	};
+	
+	LookupBox.KeyPressed = function(){
+		LookupBox.FilterByText.call(this, this.LookupBox, this.value);
+	};
+	
+	LookupBox.KeyDown = function(event){
+		if (event.keyCode == 40){//down
+			var selected = this.LookupBox.get(".search-item.selected");
+			var next = null;
+			if (selected){
+				var next = selected.nextElementSibling;
+				while(next && next.is(".invisible")){
+					next = next.nextElementSibling;
+				}
+				selected.del(".selected");
+			}			
+			if (!next){
+				next = this.LookupBox.get(".search-item:not(.invisible)");
+			}
+			if (next){
+				next.add(".selected");
+				this.selectedItem = next;
+				if (typeof this.onHint == "function"){
+					if (this.onHint(next)) return true;
+				}
+				this.value = next.textContent;
+			}
+			return true;
+		}
+		if (event.keyCode == 38){ //up
+			var selected = this.LookupBox.get(".search-item.selected");
+			var next = null;
+			if (selected){
+				var next = selected.previousElementSibling;
+				while(next && next.is(".invisible")){
+					next = next.previousElementSibling;
+				}
+				selected.del(".selected");
+			}			
+			if (!next){
+				next = this.LookupBox.all(".search-item:not(.invisible)");
+				if (next.length > 0){
+					next = next[next.length - 1];	
+				}
+				else{
+					next = null;	
+				}
+			}
+			if (next){
+				next.add(".selected");
+				this.selectedItem = next;
+				if (typeof this.onHint == "function"){
+					if (this.onHint(next)) return true;
+				}
+				this.value = next.textContent;
+			}
+			return true;
+		}
+		if (event.keyCode == 13){ //up
+			var selected = this.LookupBox.get(".search-item.selected");
+			if (selected){
+				this.value = selected.textContent;				
+			}
+			LookupBox.ElementBlur.call(this);
+			return true;
+		}
+		LookupBox.FilterByText.call(this, this.LookupBox, this.value);
+	};
+	
+	LookupBox.ElementBlur = function(){
+		this.LookupBox.hide();
+		if (this.value == "" || this.is("empty")) return;
+		var elem = LookupBox.GetElemByText(this.LookupBox, this.value);
+		if (elem){
+			this.selectedItem = elem;
+			if (typeof this.onHint == "function"){
+				if (this.onHint(elem)) return;
+			}
+			this.value = elem.textContent;
+		}
+	};
+	
+	LookupBox.GetElemByText = function(elem, text){
+		return elem.get(".search-item[search-value='" + text + "']");
+	};
+	
+	LookupBox.FilterByText = function(elem, text){
+		elem.all(".search-item.selected").del('.selected');
+		if (text == ""){
+			elem.all(".search-item").show();
+			return;
+		}
+		elem.all(".search-item").hide();
+		elem.all(".search-item[search-value^='" + text + "']").show();
+	};
+	
+	LookupBox.Context = { Condition: "ui-processing" };
+	LookupBox.Context.id = "UiLookupBoxContext";
+	LookupBox.Context.Selector = "input.lookup-box:not(.jasp-processed-UiLookupBoxContext)";
+	LookupBox.Context.Process = LookupBox.InitElement;
+	
+	C.Add(LookupBox.Context);
+	
+	
+	
+	HintableBox = {};
+	
+	HintableBox.InitElement = function(element){
+		element.addEventListener("focus", HintableBox.ElementFocused);		
+		//element.addEventListener("keypress", HintableBox.KeyPressed);
+		element.addEventListener("keyup", HintableBox.KeyDown);
+		element.addEventListener("blur", HintableBox.ElementBlur);
+		var bindSrc = element.get("@bind-source");
+		if (bindSrc){
+			var sb = element.HintsBox = DOM(bindSrc);
+		}
+		else{
+			sb = element.HintsBox = DOM.div(".search-box.invisible");
+			if (element.nextElementSibling){
+				element.parentNode.insertBefore(sb, element.nextElementSibling);
+			}
+			else{			
+				element.parentNode.add(sb);
+			}
+		}
+		element.AddSearchItem = HintableBox.AddSearchItem;
+		if (element.Controller && typeof element.Controller.OnInit == "function"){
+			if (element.Controller.OnInit.call(element, sb)) return;
+		}
+		if (bindSrc) {
+			if (element.Controller && typeof element.Controller.OnLoad == "function"){
+				if (element.Controller.OnLoad.call(element, sb)) return;
+			};
+			return;
+		}
+		var urlSrc = element.get("@url-source");
+		var lookupSrc = element.get("@lookup-source");
+		if (lookupSrc){
+			
+				HintableBox.FillLookup.call(element, DOM.all(lookupSrc));
+	
+		}
+		else{
+			if (urlSrc){
+				Net.get(urlSrc, function(result){
+					HintableBox.FillData.call(element, result);
+				});
+			}
+		}
+	};
+	
+	
+	HintableBox.FillLookup = function(result){
+		if (!result){ return; };
+		var element = this;
+		var searchBox = this.HintsBox;
+		searchBox.del(".search-item");
+		var textField = element.get("@lookup-field");
+		for (var i = 0; i < result.length; i++){
+			if (textField){
+				var div = element.AddSearchItem(result[i][textField]);
+			}
+			else{
+				var div = element.AddSearchItem(result[i].textContent);
+			}
+			if (this.Controller && typeof this.Controller.OnAdd == "function"){
+				if (this.Controller.OnAdd.call(this, div, result[i])) return;
+			}
+		};
+		if (element.Controller && typeof element.Controller.OnLoad == "function"){
+			if (element.Controller.OnLoad.call(element, sb)) return;
+		};
+	};
+	
+	
+	HintableBox.FillData = function(result){
+		var element = this;
+		var searchBox = this.HintsBox;
+		if (!result){
+			result = [];
+		};
+		searchBox.del(".search-item");
+		var textField = element.get("@lookup-field");
+		for (var i = 0; i < result.length; i++){
+			if (textField){
+				var div = element.AddSearchItem(result[i][textField]);
+			}
+			else{
+				var div = element.AddSearchItem(JSON.stringify(result[i]));
+			}
+			if (this.Controller && typeof this.Controller.OnAdd == "function"){
+				if (this.Controller.OnAdd.call(this, div, result[i])) return;
+			}
+		};
+		if (element.Controller && typeof element.Controller.OnLoad == "function"){
+			if (element.Controller.OnLoad.call(element, sb)) return;
+		};
+	};
+			
+	HintableBox.AddSearchItem = function(text){
+		var div = this.HintsBox.div(".search-item");
+		div.textContent = text;
+		div.set("@search-value", text);
+		var elem = this;
+		div.onmousedown = function(){
+			elem.HintsBox.all(".selected").del(".selected");
+			this.add(".selected");
+			elem.add(".selected");
+			if (elem.Controller && typeof elem.Controller.OnApply == "function"){
+				if (elem.Controller.OnApply.call(elem, this)) return true;
+			}
+			elem.value = this.textContent;
+			/*setTimeout(function(){
+				elem.blur();
+			}, 100);*/
+		}		
+		return div;
+	};
+	
+	HintableBox.ElementFocused = function(){
+		this.HintsBox.show();
+		if (this.Controller && typeof this.Controller.OnFilter == "function"){
+			this.Controller.OnFilter.call(this, this.value, this.HintsBox);
+		}
+		HintableBox.FilterByText(this, this.value);
+	};
+	
+	HintableBox.KeyPressed = function(){
+		if (this.Controller && typeof this.Controller.OnFilter == "function"){
+			this.Controller.OnFilter.call(this, this.value, this.HintsBox);
+		}
+	};
+	
+	HintableBox.KeyDown = function(event){
+		if (event.keyCode == 40){//down
+			this.del(".selected");
+			var selected = this.HintsBox.get(".search-item.selected");
+			var next = null;
+			if (selected){
+				var next = selected.nextElementSibling;
+				while(next && next.is(".invisible")){
+					next = next.nextElementSibling;
+				}
+				selected.del(".selected");
+			}			
+			if (!next){
+				next = this.HintsBox.get(".search-item:not(.invisible)");
+			}
+			if (next){
+				next.add(".selected");
+				if (this.Controller && typeof this.Controller.OnHint == "function"){
+					if (this.Controller.OnHint.call(this, next)) return true;
+				}
+				this.add(".selected");
+				this.value = next.textContent;
+			}
+			return true;
+		}
+		if (event.keyCode == 38){ //up
+			this.del(".selected");
+			var selected = this.HintsBox.get(".search-item.selected");
+			var next = null;
+			if (selected){
+				var next = selected.previousElementSibling;
+				while(next && next.is(".invisible")){
+					next = next.previousElementSibling;
+				}
+				selected.del(".selected");
+			}			
+			if (!next){
+				next = this.HintsBox.all(".search-item:not(.invisible)");
+				if (next.length > 0){
+					next = next[next.length - 1];	
+				}
+				else{
+					next = null;	
+				}
+			}
+			if (next){
+				next.add(".selected");
+				if (this.Controller && typeof this.Controller.OnHint == "function"){
+					if (this.Controller.OnHint.call(this, next)) return true;
+				}
+				this.add(".selected");
+				this.value = next.textContent;
+			}
+			return true;
+		}
+		if (event.keyCode == 13){ //up
+			var selected = this.HintsBox.get(".search-item.selected");
+			if (selected){
+				this.value = selected.textContent;				
+			}
+			if (this.Controller && typeof this.Controller.OnApply == "function"){
+				if (this.Controller.OnApply.call(this, selected)) return true;
+			}
+			var elem = this;
+			setTimeout(function(){
+					elem.blur();
+					HintableBox.ElementBlur.call(elem);
+				}, 400);
+			return true;
+		}
+		if (this.Controller && typeof this.Controller.OnFilter == "function"){
+			if (this.Controller.OnFilter.call(this, this.value, this.HintsBox)) return;
+		}
+		HintableBox.FilterByText(this, this.value);
+	};
+	
+	HintableBox.FilterByText = function(elem, text){
+		var sbox = elem.HintsBox;
+		var selectedItem = sbox.get(".search-item.selected");
+		if (selectedItem){
+			if (selectedItem.textContent != text){
+				elem.del(".selected");
+				selectedItem.del(".selected");
+			}
+		}
+		if (text == ""){
+			sbox.all(".search-item").show();
+			return;
+		}
+		sbox.all(".search-item").hide();
+		sbox.all(".search-item[search-value*='" + text + "']").show();
+	};
+	
+	HintableBox.ElementBlur = function(){
+		this.HintsBox.hide();
+		if (this.value == "" || this.is("empty")) return;
+		var elem = HintableBox.GetElemByText(this.HintsBox, this.value);
+		if (elem){
+			if (this.Controller && typeof this.Controller.OnHint == "function"){
+				if (this.Controller.OnHint.call(this, elem)) return true;
+			}
+			this.add(".selected");
+			this.value = elem.textContent;
+		}
+	};
+	
+	HintableBox.GetElemByText = function(elem, text){
+		return elem.get(".search-item[search-value='" + text + "']");
+	};
+	
+	HintableBox.Context = { Condition: "ui-processing" };
+	HintableBox.Context.id = "UiHintableBoxContext";
+	HintableBox.Context.Selector = "input.hintable-box:not(.jasp-processed-UiHintableBoxContext)";
+	HintableBox.Context.Process = HintableBox.InitElement;
+	
+	C.Add(HintableBox.Context);
+	 
+	IconBtn = {};
+	
+	IconBtn.Context = {};
+	IconBtn.Context.Selector = ".icon-btn";
+	IconBtn.Context.Condition = "ui-processing";
+	IconBtn.Context.Process = function(item) {
+		var icon = item.attr("icon");
+		if (icon != null && icon != '') {
+			if (icon.start('http')){
+				item.style.backgroundImage = "url('" + icon + "')";
+			}
+			else{
+				var preURL = 'Images/';
+				if (M.ServicesUrl) preURL = M.ServicesUrl + '/' + preURL;
+				item.style.backgroundImage = "url('" + preURL + icon + "')";
+			}
+			item.style.backgroundRepeat = "no-repeat";
+			item.style.backgroundPosition = "center center";
+		}
+	};
+
+	
+</script>
+
+<style type='text/css'>
+	
+	.search-box{
+		position: absolute;
+		border: solid 1px gray;
+		padding: 3px 10px;
+		box-sizing: border-box;		
+		-moz-box-sizing: border-box;
+		overflow: hidden;
+		background-color: white;
+		color: #444;
+	}
+	
+	.search-box .search-item{
+		cursor: pointer;
+		border-bottom: dotted 1px #aaa;
+	}
+	
+	.search-box .search-item.selected{
+		background: yellow;
+	}
+	
+	.js-entity div{
+		display: inline-block;
+		vertical-align: top;
+	}
+	
+	
+	.js-entity{
+		
+	}
+	
+	.js-entity.object{
+		color : #A4F;	
+		background-color: rgba(150, 200, 170, 0.07)
+	}
+	
+	.js-entity.number{
+		color : navy;
+	}
+	
+	.js-entity.object.array{
+		color : red;
+		/*background-color: rgba(150, 150, 200, 0.1)*/
+	}
+	
+	
+	.js-entity.object.array>.js-entity.object{
+		margin-left: 10px;
+	}
+	
+	.js-entity.string{
+		color : #f85;
+	}
+	
+	.js-entity .js-syntax{
+		font-weight: bold;	
+	}
+	
+	.js-entity>.object-line{
+		padding-left: 20px;
+		/*border-left: solid 1px #ccc;*/
+	}
+	
+	.js-entity>.object-line>.object-key{
+		color: green;
+		min-width: 30px;
+	}
+	
+	.btn-ira{
+		border: 2px solid #E0E0E0;
+		background: none no-repeat 0 0;
+		background-color: white;
+		border-radius: 3px 3px 3px 3px;
+		box-shadow: 0 1px 1px #FFFFFF;
+		color: #666666;
+		cursor: pointer;
+		display: inline-block;
+		font: bold 13px Sans-Serif;
+		height: 16px;
+		margin: 5px;
+		padding: 3px;
+		text-align: center;
+		text-shadow: 0 1px 1px white;
+		vertical-align: middle;
+		white-space: nowrap;
+		min-width: 60px;
+	}
+	
+	.btn-ira:hover, .btn-ira:focus {
+		background: -moz-linear-gradient(center top , white, #E0E0E0) repeat scroll 0 0 transparent;
+		border-color: #999999;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 3px #FFFFFF inset;
+	}
+	
+	.btn-ira.clear:active {
+		background: -moz-linear-gradient(center top , #E0E0E0, gainsboro) repeat scroll 0 0 transparent;
+	}
+	
+	.btn-ira.ok {
+		border: 2px solid #467F71;
+	}
+	
+	.btn-ira.ok:active {
+		border: 2px solid #467F71!important;
+	}
+	
+	.btn-ira.clear {
+		border: 2px solid #E0E0E0;
+	}	
+	.btn-ira.close {
+		border: 2px solid #FFCA3B;
+	}
+	.btn-ira.cancel {
+		border: 2px solid #FFCA3B;
+	}
+	.btn-ira.delete {
+		border: 2px solid #E52738;
+	}
+	.btn-ira.ok:hover, .btn-ira.ok:focus {
+		background: -moz-linear-gradient(center top , white, #467F71) repeat scroll 0 0 transparent;
+		border-color: #999999;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 3px #FFFFFF inset;
+	}
+	.btn-ira.clear:hover, .btn-ira.clear:focus {
+		background: -moz-linear-gradient(center top , white, #E0E0E0) repeat scroll 0 0 transparent;
+		border-color: #999999;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 3px #FFFFFF inset;
+	}
+	.btn-ira.close:hover, .btn-ira.close:focus {
+		background: -moz-linear-gradient(center top , white, #E0E0E0) repeat scroll 0 0 transparent;
+		border-color: #999999;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 3px #FFFFFF inset;
+	}
+	.btn-ira.cancel:hover, .btn-ira.cancel:focus {
+		background: -moz-linear-gradient(center top , white, #FFCA3B) repeat scroll 0 0 transparent;
+		border-color: #999999;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 3px #FFFFFF inset;
+	}
+	.btn-ira.delete:hover, .btn-ira.delete:focus {
+		background: -moz-linear-gradient(center top , white, #E52738) repeat scroll 0 0 transparent;
+		border-color: #999999;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 0 3px #FFFFFF inset;
+	}
+	.btn-ira.ok:active {
+		background: -moz-linear-gradient(center top , #467F71, gainsboro) repeat scroll 0 0 transparent;
+	}
+	.btn-ira.clear:active {
+		background: -moz-linear-gradient(center top , #E0E0E0, gainsboro) repeat scroll 0 0 transparent;
+	}
+	.btn-ira.close:active {
+		background: -moz-linear-gradient(center top , #E0E0E0, gainsboro) repeat scroll 0 0 transparent;
+	}
+	.btn-ira.cancel:active {
+		background: -moz-linear-gradient(center top , #FFCA3B, gainsboro) repeat scroll 0 0 transparent;
+	}
+	.btn-ira.delete:active {
+		background: -moz-linear-gradient(center top , #E52738, gainsboro) repeat scroll 0 0 transparent;
+	}
+	
+	
+	.icon-btn {
+		background-position: center center;
+		background-repeat: no-repeat;
+		/*background-size: 48px 48px;
+		-moz-background-size: 48px 48px;*/
+		border: 1px solid silver;
+		border-radius: 10px 10px 10px 10px;
+		cursor: pointer;
+		display: inline-block;
+		height: 50px;
+		margin: 2px;
+		text-align: center;
+		vertical-align: top;
+		width: 50px;
+		font-size: 10px;
+		position: relative;
+	}
+	
+	.icon-btn.fixedsize {
+		background-size: 48px 48px;
+		-moz-background-size: 48px 48px;
+	}
+	
+	.icon-btn.fixedsize.small {
+		background-size: 32px 32px;
+		-moz-background-size: 32px 32px;
+	}
+	
+	.icon-btn.small {
+		border-radius: 4px;
+		width: 32px;
+		height: 32px;
+	}
+	
+	.icon-btn:hover{
+		border: 1px solid red;
+		background-color: yellow;    
+	}
+	
+	.icon-btn:active{
+		background-color: orange;    
+	}
+		
+	
+	.boxed{
+		border: solid 1px gray;
+		border-radius : 3px;
+		padding : 5px 10px;
+	}
+	
+	.boxed-inline{
+		display: inline-block;
+		border: solid 1px gray;
+		border-radius : 3px;
+		padding : 5px 10px;
+	}
+	
+	.link:hover{
+		cursor: pointer;
+		color: blue;
+	}
+	input.empty{
+		border: solid 1px grey;
+		border-radius : 3px;
+		padding : 5px 10px;
+		color: gray;
+	}
+</style>

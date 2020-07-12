@@ -102,7 +102,12 @@ ipcMain.on('critical-error', (event, args) => {
   _oldLog(args);
 })
 
-process.argv.push("--config=electron-config.json");
+if (process.argv.length < 2){
+  process.argv.push("RootService");
+  process.argv.push("--config=electron-config.json");
+} else {
+  process.argv.push("--config=electron-config.json");
+}
 
 process.once("ilab-started", () => {
   sendLog("services-started");
