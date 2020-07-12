@@ -9,7 +9,7 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
 * [УСТАНОВКА](#УСТАНОВКА)
 * [ЗАПУСК И ПЕРВЫЕ ШАГИ](#ЗАПУСК-И-ПЕРВЫЕ-ШАГИ)
 * [Запуск Electron](#Запуск-Electron)
-* [АРХИТЕКТУРА ILAB3.0](#АРХИТЕКТУРА ILAB3.0)
+* [АРХИТЕКТУРА ILAB 3.0](#АРХИТЕКТУРА-ILAB-3.0)
 
 
 УСТАНОВКА
@@ -134,7 +134,7 @@ npm i -g electron
 npm i -g electron-builder
 electron electron/electron-root.js
 
-АРХИТЕКТУРА ILAB3.0 (введение + обсуждение)
+АРХИТЕКТУРА ILAB 3.0
 ========================
 
 ### Микросервисная архитектура
