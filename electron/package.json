@@ -1,0 +1,48 @@
+{
+  "name": "Ilab-Electron",
+  "version": "3.8.2",
+  "electronVersion": "^9.1.0",
+  "description": "ILab Electron Server app",
+  "publishName": "ILab-Electron",
+  "main": "electron-root.js",
+  "author": "Semchenkov Alexander",
+  "license": "CREATIVE COMMON",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WebManufacture/ILAB-3.0.git"
+  },
+  "bugs": {
+    "url": "https://github.com/WebManufacture/ILAB-3.0/issues"
+  },
+  "homepage": "https://github.com/WebManufacture/ILAB-3.0#readme",
+  "scripts": {
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "ilab-electron",
+    "mac": {
+      "category": "your.app.category.type"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "http-proxy": "latest",
+    "node-hid": "latest",
+    "serialport": "latest",
+    "usb-detection": "latest",
+    "uuid": "^3.2.1"
+  },
+  "devDependencies": {
+    "electron": "latest"
+  }
+}

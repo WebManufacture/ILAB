@@ -241,6 +241,7 @@ function _init() {
                         }
                     })
                     servicesManager.StartServices(params).then(function (result) {
+                        process.emit("ilab-started", {});
                         console.log("All started!");
                     }).catch((err) => {
                         console.error(err);
@@ -277,6 +278,7 @@ function _init() {
                     }
                 }
                 Promise.all(frames).then(() => {
+                    process.emit("ilab-started", {});
                     console.log("All started!");
                 });
             }
@@ -309,5 +311,5 @@ if (!global.Frame){
 } else {
     Frame.isChild = process.isChild;
     _init();
-    module.exports = RootService;
 }
+module.exports = RootService;

@@ -579,6 +579,8 @@ Frame.exit = function(){
     }
 }
 
+process.setMaxListeners(1000);
+
 process.once("exit", function(){
     Frame.exit();
     // var date = (new Date());

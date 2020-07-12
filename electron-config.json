@@ -7,7 +7,7 @@
   },
   "FilesService":{
     "path": "../KLAB/Services/FilesService",
-    "basepath": "Test"
+    "basepath": ".."
   },
   "StaticService":{
     "path": "../KLAB/Services/StaticService",

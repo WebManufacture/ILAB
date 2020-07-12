@@ -115,7 +115,7 @@ Inherit(ForkMon, EventEmitter, {
     getStatus : function(){
         return ForkMon.Statuses[this.code];
     },
-    
+
     getOutputStream: function(){
         if (this.process){
             return this.process.stdout;

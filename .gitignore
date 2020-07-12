@@ -1,3 +1,5 @@
 node_modules
 package-lock.json
 config.json
+**/electron/dist
+**/node_modules
