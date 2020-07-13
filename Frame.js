@@ -1,6 +1,7 @@
 var Path = require('path');
 var fs = require('fs');
 var http = require('http');
+var https = require('https');
 var os = require('os');
 var vm = require('vm');
 var net = require('net');
@@ -222,7 +223,8 @@ Frame._initFrame = function () {
     Frame.send({type: "control", state: "loaded"});
     try {
         if (Frame.nodePath.indexOf("http://") == 0 || Frame.nodePath.indexOf("https://") == 0) {
-            http.get(Frame.nodePath, (res) => {
+            const getter = Frame.nodePath.indexOf("https://") == 0 ? https : http;
+            getter.get(Frame.nodePath, (res) => {
                 var statusCode = res.statusCode;
                 if (statusCode !== 200) {
                     Frame.fatal("Can't get node: " + res.statusCode + " : " + Frame.nodePath);
@@ -282,7 +284,7 @@ Frame._startFrame = function (node) {
             process.on('uncaughtException', function () {
                 process.exit();
             });
-            node = vm.Script(node, { filename: Frame.nodePath || Frame.node || "tempNode.vm" });
+            node = new vm.Script(node, { filename: Frame.nodePath || Frame.node || "tempNode.vm" });
             node = node.runInThisContext();
             console.log(Frame.nodePath + " node started");
         }
