@@ -10,7 +10,7 @@ function RoutingService(config){
     this.knownNodes = [];
 
     this.GetKnownNodes = () => {
-        return this.knownNodes;
+        return this.knownNodes.sort((a, b) => a.rank - b.rank);
     };
 
     this.RegisterNode = (info) => {

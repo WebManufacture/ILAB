@@ -211,7 +211,7 @@ function DiscoveryService(config){
                 });
             });
             server.on("check-alive", (obj, rinfo) => {
-                this.routingService.checkAlive(obj).then(alive => {
+                this.routingService.CheckAlive(obj).then(alive => {
                   server.send(rinfo.address, rinfo.port, {
                       type: "is-alive",
                       id: this.serviceId,
