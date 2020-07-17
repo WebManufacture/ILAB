@@ -7,9 +7,10 @@ var EventEmitter = require('events');
 var JsonSocket = useModule('jsonsocket');
 var UdpJsonServer = useModule('UdpJsonServer');
 
-function UdpServer(netInterface, config) {
+function UdpServer(netInterface, config, localId) {
     this._super.apply(this);
     var self = this;
+    this.localId = localId;
     this.tcpPort = config.tcpPort;
     this.serviceId = config.serviceId || "DiscoveryService";
     this.localPort = config.port || 31337;
@@ -39,7 +40,7 @@ Inherit(UdpServer, EventEmitter, {
         addressParts[3] = '255';
         this.sendHello(addressParts.join("."), toPort);
     },
-    sendHello : function (addressTo, portTo) {
+    sendHello : function (addressTo, portTo, localId) {
         Frame.log("Send hello from " + this.localAddress +  " to " + addressTo + ":" + portTo);
         this.udpServer.send({
             type: "hello",
@@ -49,10 +50,11 @@ Inherit(UdpServer, EventEmitter, {
             tcpPort: this.tcpPort,
             serviceType: "DiscoveryService",
             parentId: ServicesManager.serviceId,
-            parentPort: Frame.servicesManagerPort
+            parentPort: Frame.servicesManagerPort,
+            localId: this.localId
         }, portTo, addressTo);
     },
-    sendSeeyou : function (addressTo, portTo, addressFrom, portFrom) {
+    sendSeeyou : function (addressTo, portTo, addressFrom, portFrom, localId) {
         this.udpServer.send({
             type: "see-you",
             id: this.serviceId,
@@ -65,7 +67,8 @@ Inherit(UdpServer, EventEmitter, {
             tcpPort: this.tcpPort,
             serviceType: "DiscoveryService",
             parentId: ServicesManager.serviceId,
-            parentPort: Frame.servicesManagerPort
+            parentPort: Frame.servicesManagerPort,
+            localId: this.localId
         }, portTo, addressTo);
     }
 });
@@ -203,7 +206,7 @@ function DiscoveryService(config){
             port: config.port,
             tcpPort: this.port,
             serviceId: this.serviceId
-        });
+        }, this.localId);
         this.serverPool.push(server);
         server.once("ready", ()=>{
             server.on("hello", (obj, rinfo) => {
