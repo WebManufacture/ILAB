@@ -74,7 +74,7 @@ function DiscoveryService(config){
     var self = this;
     // это публичная функция:
 
-    this.knownNodes = {};
+    this.knownNodes = [];
 
     this.GetKnownNodes = function() {
         return this.knownNodes;
@@ -113,6 +113,12 @@ function DiscoveryService(config){
 
     var result = Service.apply(this, arguments);
 
+    const routingServiceId = config.routingServiceId ? config.routingServiceId:"RoutingService";
+    this.connect(routingServiceId).then((service)=>{
+      Frame.log("Routing service connected");
+      this.routingService = service;
+    });
+
     this.interfacePoints = [];
     this.serverPool = [];
     /*
@@ -131,7 +137,7 @@ function DiscoveryService(config){
     this.registerNode({
         id: this.serviceId,
         type: "self",
-        rank: 2,
+        rank: 1,
         serviceType: "DiscoveryService",
         tcpPort: this.port
     });
@@ -167,7 +173,10 @@ function DiscoveryService(config){
     });
 
     ServicesManager.on("service-exited",(serviceId, servicePort) => {
-        delete this.knownNodes[serviceId];
+        const ind = this.knownNodes.findIndex((item) => item && item.id == serviceId);
+        if (ind >= 0) {
+          this.knownNodes.splice(ind, 1);
+        }
     });
 
     var interfaces = os.networkInterfaces();
@@ -233,15 +242,11 @@ function DiscoveryService(config){
                 });
             });
             server.on("get-known", (obj, rinfo) => {
-                var nodes = [];
-                for (var item in this.knownNodes){
-                    nodes.push(this.knownNodes[item]);
-                }
                 server.send(rinfo.address, rinfo.port, {
                     type: "i-know",
                     id: this.serviceId,
                     serviceType: "DiscoveryService",
-                    knownNodes: nodes
+                    knownNodes: this.knownNodes
                 });
             });
             //eval("console.log('eval')");
@@ -381,7 +386,8 @@ Inherit(DiscoveryService, Service, {
 
     registerNode : function(nfo){
         if (nfo && nfo.id){
-            var existing = this.knownNodes[nfo.id];
+            var existingInd = this.knownNodes.findIndex(n => n.id == nfo.id);
+            var existing = this.knownNodes[existingInd];
             if (this.routerId) {
                 this.routeLocal(this.routerId, {
                     type: "method",
@@ -398,12 +404,12 @@ Inherit(DiscoveryService, Service, {
             }
             if (!existing) {
                 Frame.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
-                this.knownNodes[nfo.id] = nfo;
+                this.knownNodes.push(nfo);
                 return true;
             } else {
                 if (existing.rank > nfo.rank) {
                     Frame.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
-                    this.knownNodes[nfo.id] = nfo;
+                    this.knownNodes[existingInd] = nfo;
                     return true;
                 }
             }
@@ -428,13 +434,12 @@ Inherit(DiscoveryService, Service, {
     recheckKnownNodes: function () {
         var self = this;
         this.serverPool.forEach((server)=> {
-            for (var item in this.knownNodes){
-                Frame.log("rechecking known node " + item + " from " + server.localAddress);
-                var node = this.knownNodes[item];
-                if (node.port && node.address && ["self", "local"].indexOf(node.type) < 0 && node.id != self.serviceId) {
-                    server.sendHello(node.address, node.port);
-                }
-            }
+            this.knownNodes.forEach((node, i) => {
+              Frame.log("rechecking known node " + node.id + " from " + server.localAddress);
+              if (node.port && node.address && ["self", "local"].indexOf(node.type) < 0 && node.id != self.serviceId) {
+                  server.sendHello(node.address, node.port);
+              }
+            });
         });
         return null;
     },

@@ -5,6 +5,12 @@
   "ServicesWebSocketProxy": {
     "port": 5700
   },
+  "RoutingService": {
+
+  },
+  "DiscoveryService": {
+
+  },
   "FilesService":{
     "basepath": ""
   },

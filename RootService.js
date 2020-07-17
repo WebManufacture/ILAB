@@ -183,7 +183,7 @@ function _init() {
     };
 
     global.RootService = function RootService() {
-        console.log("RootService for ILAB v3.8.1");
+        console.log("RootService for ILAB v3.8.2");
         this.serviceType = "RootService";
         try {
             var servicesToStart = _parseCmd();
@@ -290,7 +290,7 @@ function _init() {
                 startOldMethod();
             }
         } catch (err) {
-            console.log("RootError: ");
+            console.log("RootError: ", err.message);
             console.error(err);
         }
     };

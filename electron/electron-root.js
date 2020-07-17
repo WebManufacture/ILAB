@@ -132,4 +132,5 @@ process.once("ilab-started", () => {
   sendMessage("services-started");
 });
 
+console.log("CurrentDir: ", Path.resolve('.'));
 const rootService = require(Path.resolve("RootService.js"));
