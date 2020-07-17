@@ -180,14 +180,18 @@ function DiscoveryService(config){
                     address: rinfo.address,
                     port: rinfo.port,
                     tcpPort: obj.tcpPort,
-                    managerId: obj.parentId,
-                    managerPort: obj.parentPort,
-                    localId: obj.localId
+                    parentId: obj.parentId,
+                    parentLocalId: this.localId,
+                    parentPort: obj.parentPort,
+                    localId: obj.localId,
+                    proxy: this.serviceId
                 });
             });
             server.on("see-you", (obj, rinfo) => {
                 Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
                 //Frame.log(obj);
+                //TODO: Integrate NAT Polling
+                /*
                 this.routingService.RegisterNode({
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
@@ -196,10 +200,12 @@ function DiscoveryService(config){
                     address: rinfo.address,
                     port: rinfo.port,
                     tcpPort: obj.tcpPort,
-                    managerId: obj.parentId,
-                    managerPort: obj.parentPort,
-                    localId: obj.localId
-                });
+                    parentId: obj.parentId,
+                    parentLocalId: obj.parentLocalId,
+                    parentPort: obj.parentPort,
+                    localId: this.localId,
+                    proxy: this.serviceId
+                });*/
                 /*if (rinfo.address != obj.myAddress || rinfo.port != obj.myPort){
                     server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 }*/
@@ -251,8 +257,10 @@ function DiscoveryService(config){
                               serviceType: node.serviceType,
                               tcpPort: node.tcpPort,
                               parentId: obj.id,
+                              parentLocalId: obj.localId,
                               parentType: obj.serviceType,
-                              localId: obj.localId
+                              localId: obj.localId,
+                              proxy: this.serviceId
                           })
                           /* //For 3d circle of nodes
                           if (result && node.address && node.port && (node.id != self.serviceId)){
