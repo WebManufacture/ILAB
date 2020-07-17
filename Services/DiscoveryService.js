@@ -182,6 +182,7 @@ function DiscoveryService(config){
     var interfaces = os.networkInterfaces();
     for (var item in interfaces){
         interfaces[item].forEach((config) => {
+            console.log(config)
             if (!config.internal && config.mac != "00:00:00:00:00:00" && config.family != "IPv6"){
                 config.name = item;
                 this.interfacePoints.push(config);
@@ -241,6 +242,23 @@ function DiscoveryService(config){
                     serviceType: "DiscoveryService"
                 });
             });
+            server.on("check-alive", (obj, rinfo) => {
+                server.send(rinfo.address, rinfo.port, {
+                    type: "is-alive",
+                    id: this.serviceId,
+                    serviceType: "DiscoveryService",
+                    localId: obj.localId,
+                    isAlive: this.knownNodes.findIndex(n => n.localId == obj.localId) >= 0;
+                });
+            });
+            server.on("is-alive", (obj, rinfo) => {
+                if (!obj.isAlive){
+                  const exId = this.knownNodes.findIndex(n => n.localId == obj.localId);
+                  if (exId < 0)
+                    this.knownNodes.splice(exId, 1);
+                  Frame.log("Removed " + exId + ":" + obj.localId);
+                }
+            });
             server.on("get-known", (obj, rinfo) => {
                 server.send(rinfo.address, rinfo.port, {
                     type: "i-know",
@@ -251,6 +269,7 @@ function DiscoveryService(config){
             });
             //eval("console.log('eval')");
             server.on("i-know", (obj, rinfo)=>{
+            console.log("I Known", obj);
                 if (obj.knownNodes) {
                     if (Array.isArray(obj.knownNodes)) {
                         obj.knownNodes.forEach((node) => {
@@ -371,15 +390,15 @@ function DiscoveryService(config){
 
     setInterval(()=>{
         this.recheckConfiguredServers();
-    }, 60000);
-
+    }, 16000);
+/*
     setInterval(()=>{
         this.recheckKnownNodes();
     }, 120000);
-
+*/
     setTimeout(()=>{
       this.recheckConfiguredServers();
-      this.recheckKnownNodes();
+      //this.recheckKnownNodes();
     }, 2000)
     return result;
 }
@@ -407,12 +426,16 @@ Inherit(DiscoveryService, Service, {
                 });
             }
             if (!existing) {
-                Frame.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
+                if (!nfo.localId)
+                  nfo.localId = (Math.random() + "").replace("0.", "");
+                Frame.log("registered node " + nfo.localId + " - " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
                 this.knownNodes.push(nfo);
                 return true;
             } else {
                 if (existing.rank > nfo.rank) {
-                    Frame.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
+                    if (!nfo.localId)
+                      nfo.localId = (Math.random() + "").replace("0.", "");
+                    Frame.log("replacing node " + existing.localId + " -> " + nfo.localId + " - " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
                     this.knownNodes[existingInd] = nfo;
                     return true;
                 }
@@ -439,9 +462,14 @@ Inherit(DiscoveryService, Service, {
         var self = this;
         this.serverPool.forEach((server)=> {
             this.knownNodes.forEach((node, i) => {
-              Frame.log("rechecking known node " + node.id + " from " + server.localAddress);
+              Frame.log("rechecking known node " + node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
               if (node.port && node.address && ["self", "local"].indexOf(node.type) < 0 && node.id != self.serviceId) {
-                  server.sendHello(node.address, node.port);
+                  server.send(node.address, node.port, {
+                      type: "check-alive",
+                      id: this.serviceId,
+                      serviceType: "DiscoveryService",
+                      localId: node.localId
+                  }, node.address, node.port);
               }
             });
         });
