@@ -133,13 +133,15 @@ function DiscoveryService(config){
             cidr:"fe80::d969:68fc:938:ca1b/64",
         }
     */
+    this.localId = (Math.random() + "").replace("0.", "");
 
     this.registerNode({
         id: this.serviceId,
         type: "self",
         rank: 1,
         serviceType: "DiscoveryService",
-        tcpPort: this.port
+        tcpPort: this.port,
+        localId: this.localId
     });
 
     this.routerId == "";
@@ -154,7 +156,8 @@ function DiscoveryService(config){
                 type: "local",
                 rank: 2,
                 serviceType: service.serviceType,
-                tcpPort: service.port
+                tcpPort: service.port,
+                localId: (Math.random() + "").replace("0.", "")
             });
         });
     });
@@ -168,12 +171,13 @@ function DiscoveryService(config){
             type: "local",
             rank: 5,
             serviceType: description.serviceType,
-            tcpPort: description.tcpPort
+            tcpPort: description.tcpPort,
+            localId: (Math.random() + "").replace("0.", "")
         });
     });
 
     ServicesManager.on("service-exited",(serviceId, servicePort) => {
-        const ind = this.knownNodes.findIndex((item) => item && item.id == serviceId);
+        const ind = this.knownNodes.findIndex((item) => item && item.id == serviceId && item.rank < 10);
         if (ind >= 0) {
           this.knownNodes.splice(ind, 1);
         }
@@ -241,7 +245,8 @@ function DiscoveryService(config){
                 server.send(rinfo.address, rinfo.port, {
                     type: "get-known",
                     id: this.serviceId,
-                    serviceType: "DiscoveryService"
+                    serviceType: "DiscoveryService",
+                    localId: this.localId
                 });
             });
             server.on("check-alive", (obj, rinfo) => {
