@@ -253,21 +253,22 @@ function DiscoveryService(config){
                 });
             });
             server.on("check-alive", (obj, rinfo) => {
-                console.log("check-Alive", obj);
+                const index =  this.knownNodes.findIndex(n => n.localId == obj.localId);
+                //console.log("check-Alive", obj.localId, index);
                 server.send(rinfo.address, rinfo.port, {
                     type: "is-alive",
                     id: this.serviceId,
                     serviceType: "DiscoveryService",
                     localId: obj.localId,
-                    isAlive: this.knownNodes.findIndex(n => n.localId == obj.localId) >= 0
+                    isAlive: index >= 0
                 });
             });
             server.on("is-alive", (obj, rinfo) => {
                 if (!obj.isAlive){
                   const exId = this.knownNodes.findIndex(n => n.localId == obj.localId);
                   if (exId >= 0){
-                    console.log("Died!", this.knownNodes[exId]);
-                    this.knownNodes.splice(exId, 1);
+                    //console.log("Died!", this.knownNodes[exId]);
+                    //this.knownNodes.splice(exId, 1);
                   }
                 }
             });
