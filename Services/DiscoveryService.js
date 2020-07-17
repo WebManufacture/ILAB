@@ -243,20 +243,23 @@ function DiscoveryService(config){
                 });
             });
             server.on("check-alive", (obj, rinfo) => {
+                console.log("check-Alive", obj);
                 server.send(rinfo.address, rinfo.port, {
                     type: "is-alive",
                     id: this.serviceId,
                     serviceType: "DiscoveryService",
                     localId: obj.localId,
-                    isAlive: this.knownNodes.findIndex(n => n.localId == obj.localId) >= 0;
+                    isAlive: this.knownNodes.findIndex(n => n.localId == obj.localId) >= 0
                 });
             });
             server.on("is-alive", (obj, rinfo) => {
+                console.log("isAlive", obj);
                 if (!obj.isAlive){
                   const exId = this.knownNodes.findIndex(n => n.localId == obj.localId);
-                  if (exId < 0)
+                  if (exId < 0){
                     this.knownNodes.splice(exId, 1);
-                  Frame.log("Removed " + exId + ":" + obj.localId);
+                    Frame.log("Removed " + exId + ":" + obj.localId);
+                  }
                 }
             });
             server.on("get-known", (obj, rinfo) => {
@@ -269,7 +272,6 @@ function DiscoveryService(config){
             });
             //eval("console.log('eval')");
             server.on("i-know", (obj, rinfo)=>{
-            console.log("I Known", obj);
                 if (obj.knownNodes) {
                     if (Array.isArray(obj.knownNodes)) {
                         obj.knownNodes.forEach((node) => {
@@ -391,11 +393,11 @@ function DiscoveryService(config){
     setInterval(()=>{
         this.recheckConfiguredServers();
     }, 16000);
-/*
+
     setInterval(()=>{
         this.recheckKnownNodes();
-    }, 120000);
-*/
+    }, 10000);
+
     setTimeout(()=>{
       this.recheckConfiguredServers();
       //this.recheckKnownNodes();
@@ -469,7 +471,7 @@ Inherit(DiscoveryService, Service, {
                       id: this.serviceId,
                       serviceType: "DiscoveryService",
                       localId: node.localId
-                  }, node.address, node.port);
+                  });
               }
             });
         });
