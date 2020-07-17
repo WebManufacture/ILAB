@@ -202,8 +202,8 @@ function DiscoveryService(config){
         this.serverPool.push(server);
         server.once("ready", ()=>{
             server.on("hello", (obj, rinfo) => {
-                if (obj.id == this.serviceId) return;
-                //Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
+                if (obj.id == this.serviceId && obj.myAddress == point.address) return;
+                Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
                 //Frame.log(obj);
                 server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 this.registerNode( {
@@ -219,7 +219,7 @@ function DiscoveryService(config){
                 });
             });
             server.on("see-you", (obj, rinfo) => {
-                console.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
+                Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
                 //Frame.log(obj);
                 this.registerNode({
                     id: obj.id,
@@ -377,6 +377,10 @@ function DiscoveryService(config){
         this.recheckKnownNodes();
     }, 120000);
 
+    setTimeout(()=>{
+      this.recheckConfiguredServers();
+      this.recheckKnownNodes();
+    }, 2000)
     return result;
 }
 
