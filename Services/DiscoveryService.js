@@ -279,7 +279,7 @@ function DiscoveryService(config){
                             var result = this.registerNode({
                                 id: node.id,
                                 type: "routed",
-                                rank: node.type == 'local' ? 50: 60,
+                                rank: node.type == node.rank < 10 ? 50: 60,
                                 address: node.address ? node.address : rinfo.address,
                                 port: node.port ? node.port: rinfo.port,
                                 serviceType: node.serviceType,
@@ -299,7 +299,7 @@ function DiscoveryService(config){
                             var result = this.registerNode({
                                 id: node.id,
                                 type: "routed",
-                                rank: node.type == 'local' ? 50: 60,
+                                rank: node.type == node.rank < 10 ? 50: 60,
                                 address: node.address ? node.address : rinfo.address,
                                 port: node.port ? node.port: rinfo.port,
                                 serviceType: node.serviceType,
@@ -414,8 +414,7 @@ Inherit(DiscoveryService, Service, {
 
     registerNode : function(nfo){
         if (nfo && nfo.id){
-            var existingInd = this.knownNodes.findIndex(n => (nfo.localId ? n.localId == nfo.localId : true) && nfo.id == nfo.id);
-            var existing = this.knownNodes[existingInd];
+            var existingInd = this.knownNodes.findIndex(n => (n.id == nfo.id) && (nfo.localId ? n.localId == nfo.localId : true));
             if (this.routerId) {
                 this.routeLocal(this.routerId, {
                     type: "method",
@@ -430,16 +429,19 @@ Inherit(DiscoveryService, Service, {
                     }]
                 });
             }
-            if (!existing) {
-                if (!nfo.localId)
+            if (existingInd < 0) {
+                if (!nfo.localId){
                   nfo.localId = (Math.random() + "").replace("0.", "");
+                }
                 Frame.log("registered node " + nfo.localId + " - " + nfo.rank + ":" + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
                 this.knownNodes.push(nfo);
                 return true;
             } else {
-                if (existing.rank > nfo.rank) {
-                    if (!nfo.localId)
+                var existing = this.knownNodes[existingInd];
+                if (existing && existing.rank > nfo.rank) {
+                    if (!nfo.localId){
                       nfo.localId = (Math.random() + "").replace("0.", "");
+                    }
                     Frame.log("replacing node " + existing.localId + " -> " + nfo.localId + " - " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
                     this.knownNodes[existingInd] = nfo;
                     return true;
