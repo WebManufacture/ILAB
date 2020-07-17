@@ -27,7 +27,9 @@ function RoutingService(config){
     }
 
     this.CheckAlive = (obj) => {
-       return this.getNodeIndex(obj) >= 0;
+       return this.knownNodes.findIndex(n =>
+         n.rank < 10 && obj.id == n.id && (obj.localId ? n.localId == obj.localId : true))
+       >= 0;
     }
 
     this.DeleteNode = (obj) => {
