@@ -7,7 +7,7 @@ var EventEmitter = require('events');
 var JsonSocket = useModule('jsonsocket');
 var UdpJsonServer = useModule('UdpJsonServer');
 
-function UdpServer(netInterface, config, localId) {
+function UdpServer(localId, netInterface, config) {
     this._super.apply(this);
     var self = this;
     this.localId = localId;
@@ -77,11 +77,6 @@ function DiscoveryService(config){
     var self = this;
     // это публичная функция:
 
-    this.knownNodes = [];
-
-    this.GetKnownNodes = function() {
-        return this.knownNodes;
-    };
     this.GetARP = function() {
         return new Promise(function (resolve, reject) {
            var hosts = [];
@@ -116,80 +111,43 @@ function DiscoveryService(config){
 
     var result = Service.apply(this, arguments);
 
+
+    this.interfacePoints = [];
+    this.serverPool = [];
+    this.localId = (Math.random() + "").replace("0.", "");
+    this.routerId == "";
+
     const routingServiceId = config.routingServiceId ? config.routingServiceId:"RoutingService";
     this.connect(routingServiceId).then((service)=>{
       Frame.log("Routing service connected");
       this.routingService = service;
-    });
-
-    this.interfacePoints = [];
-    this.serverPool = [];
-    /*
-        {
-            name: "Wi-Fi",
-            address:"fe80::d969:68fc:938:ca1b",
-            netmask:"ffff:ffff:ffff:ffff::",
-            family:"IPv6",
-            mac:"7c:5c:f8:3f:ed:55",
-            scopeid:16,
-            internal:false,
-            cidr:"fe80::d969:68fc:938:ca1b/64",
-        }
-    */
-    this.localId = (Math.random() + "").replace("0.", "");
-
-    this.registerNode({
-        id: this.serviceId,
-        type: "self",
-        rank: 1,
-        serviceType: "DiscoveryService",
-        tcpPort: this.port,
-        localId: this.localId
-    });
-
-    this.routerId == "";
-
-    ServicesManager.GetServicesInfo().then((services)=>{
-        services.forEach((service)=> {
-            if (service.serviceType == "RoutingService"){
-                this.routerId = service.id;
-            }
-            this.registerNode({
-                id: service.resultId,
-                type: "local",
-                rank: 2,
-                serviceType: service.serviceType,
-                tcpPort: service.port,
-                localId: (Math.random() + "").replace("0.", "")
+      /*  //DON't need register itself
+          this.routingService.RegisterNode({
+                id: this.serviceId,
+                type: "self",
+                rank: 1,
+                serviceType: "DiscoveryService",
+                tcpPort: this.port,
+                localId: this.localId
             });
-        });
-    });
+      */
+      setInterval(()=>{
+          this.recheckConfiguredServers();
+      }, 16000);
 
-    ServicesManager.on("service-started", (serviceId, config, description) => {
-        if (service.serviceType == "RoutingService"){
-            this.routerId = serviceId;
-        }
-        this.registerNode({
-            id: serviceId,
-            type: "local",
-            rank: 5,
-            serviceType: description.serviceType,
-            tcpPort: description.tcpPort,
-            localId: (Math.random() + "").replace("0.", "")
-        });
-    });
+      setInterval(()=>{
+          this.recheckKnownNodes();
+      }, 10000);
 
-    ServicesManager.on("service-exited",(serviceId, servicePort) => {
-        const ind = this.knownNodes.findIndex((item) => item && item.id == serviceId && item.rank < 10);
-        if (ind >= 0) {
-          this.knownNodes.splice(ind, 1);
-        }
+      setTimeout(()=>{
+        this.recheckConfiguredServers();
+        //this.recheckKnownNodes();
+      }, 2000)
     });
 
     var interfaces = os.networkInterfaces();
     for (var item in interfaces){
         interfaces[item].forEach((config) => {
-            console.log(config)
             if (!config.internal && config.mac != "00:00:00:00:00:00" && config.family != "IPv6"){
                 config.name = item;
                 this.interfacePoints.push(config);
@@ -198,7 +156,7 @@ function DiscoveryService(config){
     };
 
     this.interfacePoints.forEach((point) =>{
-        var server = new UdpServer(point, {
+        var server = new UdpServer(this.localId, point, {
             name: point.name,
             ip: point.address,
             mask: point.mask,
@@ -206,15 +164,15 @@ function DiscoveryService(config){
             port: config.port,
             tcpPort: this.port,
             serviceId: this.serviceId
-        }, this.localId);
+        });
         this.serverPool.push(server);
         server.once("ready", ()=>{
             server.on("hello", (obj, rinfo) => {
-                if (obj.id == this.serviceId && obj.myAddress == point.address) return;
+                if (obj.localId == this.localId) return;
                 Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
                 //Frame.log(obj);
                 server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
-                this.registerNode( {
+                this.routingService.RegisterNode({
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
                     rank: rinfo.address == obj.myAddress ? 10: (rinfo.port == obj.myPort ? 20 : 30),
@@ -230,7 +188,7 @@ function DiscoveryService(config){
             server.on("see-you", (obj, rinfo) => {
                 Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
                 //Frame.log(obj);
-                this.registerNode({
+                this.routingService.RegisterNode({
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
                     rank: rinfo.address == obj.myAddress ? 10: (rinfo.port == obj.myPort ? 20 : 30),
@@ -253,140 +211,90 @@ function DiscoveryService(config){
                 });
             });
             server.on("check-alive", (obj, rinfo) => {
-                const index =  this.knownNodes.findIndex(n => n.localId == obj.localId);
-                //console.log("check-Alive", obj.localId, index);
-                server.send(rinfo.address, rinfo.port, {
-                    type: "is-alive",
-                    id: this.serviceId,
-                    serviceType: "DiscoveryService",
-                    localId: obj.localId,
-                    isAlive: index >= 0
+                this.routingService.checkAlive(obj).then(alive => {
+                  server.send(rinfo.address, rinfo.port, {
+                      type: "is-alive",
+                      id: this.serviceId,
+                      serviceType: "DiscoveryService",
+                      localId: obj.localId,
+                      isAlive: alive
+                  });
                 });
             });
             server.on("is-alive", (obj, rinfo) => {
                 if (!obj.isAlive){
-                  const exId = this.knownNodes.findIndex(n => n.localId == obj.localId);
-                  if (exId >= 0){
-                    //console.log("Died!", this.knownNodes[exId]);
-                    //this.knownNodes.splice(exId, 1);
-                  }
+                  this.routingService.DeleteNode(obj);
                 }
             });
             server.on("get-known", (obj, rinfo) => {
-                server.send(rinfo.address, rinfo.port, {
-                    type: "i-know",
-                    id: this.serviceId,
-                    serviceType: "DiscoveryService",
-                    knownNodes: this.knownNodes
+                this.routingService.GetKnownNodes().then((nodes)=> {
+                  server.send(rinfo.address, rinfo.port, {
+                      type: "i-know",
+                      id: this.serviceId,
+                      serviceType: "DiscoveryService",
+                      knownNodes: nodes
+                  });
                 });
             });
             //eval("console.log('eval')");
             server.on("i-know", (obj, rinfo)=>{
                 if (obj.knownNodes) {
-                    if (Array.isArray(obj.knownNodes)) {
-                        obj.knownNodes.forEach((node) => {
-                            var result = this.registerNode({
-                                id: node.id,
-                                type: "routed",
-                                rank: node.type == node.rank < 10 ? 50: 60,
-                                address: node.address ? node.address : rinfo.address,
-                                port: node.port ? node.port: rinfo.port,
-                                serviceType: node.serviceType,
-                                tcpPort: node.tcpPort,
-                                parentId: obj.id,
-                                parentType: obj.serviceType,
-                                localId: obj.localId
-                            });
-                            if (result && node.address && node.port && (node.id != self.serviceId)){
-                                //console.log(node);
-                                server.sendHello(node.address, node.port);
-                            }
-                        });
-                    } else {
-                        for (var item in obj.knownNodes){
-                            var node = obj.knownNodes[item];
-                            var result = this.registerNode({
-                                id: node.id,
-                                type: "routed",
-                                rank: node.type == node.rank < 10 ? 50: 60,
-                                address: node.address ? node.address : rinfo.address,
-                                port: node.port ? node.port: rinfo.port,
-                                serviceType: node.serviceType,
-                                tcpPort: node.tcpPort,
-                                parentId: obj.id,
-                                parentType: obj.serviceType,
-                                localId: obj.localId
-                            });
-                        }
-                    }
+                  const nodes = [];
+                  if (Array.isArray(obj.knownNodes)) {
+                      obj.knownNodes.forEach((node) => {
+                          nodes.push({
+                              id: node.id,
+                              type: "routed",
+                              rank: node.type == node.rank < 10 ? 50: 60,
+                              address: node.address ? node.address : rinfo.address,
+                              port: node.port ? node.port: rinfo.port,
+                              serviceType: node.serviceType,
+                              tcpPort: node.tcpPort,
+                              parentId: obj.id,
+                              parentType: obj.serviceType,
+                              localId: obj.localId
+                          })
+                          /* //For 3d circle of nodes
+                          if (result && node.address && node.port && (node.id != self.serviceId)){
+                              server.sendHello(node.address, node.port);
+                          }*/
+                      });
+                  }
+                  this.routingService.RegisterNodes(nodes).then(knownNodes => {
+
+                  });
                 }
             });
 
             server.on("local", (obj, rinfo) => {
-                var destination = obj.destinationId;
-                var node = this.knownNodes.find(n => n.id == destinationId);
-                if (node){
-                    if (node.type == "local"){
-                        try {
-                            var socket = new JsonSocket(Frame.getPipe(obj.to), function () {
-                                Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
-                                socket.write(obj);
-                                socket.end();
-                            });
-                            socket.on('error', (err) => {
-                                Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
-                            });
-                        }
-                        catch (err) {
-                            Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
-                        }
-                    }
-                }
-            });
-
-            server.on("proxy", (obj, rinfo) => {
-                var destination = obj.destinationId;
-                var node = this.knownNodes.find(n => n.id == destinationId);
-                if (node){
-                    if (node.type == "local"){
-                        try {
-                            if (this.routerId) {
-                                var socket = new JsonSocket(Frame.getPipe(this.routerId), function () {
-                                    Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
-                                    socket.write(obj);
-                                    socket.end();
-                                });
-                                socket.on('error', (err) => {
-                                    Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
-                                });
-                            }
-                        }
-                        catch (err) {
-                            Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
-                        }
-                    }
-                }
+              try {
+                  var socket = new JsonSocket(Frame.getPipe(obj.destination), function () {
+                      Frame.log("Udp proxying from " + obj.source + " to " + obj.destination);
+                      socket.write(obj);
+                      socket.end();
+                  });
+                  socket.on('error', (err) => {
+                      Frame.error("Error proxying packet from " + obj.source + " to " + obj.destination, err);
+                  });
+              }
+              catch (err) {
+                  Frame.error("Error proxying packet from " + obj.source + " to " + obj.destination, err);
+              }
             });
 
             server.on("tcp-proxy", (obj, rinfo) => {
-                var destination = obj.destinationId;
-                var node = this.knownNodes.find(n => n.id == destinationId);
-                if (node){
-                    if (node.type == "local"){
-                            try {
-                                var socket = new JsonSocket(node.tcpPort, obj.host, function () {
-                                    Frame.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
-                                    socket.write(obj);
-                                    socket.end();
-                                });
-                                socket.on('error', (err)=>{
-                                    Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
-                                });
-                            }
-                            catch (err) {
-                                Frame.error("Error proxying packet from " + obj.sourceId + " to " + destination, err);
-                            }
-                    }
+                try {
+                    var socket = new JsonSocket(obj.tcpPort, obj.host, function () {
+                        Frame.log("Udp proxying from " + obj.source + " to " + obj.tcpPort + ":" + obj.host);
+                        socket.write(obj);
+                        socket.end();
+                    });
+                    socket.on('error', (err)=>{
+                        Frame.error("Error proxying packet from "  + obj.source + " to " + obj.tcpPort + ":" + obj.host, err);
+                    });
+                }
+                catch (err) {
+                    Frame.error("Error proxying packet from "  + obj.source + " to " + obj.tcpPort + ":" + obj.host, err);
                 }
             });
 
@@ -402,64 +310,12 @@ function DiscoveryService(config){
 
     this.configuredHosts = config.hosts;
 
-    setInterval(()=>{
-        this.recheckConfiguredServers();
-    }, 16000);
-
-    setInterval(()=>{
-        this.recheckKnownNodes();
-    }, 10000);
-
-    setTimeout(()=>{
-      this.recheckConfiguredServers();
-      //this.recheckKnownNodes();
-    }, 2000)
     return result;
 }
 
 DiscoveryService.serviceId = "DiscoveryService";
 
 Inherit(DiscoveryService, Service, {
-
-    registerNode : function(nfo){
-        if (nfo && nfo.id){
-            var existingInd = this.knownNodes.findIndex(n => (n.id == nfo.id) && (nfo.localId ? n.localId == nfo.localId : true));
-            if (this.routerId) {
-                this.routeLocal(this.routerId, {
-                    type: "method",
-                    name: "RegisterNode",
-                    args: [{
-                        id: nfo.id,
-                        rank: 60,
-                        type: "routed",
-                        providerId: this.serviceId,
-                        serviceType: nfo.serviceType,
-                        data: nfo
-                    }]
-                });
-            }
-            if (existingInd < 0) {
-                if (!nfo.localId){
-                  nfo.localId = (Math.random() + "").replace("0.", "");
-                }
-                Frame.log("registered node " + nfo.localId + " - " + nfo.rank + ":" + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
-                this.knownNodes.push(nfo);
-                return true;
-            } else {
-                var existing = this.knownNodes[existingInd];
-                if (existing && existing.rank > nfo.rank) {
-                    if (!nfo.localId){
-                      nfo.localId = (Math.random() + "").replace("0.", "");
-                    }
-                    Frame.log("replacing node " + existing.localId + " -> " + nfo.localId + " - " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
-                    this.knownNodes[existingInd] = nfo;
-                    return true;
-                }
-            }
-        }
-        return false;
-    },
-
     recheckConfiguredServers: function () {
         var self = this;
         this.serverPool.forEach((server)=> {
@@ -477,72 +333,22 @@ Inherit(DiscoveryService, Service, {
     recheckKnownNodes: function () {
         var self = this;
         this.serverPool.forEach((server)=> {
-            this.knownNodes.forEach((node) => {
-              if (node.port && node.address && node.rank > 10 && node.id != self.serviceId) {
-                  Frame.log("rechecking known node " + node.localId + " - "+ node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
-                  server.send(node.address, node.port, {
-                      type: "check-alive",
-                      id: this.serviceId,
-                      serviceType: "DiscoveryService",
-                      localId: node.localId
-                  });
-              }
-            });
-        });
-        return null;
-    },
-
-
-    recheckOld: function (hosts) {
-        var self = this;
-        hosts.forEach((node)=>{
-            self.udpServer.send("HI!", 41234, node.host);
-            self.tryConnectExternalSM(node.host, node.port).then((socket)=>{
-                socket = new JsonSocket(socket);
-                socket.write({"type": "startup", args: this.helloInfo});
-                function raiseError(err) {
-                    console.log("Socket error while attach to " + node.host + ":" + node.port);
-                    console.error(err);
-                    socket.removeAllListeners();
-                    socket.close();
-                }
-                socket.on('error', raiseError);
-                socket.once("json", function (proxyObj) {
-                    node.proxy = proxyObj;
-                    var nodeInfo =  {
-                        host: node.host,
-                        port: node.port,
-                        id : proxyObj.serviceId,
-                        type: proxyObj.type
-                    };
-                    self.knownNodes.push(nodeInfo);
-                    self.emit("connected", proxyObj);
-                    console.log("Found node: " + proxyObj.serviceId);
-                    socket.once("json", function (info) {
-                        if (info && info.result) {
-                            nodeInfo.info = info.result;
-                            //console.log(info.result);
-                            var discoveries = info.result.filter(s => s.serviceType == "DiscoveryService");
-                            if (discoveries.length){
-                                console.log("Found discovery");
-                                console.log(discoveries);
-                                discoveries.forEach((info)=>{
-                                    self.connectDiscovery(node.host, info.port, info.resultId, nodeInfo);
-                                });
-                            }
-                        }
-                        socket.close();
+            this.routingService.GetKnownNodes().then((nodes) => {
+              nodes.forEach(node => {
+                if (node.port && node.address && node.rank > 10 && node.id != self.serviceId) {
+                    Frame.log("rechecking known node " + node.localId + " - "+ node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
+                    server.send(node.address, node.port, {
+                        type: "check-alive",
+                        id: this.serviceId,
+                        serviceType: "DiscoveryService",
+                        localId: node.localId
                     });
-                    socket.write({type: "method", name : "GetServicesInfo"});
-                });
-            }).catch(err => {
-                this.emit('socket-error', 'error connection to ' + node.host + ":" + node.port);
-                this.emit('socket-error', err);
+                }
+              });
             });
         });
         return null;
     },
-
 
     tryConnectExternalSM: function(host, port){
         return new Promise((resolve, reject)=> {
@@ -559,18 +365,7 @@ Inherit(DiscoveryService, Service, {
                 reject(err);
             }
         });
-    },
-
-    connectDiscovery : function(host, port, id, node){
-        ServiceProxy.connect(host + ":" + port, id).then((discovery)=>{
-            node.service = discovery;
-            discovery.RegisterNode(this.helloInfo).then(()=>{
-
-            });
-        }).catch((err)=>{
-
-        });
-    },
+    }
 });
 
 module.exports = DiscoveryService;

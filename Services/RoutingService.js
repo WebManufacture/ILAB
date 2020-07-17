@@ -9,12 +9,33 @@ function RoutingService(config){
 
     this.knownNodes = [];
 
-    this.GetKnownNodes = function() {
+    this.GetKnownNodes = () => {
         return this.knownNodes;
     };
 
-    this.RegisterNode = function(info){
+    this.RegisterNode = (info) => {
         return this.registerNode(info);
+    };
+
+    this.RegisterNodes = (nodes) => {
+      if (Array.isArray(nodes)) {
+          nodes.forEach((node) => {
+              this.registerNode(node);
+          });
+      }
+      return this.knownNodes;
+    }
+
+    this.CheckAlive = (obj) => {
+       return this.getNodeIndex(obj) >= 0;
+    }
+
+    this.DeleteNode = (obj) => {
+        const exId = this.getNodeIndex(obj);
+        if (exId >= 0){
+          console.log("Died!", this.knownNodes[exId]);
+          this.knownNodes.splice(exId, 1);
+        }
     };
 
     this.RoutePacket = function(packet){
@@ -54,60 +75,92 @@ function RoutingService(config){
     });
 
     ServicesManager.GetServicesInfo().then((services)=>{
-        services.forEach((service)=> {
-            self.registerNode({
+          services.forEach((service)=> {
+              if (service.serviceType == "RoutingService"){
+                  this.routerId = service.id;
+              }
+              this.registerNode({
                 id: service.resultId,
                 type: "local",
-                rank: 6,
+                rank: 5,
                 serviceType: service.serviceType,
-                data: {
-                    tcpPort: service.port
-                }
+                tcpPort: service.port,
+                localId: (Math.random() + "").replace("0.", "")
             });
         });
     });
 
     ServicesManager.on("service-started", (serviceId, config, description) => {
-        self.registerNode({
+        if (service.serviceType == "RoutingService" && serviceId == this.serviceId){
+            return;
+        }
+        this.registerNode({
             id: serviceId,
             type: "local",
             rank: 5,
             serviceType: description.serviceType,
-            data: {
-                tcpPort: description.tcpPort
-            }
+            tcpPort: description.tcpPort,
+            localId: (Math.random() + "").replace("0.", "")
         });
     });
 
+
     ServicesManager.on("service-exited",(serviceId, servicePort) => {
-        var node = this.knownNodes.find(n => n.id == serviceId);
-        if (node){
-            node.rank = 100;
+        const ind = this.knownNodes.findIndex((item) => item && item.id == serviceId && item.rank < 10);
+        if (ind >= 0) {
+          this.knownNodes.splice(ind, 1);
         }
     });
+
 
     return result;
 }
 
 Inherit(RoutingService, Service, {
-    registerNode : function(nfo){
-        if (nfo && nfo.id){
-            var existing = this.knownNodes.find(n => n.id == nfo.id);
-            var index = this.knownNodes.indexOf(n => n.id == nfo.id);
-            if (!existing) {
-                Frame.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
-                this.knownNodes.push(nfo);
-                return true;
-            } else {
-                if (existing.rank > nfo.rank) {
-                    Frame.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
-                    this.knownNodes[index] = nfo;
-                    return true;
-                }
-            }
-        }
-        return false;
-    },
+
+      getNodeIndex: function(obj){
+        return this.knownNodes.findIndex(n =>
+          obj.id == n.id && (obj.localId ? n.localId == obj.localId : true))
+      },
+
+      registerNode : function(nfo){
+          if (nfo && nfo.id){
+              var existingInd = this.knownNodes.findIndex(n => (n.id == nfo.id) && (nfo.localId ? n.localId == nfo.localId : true));
+              /*if (this.routerId) {
+                  this.routeLocal(this.routerId, {
+                      type: "method",
+                      name: "RegisterNode",
+                      args: [{
+                          id: nfo.id,
+                          rank: 60,
+                          type: "routed",
+                          providerId: this.serviceId,
+                          serviceType: nfo.serviceType,
+                          data: nfo
+                      }]
+                  });
+              }*/
+              if (existingInd < 0) {
+                  if (!nfo.localId){
+                    nfo.localId = (Math.random() + "").replace("0.", "");
+                  }
+                  Frame.log("registered node " + nfo.localId + " - " + nfo.rank + ":" + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
+                  this.knownNodes.push(nfo);
+                  return true;
+              } else {
+                  var existing = this.knownNodes[existingInd];
+                  if (existing && existing.rank > nfo.rank) {
+                      if (!nfo.localId){
+                        nfo.localId = (Math.random() + "").replace("0.", "");
+                      }
+                      Frame.log("replacing node " + existing.localId + " -> " + nfo.localId + " - " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
+                      this.knownNodes[existingInd] = nfo;
+                      return true;
+                  }
+              }
+          }
+          return false;
+      },
 
     route: function (packet, id) {
         if (!id) id = packet.to;
