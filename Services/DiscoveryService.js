@@ -152,7 +152,7 @@ function DiscoveryService(config){
             this.registerNode({
                 id: service.resultId,
                 type: "local",
-                rank: 6,
+                rank: 2,
                 serviceType: service.serviceType,
                 tcpPort: service.port
             });
@@ -216,7 +216,8 @@ function DiscoveryService(config){
                     port: rinfo.port,
                     tcpPort: obj.tcpPort,
                     managerId: obj.parentId,
-                    managerPort: obj.parentPort
+                    managerPort: obj.parentPort,
+                    localId: obj.localId
                 });
             });
             server.on("see-you", (obj, rinfo) => {
@@ -231,7 +232,8 @@ function DiscoveryService(config){
                     port: rinfo.port,
                     tcpPort: obj.tcpPort,
                     managerId: obj.parentId,
-                    managerPort: obj.parentPort
+                    managerPort: obj.parentPort,
+                    localId: obj.localId
                 });
                 /*if (rinfo.address != obj.myAddress || rinfo.port != obj.myPort){
                     server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
@@ -253,12 +255,11 @@ function DiscoveryService(config){
                 });
             });
             server.on("is-alive", (obj, rinfo) => {
-                console.log("isAlive", obj);
                 if (!obj.isAlive){
                   const exId = this.knownNodes.findIndex(n => n.localId == obj.localId);
-                  if (exId < 0){
+                  if (exId >= 0){
+                    console.log("Died!", this.knownNodes[exId]);
                     this.knownNodes.splice(exId, 1);
-                    Frame.log("Removed " + exId + ":" + obj.localId);
                   }
                 }
             });
@@ -279,12 +280,13 @@ function DiscoveryService(config){
                                 id: node.id,
                                 type: "routed",
                                 rank: node.type == 'local' ? 50: 60,
-                                address: node.address,
-                                port: node.port,
+                                address: node.address ? node.address : rinfo.address,
+                                port: node.port ? node.port: rinfo.port,
                                 serviceType: node.serviceType,
                                 tcpPort: node.tcpPort,
                                 parentId: obj.id,
-                                parentType: obj.serviceType
+                                parentType: obj.serviceType,
+                                localId: obj.localId
                             });
                             if (result && node.address && node.port && (node.id != self.serviceId)){
                                 //console.log(node);
@@ -298,12 +300,13 @@ function DiscoveryService(config){
                                 id: node.id,
                                 type: "routed",
                                 rank: node.type == 'local' ? 50: 60,
-                                address: node.address,
-                                port: node.port,
+                                address: node.address ? node.address : rinfo.address,
+                                port: node.port ? node.port: rinfo.port,
                                 serviceType: node.serviceType,
                                 tcpPort: node.tcpPort,
                                 parentId: obj.id,
-                                parentType: obj.serviceType
+                                parentType: obj.serviceType,
+                                localId: obj.localId
                             });
                         }
                     }
@@ -411,7 +414,7 @@ Inherit(DiscoveryService, Service, {
 
     registerNode : function(nfo){
         if (nfo && nfo.id){
-            var existingInd = this.knownNodes.findIndex(n => n.id == nfo.id);
+            var existingInd = this.knownNodes.findIndex(n => (nfo.localId ? n.localId == nfo.localId : true) && nfo.id == nfo.id);
             var existing = this.knownNodes[existingInd];
             if (this.routerId) {
                 this.routeLocal(this.routerId, {
@@ -430,7 +433,7 @@ Inherit(DiscoveryService, Service, {
             if (!existing) {
                 if (!nfo.localId)
                   nfo.localId = (Math.random() + "").replace("0.", "");
-                Frame.log("registered node " + nfo.localId + " - " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
+                Frame.log("registered node " + nfo.localId + " - " + nfo.rank + ":" + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
                 this.knownNodes.push(nfo);
                 return true;
             } else {
@@ -463,9 +466,9 @@ Inherit(DiscoveryService, Service, {
     recheckKnownNodes: function () {
         var self = this;
         this.serverPool.forEach((server)=> {
-            this.knownNodes.forEach((node, i) => {
-              Frame.log("rechecking known node " + node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
-              if (node.port && node.address && ["self", "local"].indexOf(node.type) < 0 && node.id != self.serviceId) {
+            this.knownNodes.forEach((node) => {
+              if (node.port && node.address && node.rank > 10 && node.id != self.serviceId) {
+                  Frame.log("rechecking known node " + node.localId + " - "+ node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
                   server.send(node.address, node.port, {
                       type: "check-alive",
                       id: this.serviceId,
