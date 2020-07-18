@@ -101,7 +101,7 @@ function RoutingService(config){
               if (service.serviceType == "RoutingService" && service.resultId == this.serviceId){
                   return;
               }
-              if (!this.knownNodes.find(n => n.rank <= 5 && n.id == service.resultId && n.serviceType == service.serviceType){
+              if (!this.knownNodes.find(n => n.rank <= 5 && n.id == service.resultId && n.serviceType == service.serviceType)){
                   this.registerNode({
                     id: service.resultId,
                     type: "local",
@@ -118,7 +118,7 @@ function RoutingService(config){
         if (service.serviceType == "RoutingService" && serviceId == this.serviceId){
             return;
         }
-        if (!this.knownNodes.find(n => n.rank <= 5 && n.id == serviceId && n.serviceType == description.serviceType){
+        if (!this.knownNodes.find(n => n.rank <= 5 && n.id == serviceId && n.serviceType == description.serviceType)){
           this.registerNode({
               id: serviceId,
               type: "local",
