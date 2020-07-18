@@ -574,7 +574,7 @@ Frame.exit = function(){
         //console.log(Frame.serviceId + " exiting:" + date.toLocaleTimeString() + "." + date.getMilliseconds());
         Frame.exitingInteval = setTimeout(function () {
             process.exit();
-        }, 10);
+        }, 100);
         process.once("exit", function () {
             clearTimeout(Frame.exitingInteval);
         });
