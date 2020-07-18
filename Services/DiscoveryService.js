@@ -343,7 +343,7 @@ Inherit(DiscoveryService, Service, {
         this.serverPool.forEach((server)=> {
             this.routingService.GetKnownNodes().then((nodes) => {
               nodes.forEach(node => {
-                if (node.port && node.address && node.rank > 10 && node.rank <= 100) {
+                if (node.port && node.address && node.rank >= 10 && node.rank <= 100) {
                     Frame.log("rechecking known node " + node.localId + " - "+ node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
                     if (self.knownNodesChecks[node.localId]){
                       self.knownNodesChecks[node.localId]++;
