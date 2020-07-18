@@ -121,7 +121,6 @@ function DiscoveryService(config){
     this.serversPollInterval = config.serversPollInterval ? config.serversPollInterval : 5000;
     this.nodesPollInterval = config.nodesPollInterval ? config.nodesPollInterval : 15000;
     this.serverCheckHashes = {};
-    this.myRecheckHash = Math.random();
 
     const routingServiceId = config.routingServiceId ? config.routingServiceId:"RoutingService";
     this.connect(routingServiceId).then((service)=>{
@@ -190,7 +189,7 @@ function DiscoveryService(config){
                     parentType: this.serviceType,
                     localId: obj.localId
                 }).then((result)=>{
-                  if (result) this.myRecheckHash = Math.random();
+
                 });
             });
             server.on("see-you", (obj, rinfo) => {
@@ -209,7 +208,7 @@ function DiscoveryService(config){
                     parentType: this.serviceType,
                     localId: obj.localId
                 }).then((result)=>{
-                  if (result) this.myRecheckHash = Math.random();
+
                 });
                 /*if (rinfo.address != obj.myAddress || rinfo.port != obj.myPort){
                     server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
@@ -238,7 +237,6 @@ function DiscoveryService(config){
                 delete this.knownNodesChecks[obj.localId];
                 if (!obj.isAlive){
                   this.routingService.SetNodeRank(obj, 404);
-                  this.myRecheckHash = Math.random();
                 } else {
                   if (this.debugMode) console.log("Alive: ", obj);
                 }
@@ -280,7 +278,7 @@ function DiscoveryService(config){
                       });
                   }
                   this.routingService.RegisterNodes(nodes).then(registered => {
-                    if (registered) this.myRecheckHash = Math.random();
+
                   });
                 }
             });
@@ -364,7 +362,6 @@ Inherit(DiscoveryService, Service, {
                     if (self.knownNodesChecks[node.localId] > self.maximumCheckTries){
                       console.log("Node removed by checks count ", self.knownNodesChecks[node.localId],  node.localId, ":", node.serviceType, "#", node.id)
                       self.routingService.SetNodeRank(node, 404);
-                      self.myRecheckHash = Math.random();
                       delete this.knownNodesChecks[node.localId];
                     } else {
                       server.send(node.address, node.port, {

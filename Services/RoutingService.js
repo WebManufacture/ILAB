@@ -8,8 +8,10 @@ function RoutingService(config){
     // это публичная функция:
 
     this.knownNodes = [];
+    this.myRecheckHash = Math.random();
 
     this.GetKnownNodes = () => {
+        this.knownNodes.checkHash = this.myRecheckHash;
         return this.knownNodes.sort((a, b) => a.rank - b.rank);
     };
 
@@ -38,6 +40,7 @@ function RoutingService(config){
     this.DeleteNode = (obj) => {
         const exId = this.getNodeIndex(obj);
         if (exId >= 0){
+          this.myRecheckHash = Math.random();
           console.log("Died!", this.knownNodes[exId]);
           this.knownNodes.splice(exId, 1);
           return true;
@@ -50,9 +53,12 @@ function RoutingService(config){
     this.SetNodeRank = (obj, newRank) => {
         const exId = this.getNodeIndex(obj);
         if (exId >= 0){
+          this.myRecheckHash = Math.random();
           console.log("Died!", this.knownNodes[exId]);
           this.knownNodes[exId].rank = newRank;
+          return true;
         }
+        return false;
     };
 
     this.RoutePacket = function(packet){
@@ -124,6 +130,7 @@ function RoutingService(config){
     ServicesManager.on("service-exited",(serviceId, servicePort) => {
         const ind = this.knownNodes.findIndex((item) => item && item.id == serviceId && item.rank < 10);
         if (ind >= 0) {
+          this.myRecheckHash = Math.random();
           this.knownNodes.splice(ind, 1);
         }
     });
@@ -132,6 +139,7 @@ function RoutingService(config){
         var count = 0;
         var nodeInd;
         while ((nodeInd = this.knownNodes.findIndex(n => n.rank > 100)) >= 0){
+          this.myRecheckHash = Math.random();
           this.knownNodes.splice(nodeInd, 1);
           count++;
         }
@@ -171,6 +179,7 @@ Inherit(RoutingService, Service, {
                     console.log("Registering service without localID!", nfo);
                     nfo.localId = (Math.random() + "").replace("0.", "");
                   }
+                  this.myRecheckHash = Math.random();
                   Frame.log("registered node " + nfo.localId + " - " + nfo.rank + ":" + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
                   this.knownNodes.push(nfo);
                   return true;
@@ -181,6 +190,7 @@ Inherit(RoutingService, Service, {
                         console.log("Replacing service without localID!", nfo);
                         nfo.localId = (Math.random() + "").replace("0.", "");
                       }
+                      this.myRecheckHash = Math.random();
                       Frame.log("replacing node " + existing.localId + " -> " + nfo.localId + " - " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
                       this.knownNodes[existingInd] = nfo;
                       return true;
