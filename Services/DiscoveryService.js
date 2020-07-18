@@ -257,7 +257,7 @@ function DiscoveryService(config){
                   const nodes = [];
                   if (Array.isArray(obj.knownNodes)) {
                       obj.knownNodes.forEach((node) => {
-                          if (node.rank <= 100){
+                          if (node.rank <= 100 && node.localId != this.localId){
                             nodes.push({
                                 id: node.id,
                                 type: "routed",
