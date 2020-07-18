@@ -40,6 +40,27 @@ Inherit(UdpServer, EventEmitter, {
         addressParts[3] = '255';
         this.sendHello(addressParts.join("."), toPort);
     },
+    broadcastBye: function(nodes){
+        const addressParts = this.localAddress.split(".");
+        addressParts[3] = '255';
+        this.sendBye(addressParts.join("."), this.localPort, nodes);
+        return addressParts.join(".") + ":" + this.localPort;
+    },
+    sendBye : function (addressTo, portTo, nodes) {
+        Frame.log("Send BYE! from " + this.localAddress +  " to " + addressTo + ":" + portTo);
+        this.udpServer.send({
+            type: "bye",
+            id: this.serviceId,
+            myAddress: this.localAddress,
+            myPort: this.localPort,
+            tcpPort: this.tcpPort,
+            serviceType: "DiscoveryService",
+            parentId: ServicesManager.serviceId,
+            parentPort: Frame.servicesManagerPort,
+            localId: this.localId,
+            knownNodes: nodes
+        }, portTo, addressTo);
+    },
     sendHello : function (addressTo, portTo, localId) {
         Frame.log("Send hello from " + this.localAddress +  " to " + addressTo + ":" + portTo);
         this.udpServer.send({
@@ -121,6 +142,7 @@ function DiscoveryService(config){
     this.serversPollInterval = config.serversPollInterval ? config.serversPollInterval : 5000;
     this.nodesPollInterval = config.nodesPollInterval ? config.nodesPollInterval : 15000;
     this.serverCheckHashes = {};
+    this.lastKnownNodesForBye;
 
     const routingServiceId = config.routingServiceId ? config.routingServiceId:"RoutingService";
     this.connect(routingServiceId).then((service)=>{
@@ -171,6 +193,7 @@ function DiscoveryService(config){
         });
         this.serverPool.push(server);
         server.once("ready", ()=>{
+
             server.on("hello", (obj, rinfo) => {
                 if (obj.localId == this.localId) return;
                 Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
@@ -241,11 +264,21 @@ function DiscoveryService(config){
                   if (this.debugMode) console.log("Alive: ", obj);
                 }
             });
+            server.on("bye", (obj, rinfo) => {
+                console.log("Server said Bye! " + rinfo.address, ":", rinfo.port);
+                if (Array.isArray(obj.knownNodes)) {
+                    obj.knownNodes.forEach((node) => {
+                        this.routingService.SetNodeRank(node, 401);
+                    });
+                }
+            });
             server.on("get-known", (obj, rinfo) => {
-                this.routingService.GetKnownNodes().then((nodes)=> {
+                this.routingService.GetKnownNodes().then((nodes)=>{
+                  this.lastKnownNodesForBye = nodes;
                   server.send(rinfo.address, rinfo.port, {
                       type: "i-know",
                       id: this.serviceId,
+                      localId: this.localId,
                       serviceType: "DiscoveryService",
                       knownNodes: nodes
                   });
@@ -321,6 +354,12 @@ function DiscoveryService(config){
                     server.sendHello(remotePoint.address, remotePoint.port);
                 });
             }
+
+            self.on("exiting", () => {
+              if (this.lastKnownNodesForBye){
+                server.broadcastBye(this.lastKnownNodesForBye);
+              }
+            });
         });
         Frame.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
