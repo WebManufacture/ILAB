@@ -158,7 +158,7 @@ Inherit(RoutingService, Service, {
 
       getNodeIndex: function(obj){
         return this.knownNodes.findIndex(n =>
-          obj.id == n.id && (obj.localId ? n.localId == obj.localId : true))
+          obj.id == n.id && ((obj.localId ? n.localId == obj.localId : true) || (n.rank < 10 && obj.rank < 10)))
       },
 
       registerNode : function(nfo){
