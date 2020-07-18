@@ -129,7 +129,7 @@ function RoutingService(config){
         var count = 0;
         var nodeInd;
         while ((nodeInd = this.knownNodes.findIndex(n => n.rank > 100)) >= 0){
-          this.knownNodes.splice(exId, 1);
+          this.knownNodes.splice(nodeInd, 1);
           count++;
         }
         console.log("Removed " + count + " nodes");
