@@ -213,6 +213,7 @@ function DiscoveryService(config){
             });
             server.on("check-alive", (obj, rinfo) => {
                 this.routingService.CheckAlive(obj).then(alive => {
+                  console.log("CheckAlive: " + obj.id);
                   server.send(rinfo.address, rinfo.port, {
                       type: "is-alive",
                       id: this.serviceId,
@@ -225,6 +226,8 @@ function DiscoveryService(config){
             server.on("is-alive", (obj, rinfo) => {
                 if (!obj.isAlive){
                   this.routingService.DeleteNode(obj);
+                } else {
+                  console.log("Alive: " + obj.id);
                 }
             });
             server.on("get-known", (obj, rinfo) => {
