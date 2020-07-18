@@ -213,11 +213,11 @@ function DiscoveryService(config){
             });
             server.on("check-alive", (obj, rinfo) => {
                 this.routingService.CheckAlive(obj).then(alive => {
-                  console.log("CheckAlive: " + obj.id);
+                  //console.log("CheckAlive: " + obj.id);
                   server.send(rinfo.address, rinfo.port, {
                       type: "is-alive",
-                      id: this.serviceId,
-                      serviceType: "DiscoveryService",
+                      id: obj.serviceId,
+                      serviceType: obj.serviceType,
                       localId: obj.localId,
                       isAlive: alive
                   });
@@ -340,11 +340,11 @@ Inherit(DiscoveryService, Service, {
             this.routingService.GetKnownNodes().then((nodes) => {
               nodes.forEach(node => {
                 if (node.port && node.address && node.rank > 10 && node.id != self.serviceId) {
-                    Frame.log("rechecking known node " + node.localId + " - "+ node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
+                    //Frame.log("rechecking known node " + node.localId + " - "+ node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
                     server.send(node.address, node.port, {
                         type: "check-alive",
-                        id: this.serviceId,
-                        serviceType: "DiscoveryService",
+                        id: node.serviceId,
+                        serviceType: node.serviceType,
                         localId: node.localId
                     });
                 }
