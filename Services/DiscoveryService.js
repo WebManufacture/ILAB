@@ -126,16 +126,15 @@ function DiscoveryService(config){
     this.connect(routingServiceId).then((service)=>{
       Frame.log("Routing service connected");
       this.routingService = service;
-      /*  //DON't need register itself
-          this.routingService.RegisterNode({
-                id: this.serviceId,
-                type: "self",
-                rank: 1,
-                serviceType: "DiscoveryService",
-                tcpPort: this.port,
-                localId: this.localId
-            });
-      */
+      //Self-Registering to register correct LocalId
+      this.routingService.RegisterNode({
+          id: this.serviceId,
+          type: "local",
+          rank: 4,
+          serviceType: this.serviceType,
+          tcpPort: this.port,
+          localId: this.localId
+      });
       setInterval(()=>{
           this.recheckConfiguredServers();
       }, this.serversPollInterval);
@@ -176,7 +175,6 @@ function DiscoveryService(config){
                 if (obj.localId == this.localId) return;
                 Frame.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
                 //Frame.log(obj);
-                server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 this.routingService.RegisterNode({
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
@@ -189,7 +187,7 @@ function DiscoveryService(config){
                     parentType: this.serviceType,
                     localId: obj.localId
                 }).then((result)=>{
-
+                  server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 });
             });
             server.on("see-you", (obj, rinfo) => {
@@ -199,7 +197,7 @@ function DiscoveryService(config){
                 this.routingService.RegisterNode({
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
-                    rank: rinfo.address == obj.myAddress ? 10: (rinfo.port == obj.myPort ? 20 : 30),
+                    rank: rinfo.address == obj.myAddress ? 10 : (rinfo.port == obj.myPort ? 20 : 30),
                     serviceType: obj.serviceType,
                     address: rinfo.address,
                     port: rinfo.port,
@@ -208,22 +206,24 @@ function DiscoveryService(config){
                     parentType: this.serviceType,
                     localId: obj.localId
                 }).then((result)=>{
-
+                  server.send(rinfo.address, rinfo.port, {
+                      type: "get-known",
+                      id: this.serviceId,
+                      serviceType: "DiscoveryService",
+                      localId: this.localId
+                  });
                 });
                 /*if (rinfo.address != obj.myAddress || rinfo.port != obj.myPort){
                     server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 }*/
                 //TODO: Add recheck hashes!
-                server.send(rinfo.address, rinfo.port, {
-                    type: "get-known",
-                    id: this.serviceId,
-                    serviceType: "DiscoveryService",
-                    localId: this.localId
-                });
             });
             server.on("check-alive", (obj, rinfo) => {
                 if (this.debugMode) console.log("IsAlive: ", obj);
                 this.routingService.CheckAlive(obj).then(alive => {
+                  if (!alive){
+                    console.log("Service Died!", obj)
+                  }
                   server.send(rinfo.address, rinfo.port, {
                       type: "is-alive",
                       id: obj.id,

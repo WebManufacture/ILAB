@@ -101,14 +101,16 @@ function RoutingService(config){
               if (service.serviceType == "RoutingService" && service.resultId == this.serviceId){
                   return;
               }
-              this.registerNode({
-                id: service.resultId,
-                type: "local",
-                rank: 5,
-                serviceType: service.serviceType,
-                tcpPort: service.port,
-                localId: (Math.random() + "").replace("0.", "")
-            });
+              if (!this.knownNodes.find(n => n.rank <= 5 && n.id == service.resultId && n.serviceType == service.serviceType){
+                  this.registerNode({
+                    id: service.resultId,
+                    type: "local",
+                    rank: 5,
+                    serviceType: service.serviceType,
+                    tcpPort: service.port,
+                    localId: (Math.random() + "").replace("0.", "")
+                });
+              }
         });
     });
 
@@ -116,14 +118,16 @@ function RoutingService(config){
         if (service.serviceType == "RoutingService" && serviceId == this.serviceId){
             return;
         }
-        this.registerNode({
-            id: serviceId,
-            type: "local",
-            rank: 5,
-            serviceType: description.serviceType,
-            tcpPort: description.tcpPort,
-            localId: (Math.random() + "").replace("0.", "")
-        });
+        if (!this.knownNodes.find(n => n.rank <= 5 && n.id == serviceId && n.serviceType == description.serviceType){
+          this.registerNode({
+              id: serviceId,
+              type: "local",
+              rank: 5,
+              serviceType: description.serviceType,
+              tcpPort: description.tcpPort,
+              localId: (Math.random() + "").replace("0.", "")
+          });
+        }
     });
 
 
