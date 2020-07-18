@@ -225,7 +225,8 @@ function DiscoveryService(config){
                   });
                 });
             });
-            server.on("is-alive", (obj, rinfo) => {
+            server.on("is-alive", (obj, rinfo) => {              
+                delete this.knownNodesChecks[obj.localId];
                 if (!obj.isAlive){
                   this.routingService.SetNodeRank(obj, 404);
                 } else {
@@ -351,6 +352,7 @@ Inherit(DiscoveryService, Service, {
                       self.knownNodesChecks[node.localId] = 1;
                     }
                     if (self.knownNodesChecks[node.localId] > self.maximumCheckTries){
+                      console.log("Node removed by checks count ", self.knownNodesChecks[node.localId],  node.localId, ":", node.serviceType, "#", node.id)
                       self.routingService.SetNodeRank(node, 404);
                       delete this.knownNodesChecks[node.localId];
                     } else {
