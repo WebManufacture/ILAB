@@ -71,15 +71,14 @@ function RoutingService(config){
         type: "self",
         rank: 1,
         serviceType: "RoutingService",
-        data: {
-            tcpPort: this.port
-        }
+        tcpPort: this.port,
+        localId: (Math.random() + "").replace("0.", "")
     });
 
     ServicesManager.GetServicesInfo().then((services)=>{
           services.forEach((service)=> {
-              if (service.serviceType == "RoutingService"){
-                  this.routerId = service.id;
+              if (service.serviceType == "RoutingService" && service.resultId == this.serviceId){
+                  return;
               }
               this.registerNode({
                 id: service.resultId,
