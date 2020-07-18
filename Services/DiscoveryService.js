@@ -212,11 +212,11 @@ function DiscoveryService(config){
                 });
             });
             server.on("check-alive", (obj, rinfo) => {
-              //console.log("IsAlive: ", obj);
+                if (this.debugMode) console.log("IsAlive: ", obj);
                 this.routingService.CheckAlive(obj).then(alive => {
                   server.send(rinfo.address, rinfo.port, {
                       type: "is-alive",
-                      id: obj.serviceId,
+                      id: obj.id,
                       serviceType: obj.serviceType,
                       localId: obj.localId,
                       isAlive: alive
@@ -227,7 +227,7 @@ function DiscoveryService(config){
                 if (!obj.isAlive){
                   this.routingService.DeleteNode(obj);
                 } else {
-                  console.log("Alive: " + obj.id);
+                  if (this.debugMode) console.log("Alive: ", obj);
                 }
             });
             server.on("get-known", (obj, rinfo) => {
@@ -256,7 +256,7 @@ function DiscoveryService(config){
                               tcpPort: node.tcpPort,
                               parentId: this.serviceId,
                               parentType: this.serviceType,
-                              localId: obj.localId
+                              localId: node.localId
                           })
                           /* //For 3d circle of nodes
                           if (result && node.address && node.port && (node.id != self.serviceId)){
@@ -323,7 +323,7 @@ Inherit(DiscoveryService, Service, {
     recheckConfiguredServers: function () {
         var self = this;
         this.serverPool.forEach((server)=> {
-            Frame.log("rechecking server " + server.localAddress);
+            if (this.debugMode) Frame.log("rechecking server " + server.localAddress);
             server.broadcastHello();
             if (this.configuredHosts && Array.isArray(this.configuredHosts)) {
                 this.configuredHosts.forEach((remotePoint) => {
@@ -339,8 +339,8 @@ Inherit(DiscoveryService, Service, {
         this.serverPool.forEach((server)=> {
             this.routingService.GetKnownNodes().then((nodes) => {
               nodes.forEach(node => {
-                if (node.port && node.address && node.rank > 10 && node.id != self.serviceId) {
-                    //Frame.log("rechecking known node " + node.localId + " - "+ node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
+                if (node.port && node.address && node.rank > 10) {
+                    Frame.log("rechecking known node " + node.localId + " - "+ node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
                     server.send(node.address, node.port, {
                         type: "check-alive",
                         id: node.id,

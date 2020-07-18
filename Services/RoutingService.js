@@ -126,7 +126,7 @@ Inherit(RoutingService, Service, {
 
       registerNode : function(nfo){
           if (nfo && nfo.id){
-              var existingInd = this.knownNodes.findIndex(n => (n.id == nfo.id) && (nfo.localId ? n.localId == nfo.localId : true));
+              var existingInd = this.getNodeIndex(nfo);
               /*if (this.routerId) {
                   this.routeLocal(this.routerId, {
                       type: "method",
@@ -143,6 +143,7 @@ Inherit(RoutingService, Service, {
               }*/
               if (existingInd < 0) {
                   if (!nfo.localId){
+                    console.log("Registering service without localID!", nfo);
                     nfo.localId = (Math.random() + "").replace("0.", "");
                   }
                   Frame.log("registered node " + nfo.localId + " - " + nfo.rank + ":" + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
@@ -151,6 +152,7 @@ Inherit(RoutingService, Service, {
               } else {
                   var existing = this.knownNodes[existingInd];
                   if (existing && existing.rank > nfo.rank) {
+                      console.log("Replacing service without localID!", nfo);
                       if (!nfo.localId){
                         nfo.localId = (Math.random() + "").replace("0.", "");
                       }
