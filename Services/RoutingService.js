@@ -37,6 +37,18 @@ function RoutingService(config){
         if (exId >= 0){
           console.log("Died!", this.knownNodes[exId]);
           this.knownNodes.splice(exId, 1);
+          return true;
+        } else {
+          return false;
+        }
+    };
+
+
+    this.SetNodeRank = (obj, newRank) => {
+        const exId = this.getNodeIndex(obj);
+        if (exId >= 0){
+          console.log("Died!", this.knownNodes[exId]);
+          this.knownNodes[exId].rank = newRank;
         }
     };
 
@@ -113,6 +125,16 @@ function RoutingService(config){
         }
     });
 
+    setInterval(()=>{
+        var count = 0;
+        var nodeInd;
+        while ((nodeInd = this.knownNodes.findIndex(n => n.rank > 100)) >= 0){
+          this.knownNodes.splice(exId, 1);
+          count++;
+        }
+        console.log("Removed " + count + " nodes");
+    }, 120000)
+
 
     return result;
 }
@@ -151,9 +173,9 @@ Inherit(RoutingService, Service, {
                   return true;
               } else {
                   var existing = this.knownNodes[existingInd];
-                  if (existing && existing.rank > nfo.rank) {
-                      console.log("Replacing service without localID!", nfo);
+                  if (existing && existing.rank > nfo.rank && existing.rank <= 100) {
                       if (!nfo.localId){
+                        console.log("Replacing service without localID!", nfo);
                         nfo.localId = (Math.random() + "").replace("0.", "");
                       }
                       Frame.log("replacing node " + existing.localId + " -> " + nfo.localId + " - " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
