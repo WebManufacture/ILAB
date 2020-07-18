@@ -14,16 +14,19 @@ function RoutingService(config){
     };
 
     this.RegisterNode = (info) => {
-        return this.registerNode(info);
+      return this.registerNode(info);
     };
 
     this.RegisterNodes = (nodes) => {
+      const registered = [];
       if (Array.isArray(nodes)) {
           nodes.forEach((node) => {
-              this.registerNode(node);
+              if (this.registerNode(node)){
+                registered.push(node);
+              };
           });
       }
-      return this.knownNodes;
+      return registered;
     }
 
     this.CheckAlive = (obj) => {
