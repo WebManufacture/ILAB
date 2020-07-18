@@ -10,6 +10,7 @@ var UdpJsonServer = useModule('UdpJsonServer');
 function UdpServer(localId, netInterface, config) {
     this._super.apply(this);
     var self = this;
+    this.knownNodesChecks = {};
     this.localId = localId;
     this.tcpPort = config.tcpPort;
     this.serviceId = config.serviceId || "DiscoveryService";
@@ -116,6 +117,7 @@ function DiscoveryService(config){
     this.serverPool = [];
     this.localId = (Math.random() + "").replace("0.", "");
     this.routerId == "";
+    this.maximumCheckTries = config.maximumCheckTries ? config.maximumCheckTries : 4;
 
     const routingServiceId = config.routingServiceId ? config.routingServiceId:"RoutingService";
     this.connect(routingServiceId).then((service)=>{
@@ -343,12 +345,22 @@ Inherit(DiscoveryService, Service, {
               nodes.forEach(node => {
                 if (node.port && node.address && node.rank > 10 && node.rank <= 100) {
                     Frame.log("rechecking known node " + node.localId + " - "+ node.rank + " : " + node.id + ":" + node.serviceType + (node.address ? " from " + node.address + ":" + node.port : "") + " on " + server.localAddress);
-                    server.send(node.address, node.port, {
-                        type: "check-alive",
-                        id: node.id,
-                        serviceType: node.serviceType,
-                        localId: node.localId
-                    });
+                    if (this.knownNodesChecks[node.localId]){
+                      this.knownNodesChecks[node.localId]++;
+                    } else {
+                      this.knownNodesChecks[node.localId] = 1;
+                    }
+                    if (this.knownNodesChecks[node.localId] > this.maximumCheckTries){
+                      this.routingService.SetNodeRank(node, 404);
+                      delete this.knownNodesChecks[node.localId];
+                    } else {
+                      server.send(node.address, node.port, {
+                          type: "check-alive",
+                          id: node.id,
+                          serviceType: node.serviceType,
+                          localId: node.localId
+                      });
+                    }
                 }
               });
             });
