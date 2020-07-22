@@ -138,8 +138,8 @@ function DiscoveryService(config){
     this.routerId == "";
     this.maximumCheckTries = config.maximumCheckTries ? config.maximumCheckTries : 4;
     this.knownNodesChecks = {};
-    this.serversPollInterval = config.serversPollInterval ? config.serversPollInterval : 5000;
-    this.nodesPollInterval = config.nodesPollInterval ? config.nodesPollInterval : 15000;
+    this.serversPollInterval = config.serversPollInterval ? config.serversPollInterval : 120000;
+    this.nodesPollInterval = config.nodesPollInterval ? config.nodesPollInterval : 110000;
     this.serverCheckHashes = {};
     this.lastKnownNodesForBye;
 

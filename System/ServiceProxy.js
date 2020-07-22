@@ -53,7 +53,7 @@ ServiceProxy.connect = ServiceProxy.GetService = function (pointer, keepAlive) {
         if (pointer.indexOf(":") > 0) {
             pointer = pointer.split(':');
             host = pointer[0];
-            port = parseInt(pointer[1]);
+            port = parseInt(pointer[1])
         }
         else {
             serviceId = pointer;
@@ -111,8 +111,8 @@ ServiceProxy.CallMethod = function (host, port, methodName, args) {
         port: port,
         serviceId: "SingleCall",
         emit: function () {
-            
-        }        
+
+        }
     };
     return ServiceProxy.prototype._callMethod.call(self, methodName, args);
 },
@@ -127,7 +127,7 @@ Inherit(ServiceProxy, EventEmitter, {
         var promise = new Promise(function (resolve, reject) {
             try {
                 function raiseError(err) {
-                    console.log("Socket error while calling " + self.serviceId + ":" + self.port + ":" + methodName);
+                    console.log("Socket error while calling " + self._serviceId + ":" + self.port + ":" + methodName);
                     console.error(err);
                     socket.removeAllListeners();
                     socket.close();
@@ -137,7 +137,7 @@ Inherit(ServiceProxy, EventEmitter, {
                 }
                 var socket = self._socket;
                 if (!self._keepConnected || !self._socket){
-                    var socket = typeof port == "number" ? new JsonSocket(self.port, self.host) : new JsonSocket(self.port);
+                    var socket = typeof self.port == "number" ? new JsonSocket(self.port, self.host) : new JsonSocket(self.port);
 
                     socket.once("connect", function () {
                         try {
@@ -151,8 +151,8 @@ Inherit(ServiceProxy, EventEmitter, {
                 socket.on('error', raiseError);
                 socket.once("close", function (err) {
                     if (err) {
-                        console.log("Socket closed unexpectely " + self.serviceId + ":" + self.port + ":" + methodName);
-                        reject(new Error("Socket closed unexpectely " + self.serviceId + ":" + self.port + ":" + methodName));
+                        console.log("Socket closed unexpectely " + self._serviceId + ":" + self.port + ":" + methodName);
+                        reject(new Error("Socket closed unexpectely " + self._serviceId + ":" + self.port + ":" + methodName));
                     }
                 });
                 socket.once("json", function (message) {
@@ -180,11 +180,10 @@ Inherit(ServiceProxy, EventEmitter, {
                     }
                     if (message.type == "error") {
                         var err = new Error(message.result);
-                        console.log("Error while calling " + self.serviceId + ":" + self.port + ":" + methodName);
+                        console.log("Error while calling " + self._serviceId + ":" + self.port + ":" + methodName + ( message.stack ? " with stack " : " no stack "));
                         if (message.stack) {
                             err.stack = message.stack;
                         }
-                        console.error(err);
                         self.emit('error', err);
                         reject(err);
                     }
@@ -244,14 +243,14 @@ Inherit(ServiceProxy, EventEmitter, {
             }
         }
         this.port = port;
-        if (!port) throw new Error("Unknown port to attach in " + this.serviceId);
+        if (!port) throw new Error("Unknown port to attach in " + this._serviceId);
         var self = this;
         var promise = new Promise(
             function (resolve, reject) {
                 try {
                     if (typeof port == "number") {
                         if (!host) host = "127.0.0.1";
-                        this.host = host;
+                        self.host = host;
                     }
                     var socket = typeof port == "number" ? new JsonSocket(port, host) : new JsonSocket(port);
                     socket.once("connect",function (err) {
@@ -264,7 +263,7 @@ Inherit(ServiceProxy, EventEmitter, {
                         }
                     });
                     function raiseError(err) {
-                        console.log("Socket error while attach to " + self.serviceId + ":" + self.port);
+                        console.log("Socket error while attach to " + self._serviceId + ":" + self.port);
                         console.error(err);
                         socket.removeAllListeners();
                         socket.close();
@@ -313,9 +312,11 @@ Inherit(ServiceProxy, EventEmitter, {
                 }
                 catch (err) {
                     self.emit('error', err);
+                    throw(err);
                 }
             }).catch(function (err) {
                 self.emit('error', err);
+                throw(err);
             });
         return promise;
     },
@@ -326,7 +327,7 @@ Inherit(ServiceProxy, EventEmitter, {
         try {
             var promise = new Promise(function (resolve, reject) {
                 function raiseError(err) {
-                    console.log("Socket error in event listener " + self.serviceId + ":" + self.port);
+                    console.log("Socket error in event listener " + self._serviceId + ":" + self.port);
                     console.error(err);
                     eventSocket.removeAllListeners();
                     eventSocket.close(err);

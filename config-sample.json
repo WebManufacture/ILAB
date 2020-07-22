@@ -5,6 +5,9 @@
   "ServicesWebSocketProxy": {
     "port": 5700
   },
+  "ILabHttpProxy":{
+
+  },
   "RoutingService": {
 
   },
