@@ -139,7 +139,7 @@ Inherit(WebSocketProxyService, Service, {
             }
             else{
                 console.log("WSproxy: Connecting unknown service " + serviceId + ":" + servicePort);
-                ws.send(JSON.stringify({type:"error", result : "No service found"}))
+                ws.send(JSON.stringify({type:"error", result : "No service found " + serviceId + ":" + servicePort}))
                 ws.close();
             }
         }
@@ -164,7 +164,7 @@ Inherit(WebSocketProxyService, Service, {
                 }
                 else{
                     ServicesManager.GetServicesInfo().then((services) => {
-                        var serviceById = services.find(s => s.id == serviceId);
+                        var serviceById = services.find(s => s.resultId == serviceId);
                         if (serviceById) {
                             servicePort = serviceById.port;
                             self.knownServices[serviceId] = servicePort;
@@ -176,16 +176,16 @@ Inherit(WebSocketProxyService, Service, {
                                 self.knownServices[serviceId] = servicePort;
                                 connectService(serviceId, servicePort);
                             } else {
-                                throw "No service found for: " + serviceId;
+                                throw new Error("No service found for: " + serviceId);
                             }
                         }
                     }).catch(function (err) {
-                        throw err;
+                        ws.send(JSON.stringify({type:"error", result : err.message, close: true}))
+                        ws.close();
                     });
                 }
             }
         }
-        //ws.send('something');
     },
 
     attachService : function (port, serviceId) {

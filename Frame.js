@@ -52,10 +52,6 @@ Frame.Nodes = {};
 Frame.Modules = [];
 Frame.Services = {};
 
-Frame.log = function(){
-    console.log.apply(console, arguments);
-}
-
 Frame.newId = function(){
     return require('uuid/v4')();
 }
@@ -90,11 +86,11 @@ Frame.fatal = function(err){
     });
 };
 
-Frame.log = function(log){
+Frame.log = function(){
     if (process.connected){
-        process.send({type: "log", item: log});
+        process.send({type: "log", item: arguments});
     }
-    console.log(log);
+    console.log.apply(console, arguments);
 };
 
 Frame.send = function(arg1, arg2){

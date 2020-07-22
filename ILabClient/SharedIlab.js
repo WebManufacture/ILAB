@@ -1,4 +1,4 @@
-var myWorker = new SharedWorker("../ILab-Client/ilab.js");
+var myWorker = new SharedWorker("ilab.js");
 
 myWorker.port.start();
 

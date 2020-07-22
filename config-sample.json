@@ -9,13 +9,21 @@
 
   },
   "DiscoveryService": {
-
+    "serversPollInterval" : 60000,
+    "nodesPollInterval" : 50000,
+    "hosts": [
+      {
+        "address": "web-manufacture.net",
+        "port": 37331
+      }
+    ]
   },
   "FilesService":{
     "basepath": ""
   },
   "StaticService":{
     "filesServiceId": "FilesService",
+    "rootFile": "start.html",
     "port": 80,
     "useSecureProtocol": false,
     "allowOrigin": "*",

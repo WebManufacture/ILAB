@@ -1,8 +1,8 @@
-<include url='%UI%/Win.htm'></include>
-<include url='%UI%/HtmlElements.htm'></include>
+<include url='%ui%/Win.htm'></include>
+<include url='%ui%/HtmlElements.htm'></include>
 <script type='text/javascript'>
 	JsonEditor = {};
-		
+
 	JsonEditor.EditObject = function(obj, title, callback){
 		var win = JSON_Editor_Proto_Win.clone();
 		win.id = "JsonObjectWin" + (Math.random() + "").replace("0.", "_");
@@ -13,7 +13,7 @@
 		var cnt = win.container = win.get(".editing-json-obj");
 		win.container.add(JsonEditor._formatObj(obj));
 		win.get(".save-btn").onclick = function(){
-			callback.call(win, obj);	
+			callback.call(win, obj);
 		};
 		win.get(".close-btn").onclick = function(){
 			win.WindowClose();
@@ -21,7 +21,7 @@
 		JsonEditor.InitEditingObj(cnt);
 		return win;
 	};
-	
+
 	JsonEditor.InitEditingObj = function(eobj, obj){
 		eobj.all(".js-property-value").each(function(item){
 			item.onclick = JsonEditor.JsValueClick;
@@ -30,7 +30,7 @@
 			item.onclick = JsonEditor.JsPropertyClick;
 		});
 	}
-	
+
 	JsonEditor._formatObj = function(value){
 		var elem = DOM.div(".js-entity");
 		elem.editingObj = value;
@@ -63,7 +63,7 @@
 				if (val) val.add(".js-property-value");
 				prop.div(".js-syntax.js-properties-separator",',');
 			}
-			if (objs){ 
+			if (objs){
 				oc.first(".js-property-line").add(".first");
 				oc.last(".js-property-line").add(".last");
 				elem.add(oc)
@@ -80,24 +80,24 @@
 		elem.textContent = value + "";
 		return elem;
 	};
-	
+
 	JsonEditor.JsPropertyClick = function(eobj, obj){
-		this.contentEditable = true;	
+		this.contentEditable = true;
 		var ol = this.get("^.js-property-line");
 		ol.add(".editing");
 		this.focus();
 		this.onblur = JsonEditor.JsPropertyBlur;
 	};
-	
+
 	JsonEditor.JsPropertyBlur = function(){
 		var eo = this.get("^.js-object");
 		var ol = this.get("^.js-property-line");
-		this.contentEditable = false;	
+		this.contentEditable = false;
 		ol.del(".editing");
 		eo = eo.editingObj;
 		var pname = ol.get("@name");
 		var val = this.textContent;
-		
+
 		if (val.start("'") && val.end("'")){
 			val = val.substr(1, val.length-2);
 		}
@@ -108,9 +108,9 @@
 			else{
 				var num = parseFloat(val);
 				if (!isNaN(num)){
-					val = num;	
+					val = num;
 				}
-			}	
+			}
 		}
 		eo[pname] = val;
 		var par = this.get("^.js-entity");
@@ -118,25 +118,25 @@
 		eo = ol.add(uutils._formatObj(eo[pname], true, true));
 		JsonEditor.InitEditingObj(ol);
 	};
-	
+
 	JsonEditor.JsValueClick = function(){
-		this.contentEditable = true;	
+		this.contentEditable = true;
 		var ol = this.get("^.js-property-line");
 		ol.add(".editing");
 		this.focus();
 		this.onblur = JsonEditor.JsValueBlur;
 	};
-	
-	
+
+
 	JsonEditor.JsValueBlur = function(){
 		var eo = this.get("^.js-object");
 		var ol = this.get("^.js-property-line");
-		this.contentEditable = false;	
+		this.contentEditable = false;
 		ol.del(".editing");
 		eo = eo.editingObj;
 		var pname = ol.get("@name");
 		var val = this.textContent;
-		
+
 		if (val.start("'") && val.end("'")){
 			val = val.substr(1, val.length-2);
 		}
@@ -147,9 +147,9 @@
 			else{
 				var num = parseFloat(val);
 				if (!isNaN(num)){
-					val = num;	
+					val = num;
 				}
-			}	
+			}
 		}
 		eo[pname] = val;
 		var par = this.get("^.js-property-value");
@@ -161,90 +161,90 @@
 
 <win id="JSON_Editor_Proto_Win" class="window prototype invisible smallwindow" title="JSON Object">
 	<div class='editing-json-obj' map-to='^.window $Container'>
-	
+
 	</div>
 	<div class='btn-ira ok save-btn' map-to='^.window $SaveBtn'>Save</div>
 	<div class='btn-ira close close-btn' map-to='^.window $CloseBtn'>Close</div>
 </win>
 
 <style type='text/css'>
-	
+
 	.editing-json-obj .js-entity,
 	.editing-json-obj .js-syntax{
 		display: inline-block;
 		vertical-align: top;
 		font-family: monospace;
 	}
-	
-	
+
+
 	.editing-json-obj .js-object{
 		padding-left: 5px;
 		padding-right: 5px;
-		color : #A4F;	
+		color : #A4F;
 		background-color: rgba(150, 200, 170, 0.07);
 	}
-	
-	
+
+
 	.editing-json-obj .js-object .js-entity{
 		padding-left: 3px;
 		padding-right: 3px;
 	}
-	
+
 	.editing-json-obj .js-object .js-property-line{
 		display: block;
 		padding-right: 5px;
 		padding-left: 20px;
 	}
-	
-	.editing-json-obj .js-object .js-object-start, 
+
+	.editing-json-obj .js-object .js-object-start,
 	.editing-json-obj .js-object .js-object-finish {
 		display: block;
 		padding-left: 3px;
 		padding-right: 3px;
 	}
-	
+
 	.editing-json-obj .js-number{
 		color : navy;
 	}
-	
+
 	.editing-json-obj .js-array{
 		color : red;
 	}
-		
+
 	.editing-json-obj .js-object .js-array>.js-object{
 		margin-left: 10px;
 		margin-right: 10px;
 	}
-	
+
 	.editing-json-obj .js-string{
 		color : #f85;
 	}
-	
-	
+
+
 	.editing-json-obj .js-string .js-string-value{
 		padding: 0!important;
 	}
-	
+
 	.editing-json-obj .js-syntax{
-		font-weight: bold;	
+		font-weight: bold;
 	}
-		
+
 	.editing-json-obj .js-property-name{
 		color: green;
 		min-width: 30px;
 	}
-	
+
 	.editing-json-obj .js-property-line.editing .js-property-value{
 		background-color: white;
 		color: black;
 	}
-	
+
 	.editing-json-obj .js-property-line.editing .js-string .js-syntax{
-		display: none;	
+		display: none;
 	}
-	
+
 	.editing-json-obj .js-object .js-property-line.last .js-properties-separator{
 		display: none;
 	}
-	
+
 </style>

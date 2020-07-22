@@ -46,23 +46,29 @@
   <include url='http://localhost/ILabClient/Components/HtmlElements.htm'></include>
   <!--include url='http://services.web-manufacture.net/Authentication/Authentication.htm'></include-->
   <div class='toolbar vertical fixed with-titles' id='HeaderBar'>
-    <div class='menuitem file-manager-button' id='create-file-button' icon="http://system.web-manufacture.net/images/document-small.png" onclick="FS.CreateNewDoc()">
-        Создать
+    <div class='menuitem file-manager-button'
+         icon="http://system.web-manufacture.net/images/document-small.png"
+         onclick="window.location='/ILabClient/Monitor.htm'">
+        Управление сервером
     </div>
-    <div class='menuitem file-manager-button' id='create-folder-button' icon="http://system.web-manufacture.net/images/folderopened_yellow.png" onclick="FolderInputRender()">
-        Создать папку
+    <div class='menuitem file-manager-button'
+         icon="http://system.web-manufacture.net/images/folderopened_yellow.png">
+        KLAB
     </div>
-    <div class='menuitem file-manager-button' id='delete-file' icon="http://system.web-manufacture.net/images/delete-mini.png" onclick="FS.DeleteDocs()">
-        Удалить
+    <div class='menuitem file-manager-button'
+         icon="http://system.web-manufacture.net/images/delete-mini.png">
+        HLAB
     </div>
-    <div class="menuitem round" icon="http://system.web-manufacture.net/images/ButtonUSSR.png" onclick="FS.ClearTagFilter();">
-        Отменить фильтрацию
+    <div class="menuitem round"
+         icon="http://system.web-manufacture.net/images/ButtonUSSR.png">
+        RoboPlatform
     </div>
-    <div class="menuitem round" icon="" onclick="FS.ClearSelect();">
-        Убрать выделение
+    <div class="menuitem round"
+         icon="http://system.web-manufacture.net/images/ButtonUSSR.png">
+        CNC
     </div>
-
   </div>
+
   <div id="logBox" style="margin-left: 100px;"></div>
   <script>
     require('electron').ipcRenderer.send("started");

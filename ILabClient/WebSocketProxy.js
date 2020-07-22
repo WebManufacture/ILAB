@@ -6,6 +6,7 @@ ServiceProxy = function(serviceName){
     this.waiting = []; // очередь отправленных сообщений ждущих ответа
     this.connectionsCount = 0;
     this.handlers = {};
+    this.connected = false;
 };
 
 ServiceProxy.Connect = function(url, serviceId){
@@ -202,6 +203,10 @@ ServiceProxy.prototype = {
                             for (var item in proxyObj){
                                 if (proxyObj[item] == "method") {
                                     self._createFakeMethod(item, proxyObj[item]);
+                                } else {
+                                  if (self[item] === undefined){
+                                    self[item] = proxyObj[item];
+                                  }
                                 }
                             }
                             if (typeof callback == "function") {
@@ -241,8 +246,7 @@ ServiceProxy.prototype = {
         try {
             var promise = new Promise(function (resolve, reject) {
                 function raiseError(err) {
-                    console.error("Event socket error at " + self.serviceId + ":" + self.url);
-                    console.log(err);
+                    console.error("Event socket error at " + ":" + self.url + (self.serviceId ?  " -- " + self.serviceId : ""), err);
                     self.emit('error', err);
                     eventSocket.close();
                     reject(err);
@@ -257,6 +261,7 @@ ServiceProxy.prototype = {
                         raiseError(err);
                     }
                     resolve("subscribed");
+                    self.connected = true;
                 };
                 var messageHandlerFunction = function (message) {
                     message = JSON.parse(message.data);
@@ -265,12 +270,17 @@ ServiceProxy.prototype = {
                     }
                     if (message.type == "error") {
                         raiseError(message);
+                        if (message.close){
+                            eventSocket.onclose = null
+                            eventSocket.close();
+                        }
                     }
                 };
                 eventSocket.onerror = raiseError;
                 eventSocket.onmessage = messageHandlerFunction;
                 eventSocket.onclose = function (event) {
                     self.connectionsCount--;
+                    self.connected = false;
                     if (event.wasClean) {
                         console.log('Event cоединение закрыто чисто');
                         setTimeout(()=>{
