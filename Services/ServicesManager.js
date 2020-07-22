@@ -334,9 +334,9 @@ Inherit(ServicesManager, Service, {
         var self = this;
         var promise = new Promise((resolve, reject) => {
             try {
-                if (!this.isServiceAvailable(serviceId)) return reject("Service " + serviceId + " not available");
+                if (!this.isServiceLoaded(serviceId)) return reject("Service " + serviceId + " not available");
                 var service = this.services[serviceId];
-                if (service.code < ForkMon.STATUS_WORKING) return reject("Service not working");
+                //if (service.code < ForkMon.STATUS_WORKING) return reject("Service not working");
                 service.once("exited", ()=>{
                    resolve(serviceId + " stopped");
                 });
@@ -484,7 +484,7 @@ Inherit(ServicesManager, Service, {
     },
 
     stopService : function(serviceId) {
-        if (this.isServiceAvailable(serviceId)) {
+        if (this.isServiceLoaded(serviceId)) {
             this.services[serviceId].stop();
         }
     },

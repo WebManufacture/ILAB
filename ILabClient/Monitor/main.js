@@ -67,7 +67,7 @@ ConfManager.CreateSection = function(name, baseUrl, sectionBlock){
         section.servicesManager = servicesManager;
         section.Start = function (item) {
             if (!item) return null;
-            return servicesManager.StartService(item);
+            return servicesManager.StartService({id: item});
         };
         section.Stop = function (item) {
             if (!item) return null;
