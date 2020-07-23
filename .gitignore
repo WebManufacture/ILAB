@@ -1,5 +1,11 @@
 node_modules
 package-lock.json
 config.json
+*_config.json
+config_*.json
 **/electron/dist
 **/node_modules
+*.cert
+*.key
+*.pfx
+SSLCert.*
