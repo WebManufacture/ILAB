@@ -49,7 +49,6 @@ Inherit(UdpServer, EventEmitter, {
         this.sendBye(addressParts.join("."), this.localPort, nodes);
     },
     sendBye : function (addressTo, portTo, nodes) {
-        Frame.log("Send BYE! from " + this.localAddress +  " to " + addressTo + ":" + portTo);
         this.udpServer.send({
             type: "bye",
             id: this.serviceId,
@@ -59,6 +58,7 @@ Inherit(UdpServer, EventEmitter, {
             localId: this.localId,
             knownNodes: nodes
         }, portTo, addressTo);
+        Frame.log("Send BYE! from " + this.localAddress +  " to " + addressTo + ":" + portTo);
     },
     sendHello : function (addressTo, portTo, localId) {
         Frame.log("Send hello from " + this.localAddress +  " to " + addressTo + ":" + portTo);
@@ -138,8 +138,8 @@ function DiscoveryService(config){
     this.routerId == "";
     this.maximumCheckTries = config.maximumCheckTries ? config.maximumCheckTries : 4;
     this.knownNodesChecks = {};
-    this.serversPollInterval = config.serversPollInterval ? config.serversPollInterval : 5000;
-    this.nodesPollInterval = config.nodesPollInterval ? config.nodesPollInterval : 15000;
+    this.serversPollInterval = config.serversPollInterval ? config.serversPollInterval : 120000;
+    this.nodesPollInterval = config.nodesPollInterval ? config.nodesPollInterval : 110000;
     this.serverCheckHashes = {};
     this.lastKnownNodesForBye;
 
@@ -241,10 +241,10 @@ function DiscoveryService(config){
                 //TODO: Add recheck hashes!
             });
             server.on("check-alive", (obj, rinfo) => {
-                if (this.debugMode) console.log("IsAlive: ", obj);
+                if (this.debugMode) Frame.log("IsAlive: ", obj);
                 this.routingService.CheckAlive(obj).then(alive => {
                   if (!alive){
-                    console.log("Service Died!", obj)
+                    Frame.log("Service Died!", obj)
                   }
                   server.send(rinfo.address, rinfo.port, {
                       type: "is-alive",
@@ -260,11 +260,11 @@ function DiscoveryService(config){
                 if (!obj.isAlive){
                   this.routingService.SetNodeRank(obj, 404);
                 } else {
-                  if (this.debugMode) console.log("Alive: ", obj);
+                  if (this.debugMode) Frame.log("Alive: ", obj);
                 }
             });
             server.on("bye", (obj, rinfo) => {
-                console.log("Server said Bye! " + rinfo.address, ":", rinfo.port);
+                Frame.log("Server said Bye! " + rinfo.address, ":", rinfo.port);
                 if (Array.isArray(obj.knownNodes)) {
                     obj.knownNodes.forEach((node) => {
                         this.routingService.SetNodeRank(node, 401);
@@ -283,7 +283,7 @@ function DiscoveryService(config){
                   });
                 });
             });
-            //eval("console.log('eval')");
+            //eval("Frame.log('eval')");
             server.on("i-know", (obj, rinfo)=>{
                 if (obj.knownNodes) {
                   const nodes = [];
@@ -402,7 +402,7 @@ Inherit(DiscoveryService, Service, {
                       self.knownNodesChecks[node.localId] = 1;
                     }
                     if (self.knownNodesChecks[node.localId] > self.maximumCheckTries){
-                      console.log("Node removed by checks count ", self.knownNodesChecks[node.localId],  node.localId, ":", node.serviceType, "#", node.id)
+                      Frame.log("Node removed by checks count ", self.knownNodesChecks[node.localId],  node.localId, ":", node.serviceType, "#", node.id)
                       self.routingService.SetNodeRank(node, 404);
                       delete this.knownNodesChecks[node.localId];
                     } else {

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type"/>
+    <script>
+      ServicesUrl = "http://localhost/ILabClient/Components";
+      SystemUrl = "http://localhost/ILabClient";
+      ModulesUrl = "http://localhost/ILabClient/Components";
+
+    </script>
+    <link href="http://localhost/ILabClient/System.default.css" rel="stylesheet">
+    <script src="http://localhost/ILabClient/domjs_v1.5.js" type="text/javascript"></script>
+    <script src="http://localhost/ILabClient/WebSocketProxy.js" type="text/javascript"></script>
+    <script src="http://localhost/ILabClient/SharedIlab.js" type="text/javascript"></script>
+
+    <title>Конфигурация сервера</title>
+    <link type='text/css' rel='stylesheet' href="main.css"/>
+    <script type="text/javascript" src="main.js"></script>
+
+</head>
+<body>
+<include url='http://localhost/ILabClient/Components/UiUtils.htm'></include>
+<include url='http://localhost/ILabClient/Components/HtmlElements.htm'></include>
+<include url="http://localhost/ILabClient/Components/Toolbars.htm"></include>
+<include url='http://localhost/ILabClient/Components/JsonEditor.htm'></include>
+<include url='http://localhost/ILabClient/Components/Notification.htm'></include>
+<div id='serverVer'></div>
+<div class='object-item prototype' id='NodeTemplate'>
+    <div class="inner-wrapper">
+        <div class='node-controls'>
+            <div class='node-icon'>
+            </div>
+            <div class='separator'>
+            </div>
+            <div class='mini-btn start'
+                 onclick='event.stopPropagation(); ConfManager.Start(this.get("^.object-item")); event.stopPropagation();'></div>
+            <div class='mini-btn stop'
+                 onclick='event.stopPropagation(); ConfManager.Stop(this.get("^.object-item")); event.stopPropagation();'></div>
+            <div class='mini-btn reload' icon="http://cdn1.iconfinder.com/data/icons/humility-icons-MERGE/24x24/stock/gtk-refresh.png"
+                 onclick='event.stopPropagation(); ConfManager.Reset(this.get("^.object-item")); event.stopPropagation();'></div>
+            <div class='mini-btn remove'
+                 onclick='event.stopPropagation(); ConfManager.Remove(this.get("^.object-item")); event.stopPropagation();'></div>
+            <div class='mini-btn log'
+                 onclick=' event.stopPropagation(); ConfManager.ShowLogs(this.get("^.object-item")); event.stopPropagation();'></div>
+        </div>
+        <div class='node-info'>
+            <div class='node-id' item-field='id'>
+            </div>
+            <div class='node-path' item-field='codePath'>
+            </div>
+            <div class='node-type'>
+                <span item-field='type'></span>:<span item-field='serviceType'></span>
+            </div>
+            <div class='node-host'>
+                <span item-field='host'>tcp</span>:<span item-field='port'></span>
+            </div>
+            <div class='node-host' item-field-group="config">
+                <span item-field='host'>Http</span>:<span item-field='port'></span>
+            </div>
+        </div>
+        <div class='child-nodes'></div>
+    </div>
+</div>
+
+<div class="nodes-block" id="LocalNodesBlock">
+
+</div>
+
+<div class="nodes-block" id="WmNodesBlock">
+
+</div>
+
+<div id="logBox">
+
+</div>
+
+<div class="header toolbar" id="Toolbar">
+    <div class='menuitem file-manager-button' id='create-file-button' icon="http://system.web-manufacture.net/images/document-small.png" onclick="ConfManager.StartService(FilterInput.value)">
+        Start Service
+    </div>
+    <div class="menuitem" onclick="ConfManager.ShowLogs();" icon="http://cdn1.iconfinder.com/data/icons/fatcow/32/file_extension_log.png"
+         tooltip="Логи" >
+    </div>
+    <div class="menuitem" onclick="ConfManager.ShowConfigs();" icon="http://cdn2.iconfinder.com/data/icons/stilllife/48x48/apps/gnome-server-config.png" tooltip="Конфиги">
+    </div>
+</div>
+
+</body>
+</html>

@@ -2,7 +2,7 @@ self.Frame = {};
 
 Frame = { isChild : false };
 
-Frame.ilabPath =  "/ILab-Client";
+Frame.ilabPath =  "/ILabClient";
 Frame.SystemPath = Frame.ilabPath + "/System/";
 Frame.ModulesPath = Frame.ilabPath + "/Modules/";
 Frame.ServicesPath = Frame.ilabPath + "/Services/";
