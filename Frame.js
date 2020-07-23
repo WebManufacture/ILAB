@@ -450,7 +450,8 @@ Frame.startChild = function(params){
             parentId: Frame.serviceId,
             rootId: Frame.rootId,
             nodePath: servicePath,
-            params: JSON.stringify(params)
+            params: JSON.stringify(params),
+            configFilePath: Frame.configFilePath
         }
     };
     if (params && params.workingPath){
@@ -606,6 +607,8 @@ process.once("SIGINT", Frame.exit);
 //console.log(Frame.isChild ? "CHILD " : "" + "FRAME: " + Frame.id + "");
 if (Frame.isChild) {
     Frame.serviceId = getEnvParam("serviceId", Frame.newId());
+    Frame.configFilePath = getEnvParam("configFilePath");
+    console.log("CP Path", Frame.configFilePath)
     var nodesConfig = Frame._parseCmd();
     Frame.setId(Frame.serviceId);
     if (Frame.servicePipe) {

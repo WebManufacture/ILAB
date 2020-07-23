@@ -105,6 +105,7 @@ function _init() {
                     // используется config.json если аргументом идёт флаг --config
                     if (arg.indexOf("=") > 0) {
                         configFileName = arg.split("=")[1];
+                        Frame.configFilePath = configFileName;
                     }
                     try{
                         var configFile = require(Path.resolve(configFileName));
