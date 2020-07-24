@@ -103,9 +103,8 @@ global.serviceId = "ConfigService";
 
 Inherit(ConfigService, Service, {
 
-    watchServiceFileChange(serviceId, options){
+    watchServiceFileChange(serviceId, config){
         var self = this;
-        var config = this.store[serviceId];
         var path = "Services/" + serviceId + ".js";
         if (config && config.path) path = config.path;
         return self.filesService.Watch(path, false).then((fpath) => {
