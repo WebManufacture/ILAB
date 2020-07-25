@@ -59,15 +59,16 @@ ConfManager.CreateSection = function(name, baseUrl, sectionBlock){
         configs: {},
         url: baseUrl,
         servicesManager: null,
-        configService: null
+        configService: null,
+        id: sectionBlock && sectionBlock.id ? sectionBlock.id : (Math.random() + "").replace("0.", "")
     };
-    ConfManager.sections[name] = section;
+    ConfManager.sections[section.id] = section;
     loggerDiv = WS.Body.div(".logger");
     ServiceProxy.Connect(baseUrl + "/ServicesManager").then((servicesManager) => {
         section.servicesManager = servicesManager;
         section.Start = function (item) {
             if (!item) return null;
-            return servicesManager.StartService({id: item});
+            return servicesManager.StartService(item);
         };
         section.Stop = function (item) {
             if (!item) return null;
@@ -141,17 +142,14 @@ ConfManager.ConnectServiceLog = function(baseUrl, serviceId){
 }
 
 
-ConfManager.ShowSection = function(section, sectionBlock){
+ConfManager.ShowSection = function(section, sectionDiv){
     if (typeof section == 'string') {
-        section = ConfManager.sections[section];
+        section = ConfManager.sections[section.id];
     }
     if (!section) return;
-
-    var sectionDiv = DOM.get("[sectionName='" + section.name + "']");
-    if (!sectionDiv) {
-        sectionDiv = sectionBlock.div(".section");
-        sectionDiv.set("@sectionName", section.name);
-    }
+    if (!sectionDiv) return;
+    sectionDiv.set("@sectionName", section.name);
+    sectionDiv.add(".section");
     sectionDiv.innerHTML = "";
     var header = sectionDiv.div(".section-header");
     header.div(".section-name", section.name);
@@ -198,18 +196,18 @@ ConfManager.CreateNodeItem = function (node, section) {
             field.add(".empty");
         }
     });
-
+    var sectionId = "#" + section.id;
     section.servicesManager.on("service-started", (service)=>{
-        console.log("Service working:" + service);
-        DOM.get("#node_" + service).set("@status", "working");
+        console.log("Service working:" + section.name + ":" + service);
+        DOM.get(sectionId + " #node_" + service).set("@status", "working");
     });
     section.servicesManager.on("service-loaded", (service)=>{
-        console.log("Service loading:" + service);
-        DOM.get("#node_" + service).set("@status", "loading");
+        console.log("Service loading:" + section.name + ":" + service);
+        DOM.get(sectionId + " #node_" + service).set("@status", "loading");
     });
     section.servicesManager.on("service-exited", (service)=>{
-        console.log("Service exited:" + service);
-        DOM.get("#node_" + service).set("@status", "stopped");
+        console.log("Service exited:" + section.name + ":" + service);
+        DOM.get(sectionId + " #node_" + service).set("@status", "stopped");
     });
 
     //ConfManager.Channel.subscribe("/log/" + node.id, "/");

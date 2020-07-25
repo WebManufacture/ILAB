@@ -127,6 +127,11 @@ body{
 .nodes-block .object-item:not(.node-group)[status='working']{
     background-color: rgba(100,255,0,0.7);
 }
+
+.nodes-block .object-item:not(.node-group)[status='loading']{
+    background-color: rgba(255,255,0,0.7);
+}
+
 .nodes-block .object-item:not(.node-group)[status='unloaded'],
 .nodes-block .object-item:not(.node-group)[status='exited'],
 .nodes-block .object-item:not(.node-group)[status='stopped']{

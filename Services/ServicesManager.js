@@ -13,8 +13,8 @@ var ServiceProxy = useRoot("System/ServiceProxy");
 
 function ServicesManager(config, portCountingFunc){
     this.debugMode = config.debugMode;
-	this.services = {};
-	this.params = {};
+	  this.services = {};
+	  this.params = {};
     var self = this;
     this.forksCount = 0;
     this.configFilePath = config.configFilePath;
@@ -62,7 +62,7 @@ function ServicesManager(config, portCountingFunc){
                 return service.description;
             });
         } else {
-            return self.startServiceAsync(service).then(function (service) {
+            return self.startServiceAsync(service, this.params[service]).then(function (service) {
                 return service.description;
             });
         }
@@ -74,7 +74,7 @@ function ServicesManager(config, portCountingFunc){
             var service = services[index];
             if (service && index < services.length){
                 if (typeof service == "string"){
-                    self.startServiceAsync(service).then((service, serviceId, params, serviceType)=>{
+                    self.startServiceAsync(service, this.params[service]).then((service, serviceId, params, serviceType)=>{
                         startNext(resolve, reject);
                     }).catch((error)=>{
                         reject(error);
