@@ -105,6 +105,7 @@ function _init() {
                     // используется config.json если аргументом идёт флаг --config
                     if (arg.indexOf("=") > 0) {
                         configFileName = arg.split("=")[1];
+                        Frame.configFilePath = Path.resolve(configFileName);
                     }
                     try{
                         var configFile = require(Path.resolve(configFileName));
@@ -233,13 +234,14 @@ function _init() {
                         params.push(service);
                     });
                     console.log("Detected " + params.length + " services to start");
+                    servicesManager.configFilePath = Frame.configFilePath;
                     servicesManager.on("service-started", function (serviceId, config, description) {
                         if (description && description.serviceType) {
                             console.log("Service started: " + description.serviceType + "#" + serviceId + " on TCP " + description.tcpPort);
                         } else {
                             console.log("Service started: " + serviceId + " on TCP " + description.tcpPort);
                         }
-                    })
+                    });
                     servicesManager.StartServices(params).then(function (result) {
                         process.emit("ilab-started", {});
                         console.log("All started!");
@@ -247,7 +249,7 @@ function _init() {
                         console.error(err);
                     });
                 }
-            }
+            };
             startNewMethod = () => {
                 var result = Service.call(this, { id: Frame.serviceId });
                 this.on("error", function (err) {

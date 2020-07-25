@@ -368,7 +368,8 @@ Inherit(ServicesManager, Service, {
         if (!this.isServiceLoaded(serviceId)) {
             var env = {
                 cwd : process.cwd(),
-                managerPort : self.port
+                managerPort : self.port,
+                configFilePath: self.configFilePath
             };
             var servicePath = serviceId;
             if (params && params.path) {
