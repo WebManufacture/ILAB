@@ -604,7 +604,6 @@ process.once("SIGINT", Frame.exit);
 if (Frame.isChild) {
     Frame.serviceId = getEnvParam("serviceId", Frame.newId());
     Frame.configFilePath = getEnvParam("configFilePath");
-    console.log("CP Path", Frame.configFilePath)
     var nodesConfig = Frame._parseCmd();
     Frame.setId(Frame.serviceId);
     if (Frame.servicePipe) {

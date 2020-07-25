@@ -105,8 +105,8 @@ function _init() {
                     // используется config.json если аргументом идёт флаг --config
                     if (arg.indexOf("=") > 0) {
                         configFileName = arg.split("=")[1];
-                        Frame.configFilePath = Path.resolve(configFileName);
                     }
+                    Frame.configFilePath = Path.resolve(configFileName);
                     try{
                         var configFile = require(Path.resolve(configFileName));
                         if (Array.isArray(configFile)){
@@ -212,6 +212,9 @@ function _init() {
                 var ServicesManager = useService(smConfig.path);
                 if (ServicesManager) {
                     if (smConfig.id) Frame.setId(smConfig.id);
+                    if (smConfig.configFilePath) Frame.configFilePath = smConfig.configFilePath;
+                    else smConfig.configFilePath = Frame.configFilePath;
+                    console.log("smConfig", smConfig);
                     var servicesManager = new ServicesManager(smConfig, function () {
                         /*if (Frame.portRanges){
                         }*/
@@ -234,7 +237,6 @@ function _init() {
                         params.push(service);
                     });
                     console.log("Detected " + params.length + " services to start");
-                    servicesManager.configFilePath = Frame.configFilePath;
                     servicesManager.on("service-started", function (serviceId, config, description) {
                         if (description && description.serviceType) {
                             console.log("Service started: " + description.serviceType + "#" + serviceId + " on TCP " + description.tcpPort);

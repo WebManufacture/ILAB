@@ -17,6 +17,7 @@ function ServicesManager(config, portCountingFunc){
 	this.params = {};
     var self = this;
     this.forksCount = 0;
+    this.configFilePath = config.configFilePath;
     if (typeof portCountingFunc != "function"){
         this._availablePort = Frame.servicePort;
         portCountingFunc = function () {
@@ -151,6 +152,7 @@ function ServicesManager(config, portCountingFunc){
         options.serviceId = id;
         options.servicePort = port;
         options.managerPort = self.port;
+        options.configFilePath = self.configFilePath;
         if (!options.debugMode){
             options.debugMode = self.debugMode;
         }
@@ -368,8 +370,7 @@ Inherit(ServicesManager, Service, {
         if (!this.isServiceLoaded(serviceId)) {
             var env = {
                 cwd : process.cwd(),
-                managerPort : self.port,
-                configFilePath: self.configFilePath
+                managerPort : self.port
             };
             var servicePath = serviceId;
             if (params && params.path) {
