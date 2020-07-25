@@ -216,25 +216,27 @@ function DiscoveryService(config){
                 Frame.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
                 //Frame.log(obj);
                 //TODO: Integrate NAT Polling
-                this.routingService.RegisterNode({
-                    id: obj.id,
-                    type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
-                    rank: rinfo.address == obj.myAddress ? 10 : (rinfo.port == obj.myPort ? 20 : 30),
-                    serviceType: obj.serviceType,
-                    address: rinfo.address,
-                    port: rinfo.port,
-                    tcpPort: obj.tcpPort,
-                    parentId: this.serviceId,
-                    parentType: this.serviceType,
-                    localId: obj.localId
-                }).then((result)=>{
-                  server.send(rinfo.address, rinfo.port, {
-                      type: "get-known",
-                      id: this.serviceId,
-                      serviceType: "DiscoveryService",
-                      localId: this.localId
-                  });
-                });
+                if (this.routingService) {
+                    this.routingService.RegisterNode({
+                        id: obj.id,
+                        type: rinfo.address == obj.myAddress ? "direct" : (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
+                        rank: rinfo.address == obj.myAddress ? 10 : (rinfo.port == obj.myPort ? 20 : 30),
+                        serviceType: obj.serviceType,
+                        address: rinfo.address,
+                        port: rinfo.port,
+                        tcpPort: obj.tcpPort,
+                        parentId: this.serviceId,
+                        parentType: this.serviceType,
+                        localId: obj.localId
+                    }).then((result) => {
+                        server.send(rinfo.address, rinfo.port, {
+                            type: "get-known",
+                            id: this.serviceId,
+                            serviceType: "DiscoveryService",
+                            localId: this.localId
+                        });
+                    });
+                }
                 /*if (rinfo.address != obj.myAddress || rinfo.port != obj.myPort){
                     server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 }*/
@@ -242,23 +244,27 @@ function DiscoveryService(config){
             });
             server.on("check-alive", (obj, rinfo) => {
                 if (this.debugMode) Frame.log("IsAlive: ", obj);
-                this.routingService.CheckAlive(obj).then(alive => {
-                  if (!alive){
-                    Frame.log("Service Died!", obj)
-                  }
-                  server.send(rinfo.address, rinfo.port, {
-                      type: "is-alive",
-                      id: obj.id,
-                      serviceType: obj.serviceType,
-                      localId: obj.localId,
-                      isAlive: alive
-                  });
-                });
+                if (this.routingService) {
+                    this.routingService.CheckAlive(obj).then(alive => {
+                        if (!alive) {
+                            Frame.log("Service Died!", obj)
+                        }
+                        server.send(rinfo.address, rinfo.port, {
+                            type: "is-alive",
+                            id: obj.id,
+                            serviceType: obj.serviceType,
+                            localId: obj.localId,
+                            isAlive: alive
+                        });
+                    });
+                }
             });
             server.on("is-alive", (obj, rinfo) => {
                 delete this.knownNodesChecks[obj.localId];
                 if (!obj.isAlive){
-                  this.routingService.SetNodeRank(obj, 404);
+                    if (this.routingService) {
+                        this.routingService.SetNodeRank(obj, 404);
+                    }
                 } else {
                   if (this.debugMode) Frame.log("Alive: ", obj);
                 }
@@ -266,9 +272,11 @@ function DiscoveryService(config){
             server.on("bye", (obj, rinfo) => {
                 Frame.log("Server said Bye! " + rinfo.address, ":", rinfo.port);
                 if (Array.isArray(obj.knownNodes)) {
-                    obj.knownNodes.forEach((node) => {
-                        this.routingService.SetNodeRank(node, 401);
-                    });
+                    if (this.routingService) {
+                        obj.knownNodes.forEach((node) => {
+                            this.routingService.SetNodeRank(node, 401);
+                        });
+                    }
                 }
             });
             server.on("get-known", (obj, rinfo) => {
@@ -309,9 +317,11 @@ function DiscoveryService(config){
                           }*/
                       });
                   }
-                  this.routingService.RegisterNodes(nodes).then(registered => {
+                    if (this.routingService) {
+                        this.routingService.RegisterNodes(nodes).then(registered => {
 
-                  });
+                        });
+                    }
                 }
             });
 
