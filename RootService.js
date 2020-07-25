@@ -106,7 +106,7 @@ function _init() {
                     if (arg.indexOf("=") > 0) {
                         configFileName = arg.split("=")[1];
                     }
-                    Frame.configFilePath = Path.resolve(configFileName);
+                    Frame.configFilePath = configFileName;
                     try{
                         var configFile = require(Path.resolve(configFileName));
                         if (Array.isArray(configFile)){

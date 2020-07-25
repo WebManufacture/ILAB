@@ -38,5 +38,8 @@
   },
   "myService":{
 
+  },
+  "ConfigService": {
+    "watchConfigChanged": true
   }
 }
