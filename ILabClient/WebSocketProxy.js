@@ -271,9 +271,13 @@ ServiceProxy.prototype = {
                     if (message.type == "error") {
                         raiseError(message);
                         if (message.close){
-                            eventSocket.onclose = null
+                            eventSocket.onclose = null;
                             eventSocket.close();
+                            self.emit("event-close", message);
                         }
+                    }
+                    if (message.type == "external-error"){
+                        self.emit.apply(self, message.args);
                     }
                 };
                 eventSocket.onerror = raiseError;

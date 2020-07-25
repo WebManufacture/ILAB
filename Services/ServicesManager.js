@@ -57,9 +57,15 @@ function ServicesManager(config, portCountingFunc){
     this.StartService = function (service) {
         if (!service) return null;
         console.log("Starting service:", service);
-        return self.startServiceAsync(service.id, service).then(function (service) {
-            return service.description;
-        });
+        if (typeof service == "object") {
+            return self.startServiceAsync(service.id, service).then(function (service) {
+                return service.description;
+            });
+        } else {
+            return self.startServiceAsync(service).then(function (service) {
+                return service.description;
+            });
+        }
     };
     this.StartServices = function (services) {
         if (!services) return null;
@@ -67,11 +73,20 @@ function ServicesManager(config, portCountingFunc){
         function startNext(resolve, reject) {
             var service = services[index];
             if (service && index < services.length){
-                self.startServiceAsync(service.id, service).then((service, serviceId, params, serviceType)=>{
-                    startNext(resolve, reject);
-                }).catch((error)=>{
-                    reject(error);
-                });
+                if (typeof service == "string"){
+                    self.startServiceAsync(service).then((service, serviceId, params, serviceType)=>{
+                        startNext(resolve, reject);
+                    }).catch((error)=>{
+                        reject(error);
+                    });
+                } else {
+                    self.startServiceAsync(service.id, service).then((service, serviceId, params, serviceType)=>{
+                        startNext(resolve, reject);
+                    }).catch((error)=>{
+                        reject(error);
+                    });
+                }
+
                 index++;
             } else {
                 resolve();
@@ -135,6 +150,9 @@ function ServicesManager(config, portCountingFunc){
     this.GetServicesInfo = function () {
         return new Promise(function(resolve, reject){ resolve(self.getServicesAdvancedInfo()); });
     };
+    this.GetServiceInfo = function (serviceId) {
+        return new Promise(function(resolve, reject){ resolve(self.getServiceAdvancedInfo(self.services[serviceId])); });
+    };
     this.GetService = function (name) {
         return new Promise(function(resolve, reject){
             var proxy = self.getProxy(name);
@@ -194,19 +212,26 @@ ServicesManager.serviceId = "ServicesManager";
 Inherit(ServicesManager, Service, {
     _subscribeEvents : function(service){
         var self = this;
+        function statusEvent(eventName){
+            return function(arg1, arg2, arg3) {
+                self.emit("status", eventName, service.serviceId, arg1, arg2, arg3);
+                self.emit.call(self, "service-" + eventName, service.serviceId, arg1, arg2, arg3);
+            }
+        }
         function subEvent(eventName){
-            return function(arg1, arg2) {
-                self.emit.call(self, "service-" + eventName, service.serviceId, arg1, arg2);
+            return function(arg1, arg2, arg3) {
+                self.emit.call(self, "service-" + eventName, service.serviceId, arg1, arg2, arg3);
             }
         }
         service.on("error", subEvent("error"));
         service.on("message", subEvent("message"));
         service.on("service-started", function() {
+            self.emit("status", "started", service.serviceId, arguments[0], arguments[1], arguments[2], arguments[3]);
             self.emit("service-started", arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5]);
         });
-        service.on("service-loaded", subEvent("loaded"));
-        service.on("service-connected", subEvent("connected"));
-        service.on("exited", subEvent("exited"));
+        service.on("service-loaded", statusEvent("loaded"));
+        service.on("service-connected", statusEvent("connected"));
+        service.on("exited", statusEvent("exited"));
     },
 
     _messageEvent : function(obj, msg){
@@ -338,8 +363,9 @@ Inherit(ServicesManager, Service, {
             try {
                 if (!this.isServiceLoaded(serviceId)) return reject("Service " + serviceId + " not available");
                 var service = this.services[serviceId];
-                //if (service.code < ForkMon.STATUS_WORKING) return reject("Service not working");
+                if (service.code < ForkMon.STATUS_WORKING) return reject("Service not working");
                 service.once("exited", ()=>{
+                   service.code = ForkMon.STATUS_EXITED;
                    resolve(serviceId + " stopped");
                 });
                 console.log("Stopping service " + serviceId);
@@ -396,6 +422,7 @@ Inherit(ServicesManager, Service, {
                 service.serviceType = description.serviceType;
                 service.description = description;
                 service.codePath = description.codePath;
+                service.code = ForkMon.STATUS_WORKING;
                 service.config = serviceParam;
                 if (description.tcpPort){
                     service.port = description.tcpPort;
@@ -408,6 +435,7 @@ Inherit(ServicesManager, Service, {
 
             service.once("service-loaded", function (serviceId, params) {
                // console.log("Service loaded", serviceId, params);
+                service.code = ForkMon.STATUS_WORKING;
                 if (params.servicePipe) {
                     service.servicePipe = params.servicePipe;
                 }
@@ -523,8 +551,16 @@ Inherit(ServicesManager, Service, {
         for (var name in this.services){
             var service = this.services[name];
             if (service){
-                var info = {
-                    id: name,
+                services.push(this.getServiceAdvancedInfo(service));
+            }
+        }
+        return services;
+    },
+
+    getServiceAdvancedInfo : function(service){
+        if (service){
+                return {
+                    id: service.serviceId,
                     path: service.codePath,
                     serviceType: service.resultType ? service.resultType : service.serviceType,
                     resultId: service.resultId,
@@ -534,13 +570,11 @@ Inherit(ServicesManager, Service, {
                     state: service.code,
                     config: service.config,
                     framePath: service.path,
-                    description: service.description
+                    description: service.description,
+                    contract: typeof service.getContract == "function" ? service.getContract() : null
                 };
-                //console.log(info)
-                services.push(info);
             }
-        }
-        return services;
+        return null;
     },
 
     getProxy : function(serviceId, callback){

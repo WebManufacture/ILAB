@@ -111,7 +111,7 @@ Inherit(WebSocketProxyService, Service, {
                 socket.on('error', function (err) {
                     console.log("WSproxy: Socket error at " + serviceId + ":" + servicePort);
                     console.error(err);
-                    ws.send(JSON.stringify({type:"external-error", result : err, stack: err.stack}))
+                    ws.send(JSON.stringify({type:"error", result : err, stack: err.stack, close: true}));
                     socket.end();
                     ws.close();
                 });

@@ -22,6 +22,16 @@
 		<script>
 			Monitor = {};
 
+
+            Monitor.Statuses = ["new", "killed", "exited", "paused", "error", "reserved", "stopping", "working"];
+            Monitor.STATUS_NEW = 0;
+            Monitor.STATUS_KILLED = 1;
+            Monitor.STATUS_EXITED = 2;
+            Monitor.STATUS_PAUSED = 3;
+            Monitor.STATUS_ERROR = 4;
+            Monitor.STATUS_STOPPING = 6;
+            Monitor.STATUS_WORKING = 7;
+
 			Monitor.Init = function(){
 				Monitor.startDate = new Date();
 				Monitor.lastLogDate == null;
@@ -29,7 +39,8 @@
 				//Monitor.Url = (this.location + "").replace(this.location.search, "").toLowerCase();
 				//Monitor.Url = Monitor.Url.replace("/monitoring.htm", "");
 				Monitor.serviceId = Request.Params.service;
-        Monitor.url = Request.Params.url;
+                ServiceName.set(Monitor.serviceId);
+                Monitor.url = Request.Params.url;
 				document.title = Monitor.serviceId;
 				DOM("#urlBar").set(Monitor.serviceId);
 
@@ -56,16 +67,20 @@
                     servicesManager.on("service-loaded", (params) => {
                         Monitor.ConnectService();
                     });
-                    servicesManager.on("*",Monitor.ServerStatus);
-
-                    Monitor.ConnectService();
+                    servicesManager.on("status", Monitor.ServerStatus);
+					servicesManager.GetServiceInfo(Monitor.serviceId).then((service)=>{
+					    if (service.state >= Monitor.STATUS_WORKING) {
+                            Monitor.ConnectService();
+                        } else {
+					        Monitor.ServerStatus(Monitor.Statuses[service.state], Monitor.serviceId);
+						}
+					});
                 })
 			};
 
 			Monitor.ConnectService = function(){
 			    ServiceProxy.Connect(Monitor.serviceId).then((service) => {
-			        ServiceName.set(Monitor.serviceId);
-                    ServiceMethods.clear();
+			        ServiceMethods.clear();
                     if (service){
                         for (var item in service){
                             if (service.hasOwnProperty(item) && typeof(service[item]) == "function") {
@@ -99,9 +114,9 @@
 
 			Monitor.ServerStatus = function (status, params) {
 				WS.Body.del(".loading");
-				if (Monitor.Status != status){
+				if (params == Monitor.serviceId && Monitor.Status != status){
 					Monitor.Status = status;
-                    Monitor.LogMessage("log", status);
+                    Monitor.LogMessage("status", status);
 					WS.Body.set("@status", status);
 				}
 			};
@@ -112,7 +127,7 @@
                 var datetime = new Date();
                 proto.get(".datetime").set(datetime.formatTime(true));
             	proto.get(".method").set(methodName + "() >>");
-            	proto.div(".result", DOM.formatJSON(obj, true));
+            	proto.div(".text", DOM.formatJSON(obj, true));
                 logDiv.ins(proto);
                 setTimeout(function(){
                     proto.add(".old");
@@ -147,14 +162,16 @@
 				proto = proto.clone();
 				var datetime = new Date();
 				proto.get(".datetime").set(datetime.formatTime(true));
+				var typeDiv = proto.get(".type");
+				if (typeDiv) typeDiv.set(type);
 				if (arg1){
                     proto.get(".text").div(arg1 + ": ");
 				}
 				if (type == "error"){
 					if (typeof(msg) == "object"){
-					    proto.add(DOM.formatJSON(msg, true));
+					    proto.get(".text").set(DOM.formatJSON(msg, true));
 					} else {
-                        proto.get(".text").div(msg);
+                        proto.get(".text").set(msg);
 					}
 				}
 				else{
@@ -280,19 +297,19 @@
 				left: 0;
 			}
 
-			body[status='service-started'] #ServiceControl .toolbar {
+			body[status='started'] #ServiceControl .toolbar {
 				background-color: #99FF99;
 			}
 
-			body[status='service-loaded'] #ServiceControl .toolbar {
+			body[status='loaded'] #ServiceControl .toolbar {
 				background-color: #FFFF99;
 			}
 
-			body[status='service-exited'] #ServiceControl .toolbar {
+			body[status='exited'] #ServiceControl .toolbar {
 				background-color: #66bbff;
 			}
 
-			body[status='service-error'] #ServiceControl .toolbar {
+			body[status='error'] #ServiceControl .toolbar {
 				background-color: #FF3366;
 			}
 
@@ -419,22 +436,24 @@
 			</div>
 		</div>
 		<div  id='logsMonitor'>
+			<div class='log-item status prototype'>
+				<span class='datetime'></span>
+				<span class='text'></span>
+			</div>
 			<div class='log-item info prototype'>
 				<span class='datetime'></span>
-  			<span class='type'></span>
+  				<span class='type'></span>
 				<span class='path'></span>
 				<span class='text'></span>
 			</div>
 			<div class='log-item debug prototype'>
 				<span class='datetime'></span>
-  			<span class='type'></span>
-				<span class='path'></span>
+  				<span class='path'></span>
 				<span class='text'></span>
 			</div>
 			<div class='log-item warn prototype'>
 				<span class='datetime'></span>
-  			<span class='type'></span>
-				<span class='path'></span>
+  				<span class='path'></span>
 				<span class='text'></span>
 			</div>
 			<div class='log-item error prototype'>
@@ -444,7 +463,7 @@
 			</div>
 			<div class='log-item log prototype'>
 				<span class='datetime'></span>
-  			<span class='type'></span>
+  				<span class='type'></span>
 				<span class='path'></span>
 				<span class='text'></span>
 			</div>
@@ -453,6 +472,8 @@
 					<span class='datetime'></span>
 					<span class='method'></span>
 				</div>
+				<span class='result'></span>
+				<span class='text'></span>
 			</div>
 		</div>
 	</body>
