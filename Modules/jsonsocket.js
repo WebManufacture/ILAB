@@ -118,15 +118,10 @@ function JsonSocket() {
 
     socket.on('error', errorHandler);
 
-    this.goStreamMode = (id) => {
+    this.goStreamMode = () => {
         isStream = true;
         this.netSocket.removeListener('data', dataListener);
         this.netSocket.removeListener('end', endListener);
-        var obj = { type : "stream-started"};
-        if (id){
-            obj.id = id;
-        }
-        self.send(obj);
         //console.log(this.netSocket.id + " Stream mode " + streamLength);
     };
 

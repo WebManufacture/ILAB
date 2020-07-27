@@ -118,10 +118,10 @@ ServiceProxy.prototype = {
                         resolve(message.result);
                     }
                     if (message.type == "stream" && message.id) {
-                        message.stream = socket.netSocket;
-                        resolve(message.stream);
+                        resolve(socket);
                     }
                     if (message.type == "error") {
+                        socket.close();
                         raiseError(message)
                     }
                 };

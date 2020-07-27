@@ -116,7 +116,22 @@ Inherit(WebSocketProxyService, Service, {
                     ws.close();
                 });
                 var messageHandlerFunction = function (message) {
-                    ws.send(JSON.stringify(message));
+                    if (message && message.type && message.type == "stream"){
+                      ws.send(JSON.stringify(message));
+                      socket.removeListener("json", messageHandlerFunction);
+                      try{
+                        socket.netSocket.on("data", (data)=>{
+                          ws.send(data);
+                        });
+                        console.log("Go Stream Mode", message);
+                      } catch(err){
+                        ws.send(JSON.stringify({type:"error", result : err, stack: err.stack, close: true}));
+                        socket.end();
+                        ws.close();
+                      }
+                    } else {
+                      ws.send(JSON.stringify(message));
+                    }
                 };
                 socket.on("json", messageHandlerFunction);
                 socket.once("close", function (isError) {

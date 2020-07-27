@@ -66,6 +66,9 @@ Inherit(ForkMon, EventEmitter, {
         if (Frame.debugMode && process.debugPort){
             options.execArgv = ["--inspect-brk=" + (parseInt(process.debugPort) + Math.floor(Math.random()*1000))];
         }
+        if (params.debugPort){
+            options.execArgv = ["--inspect-brk=" + parseInt(params.debugPort)];
+        }
         var cp = this.process = ChildProcess.fork(this.path, this.args, options);
         this.code = ForkMon.STATUS_WORKING;
         if (callback){

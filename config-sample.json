@@ -12,12 +12,12 @@
 
   },
   "DiscoveryService": {
-    "serversPollInterval" : 60000,
+    "serversPollInterval" : 55000,
     "nodesPollInterval" : 50000,
     "hosts": [
       {
         "address": "web-manufacture.net",
-        "port": 37331
+        "port": 31337
       }
     ]
   },

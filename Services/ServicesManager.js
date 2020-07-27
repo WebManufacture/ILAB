@@ -26,6 +26,11 @@ function ServicesManager(config, portCountingFunc){
     }
     this._getPort = portCountingFunc;
 
+    this.ConsoleStream = function () {
+        process.stdin.resume();
+        return process.stdin;
+    };
+
     this.StartServiceStream = function (service) {
         if (!service) return null;
         console.log("Starting service stream:", service);
@@ -54,6 +59,26 @@ function ServicesManager(config, portCountingFunc){
         return service;
     };
 
+    this.StartDebuggingService = function (service, debugPort) {
+        if (!service) return null;
+        console.log("Starting debugging service:", service);
+        if (!debugPort) debugPort = parseInt(Math.random() * 1000 + 9000);
+        if (typeof service == "object") {
+            self.startServiceAsync(service.id, {
+              ...service,
+              debugPort : debugPort,
+              debugMode : "debug"
+            });
+        } else {
+            self.startServiceAsync(service, {
+              ...this.params[service],
+              debugPort : debugPort,
+              debugMode : "debug"
+            });
+        }
+        return debugPort;
+    };
+
     this.StartService = function (service) {
         if (!service) return null;
         console.log("Starting service:", service);
@@ -67,6 +92,7 @@ function ServicesManager(config, portCountingFunc){
             });
         }
     };
+
     this.StartServices = function (services) {
         if (!services) return null;
         var index = 0;

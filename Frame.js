@@ -453,10 +453,14 @@ Frame.startChild = function(params){
     if (params && params.workingPath){
         options.cwd = params.workingPath;
     };
-    /*if (Frame.debugPort){
+    if (Frame.debugPort){
         const key = Frame.debugMode == 'debug' ? "--inspect-brk" : "--inspect";
         options.execArgv = [key + "=" + (Frame.debugPort + 1)];
-    }*/
+    }
+    if (params.debugPort){
+        const key = params.debugMode == 'debug' ? "--inspect-brk" : "--inspect";
+        options.execArgv = ["--inspect-brk=" + parseInt(params.debugPort)];
+    }
     var cp = ChildProcess.fork(Frame.ilabPath + "Frame.js", args, options);
     cp.id = params.id;
     cp.path = params.path;
@@ -630,7 +634,7 @@ if (Frame.isChild) {
                 var consoleError = console.error;
                 console.error = function(msg){
                     socket.write(JSON.stringify(arguments));
-                    consoleLog.apply(this, arguments);
+                    consoleError.apply(this, arguments);
                 }
             });
         }

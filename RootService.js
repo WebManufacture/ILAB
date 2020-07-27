@@ -68,9 +68,10 @@ function _init() {
             for (var i = 2; i <= process.argv.length; i++) {
                 var arg = process.argv[i];
                 if (!arg) continue;
-                if (arg.indexOf("--inspect") >= 0) {
-                    debugMode = arg.indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
+                if (arg.indexOf("--inspect") >= 0 || arg.indexOf("--debug") >= 0 ) {
+                    debugMode = arg.indexOf("--inspect-brk") >= 0 || arg.indexOf("--debug") >= 0 ? "debug" : "inspect";
                     console.log("Debug mode: " + debugMode);
+                    servicesToStart.debugMode = debugMode;
                     continue;
                 }
                 if (arg === "--new") {

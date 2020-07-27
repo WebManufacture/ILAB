@@ -4,43 +4,11 @@ NodeItem = {};
 
 NodeItem.Colors = ["#FFFFFF", "#FF0000", "#FF33FF", "#99CCFF", "#0099FF", "#33FFCC", "#99FF33", "#CCFF33", "#FFFF00", "#FFCC00", "#FF6633", "#9966FF"];
 
-
 NodeItem.NodeClick = function () {
     JsonEditor.EditObject(this.config, this.key);
 };
 
 ConfManager.sections = {};
-
-ConfManager.Init = function () {
-    var url = "ws://web-manufacture.net:5700";
-    if (Request.Params.url){
-        url = "ws://" + Request.Params.url
-    }
-    ConfManager.CreateSection("Web-Manufacture.net", url, WmNodesBlock);
-    ConfManager.CreateSection("Localhost", "ws://localhost:5700", LocalNodesBlock);
-    //ConfManager.Channel = new Net.HMCH("./");
-/*    Channels.on("/log", function (message, arg) {
-        Notify.ShowMessage(arg);
-    });
-    /*
-     var socket = io.connect('');
-     socket.on('connect', function(s){
-     console.log('connected');
-     });
-
-     socket.on('message', function(messages){
-     console.log(messages);
-     if (messages.length >= 2 ){
-     var message = messages[0];
-     var node = messages[1];
-     var item = ConfManager.GetNode(node.key);
-     if (item){
-     ConfManager.UpdateItem(item, node);
-     }
-     Notify.ShowMessage(node);
-     }
-     });*/
-};
 
 ConfManager.States = ["loading", "killed", "exited", "paused", "error", "idle", "stopping", "working"];
 ConfManager.STATUS_LOADING = 0;
@@ -51,6 +19,16 @@ ConfManager.STATUS_ERROR = 4;
 ConfManager.STATUS_IDLE = 5;
 ConfManager.STATUS_STOPPING = 6;
 ConfManager.STATUS_WORKING = 7;
+
+ConfManager.Init = function () {
+    var url = "ws://localhost:5700";
+    if (Request.Params.url){
+      url = "ws://" + Request.Params.url;
+      ConfManager.CreateSection(url, url, LocalNodesBlock);
+    } else {
+      ConfManager.CreateSection("Localhost", url, LocalNodesBlock);
+    }
+};
 
 ConfManager.CreateSection = function(name, baseUrl, sectionBlock){
     var section = {

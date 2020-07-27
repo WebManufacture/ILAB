@@ -165,6 +165,7 @@ Inherit(ServiceProxy, EventEmitter, {
                     }
                     if (message.type == "stream" && message.id) {
                         socket.goStreamMode();
+                        var obj = { type : "stream-started", id: message.id};
                         message.stream = socket.netSocket;
                         message.stream.length = message.length;
                         if (message.encoding) {
@@ -176,6 +177,7 @@ Inherit(ServiceProxy, EventEmitter, {
                             socket.netSocket._readableState.decoder = null;
                             socket.netSocket._readableState.encoding = null;
                         }
+                        socket.send(obj);
                         resolve(message.stream);
                     }
                     if (message.type == "error") {

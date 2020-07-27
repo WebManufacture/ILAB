@@ -256,6 +256,7 @@ Inherit(Service, EventEmitter, {
             socket.removeListener('messageHandlerFunction', messageHandlerFunction);
             messageHandlerFunction = (message) => {
                 if (message.type == "stream-started"){
+                    console.log("Stream Started")
                     if (result.encoding){
                         socket.netSocket.setEncoding(result.encoding);
                     }
@@ -266,7 +267,7 @@ Inherit(Service, EventEmitter, {
                         result.pipe(socket.netSocket);
                     }
                     if (result instanceof stream.Writable) {
-                        socket.goStreamMode(message.id);
+                        socket.goStreamMode();
                         socket.netSocket.pipe(result);
                     }
                 } else {
@@ -274,7 +275,6 @@ Inherit(Service, EventEmitter, {
                 }
             };
             socket.on('json', messageHandlerFunction);
-
         }
         var internalEventHandler = function (eventName, args) {
             //args.shift();
