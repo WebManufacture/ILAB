@@ -121,7 +121,7 @@ StaticContentService.MimeTypes = {
     gif: "image/gif",
     jpg: "image/jpeg",
     bmp: "image/bmp",
-    svg: "image/svg",
+    svg: "image/svg+xml",
     ttf: "font/truetype; charset=utf-8"
 };
 
