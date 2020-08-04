@@ -121,6 +121,7 @@ StaticContentService.MimeTypes = {
     gif: "image/gif",
     jpg: "image/jpeg",
     bmp: "image/bmp",
+    svg: "image/svg",
     ttf: "font/truetype; charset=utf-8"
 };
 
@@ -135,7 +136,7 @@ Inherit(StaticContentService, Service, {
         }
 		return null;
 	},
-	
+
     formatPath: function (path, method) {
         if (this.config.rootFile && path == "/" && method == "GET") {
             return this.config.rootFile;

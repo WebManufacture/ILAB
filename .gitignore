@@ -9,3 +9,4 @@ config_*.json
 *.key
 *.pfx
 SSLCert.*
+.idea
