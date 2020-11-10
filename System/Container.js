@@ -1,18 +1,28 @@
 var Path = require('path');
 var os = require('os');
+require(Path.resolve('System/RequireExtention.js'));
 var XRouter = useSystem("XRouter");
 
-function Container(params) {
-    this.childs = [];
-    this.isChild = params && params.isChild != undefined ? params.isChild : process.connected;
-    if (!this.id) this.id = params && params.id ? params.id : this.newId();
-    if (!this.localId) {
-        this.localId = params && params.localId ? params.localId : (this.id ? this.id : this.newId() + "").substring(30, 36)
-    }
-    if (!this.type) this.type = params && params.type ? params.type : "base-ilab-container";
-    if (!this.tags) this.tags = params && params.tags ? params.tags : [];
+process.on('uncaughtException', function (ex) {
+    console.error(ex);
+});
 
-    this._super();
+process.on('unhandledRejection', (reason, p) => {
+    console.log('Unhandled Rejection at:', p, 'reason:', reason);
+    // application specific logging, throwing an error, or other logic here
+});
+
+function Container(config) {
+    this.services = [];
+    this.isChild = config && config.isChild != undefined ? config.isChild : process.connected;
+    if (!this.id) this.id = config && config.id ? config.id : this.newId();
+    if (!this.localId) {
+        this.localId = config && config.localId ? config.localId : (this.id ? this.id : this.newId() + "").substring(30, 36)
+    }
+    if (!this.type) this.type = config && config.type ? config.type : "container";
+    if (!this.tags) this.tags = config && config.tags ? config.tags : [];
+
+    XRouter.apply(this, arguments);
 
     var self = this;
 
@@ -32,6 +42,49 @@ function Container(params) {
     this.follow(this.type + "#" + this.localId, "self");
     this.follow("#" + this.localId, "self");
     this.follow(this.type, "self");
+
+    //Starting services by config
+
+    var servicesToStart = [];
+
+    if (config && config.services){
+        servicesToStart = [...config.services];
+    }
+
+    if (servicesToStart.length) {
+        this.debug("Detected " + servicesToStart.length + " services to start")
+        var startPromises = [];
+        for (var i = 0; i < servicesToStart.length; i++) {
+            ((serviceParams) => {
+                var servicePath = serviceParams.path;
+                if (servicePath) {
+                    if (servicePath.indexOf("http://") != 0 && servicePath.indexOf("https://") != 0) {
+                        if (servicePath.indexOf(".js") != servicePath.length - 3) {
+                            servicePath += ".js";
+                        }
+                        if (servicePath.indexOf("/") < 0 && servicePath.indexOf("\\") < 0) {
+                            servicePath = Path.resolve(process.ServicesPath + servicePath);
+                        } else {
+                            servicePath = Path.resolve(servicePath);
+                        }
+                    }
+                }
+                var service = this.start(servicePath, serviceParams);
+                if (service) {
+                    startPromises.push(new Promise((resolve, reject) => {
+                        service.once("started", () => {
+                            self.log("Started: " + servicePath);
+                            resolve();
+                        });
+                    }));
+                }
+            })(servicesToStart[i]);
+        }
+        Promise.all(startPromises).then(() => {
+            this.emit("services-started");
+            console.log("All started!");
+        });
+    }
 }
 
 Inherit(Container, XRouter, {
@@ -84,27 +137,23 @@ Inherit(Container, XRouter, {
     startService: function (node, params) {
         if (node && typeof node == "function") {
             try {
-                var result = null;
                 if (node.prototype) {
                     node = new node(params, this);
-                    if (node) {
-                        this.registerService(node);
-                    }
                 } else {
-                    result = node(params);
-                    if (node) {
-                        this.registerService(node);
-                    }
+                    node = node(params);
+
+                }
+                if (node) {
+                    this.registerService(node);
                 }
                 var message = {
                     type: "control",
                     state: "started",
-                    result: result,
                     config: params
                 };
-                if (result) message.result = result;
+                if (typeof node != "object" && typeof node != "function") message.result = node;
                 this.send(XRouter.TYPE_EVENT, message);
-                return result;
+                return node;
 
             } catch (err) {
                 this.error(err);

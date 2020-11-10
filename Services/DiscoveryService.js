@@ -19,7 +19,7 @@ function UdpServer(netInterface, config) {
     this.udpServer = new UdpJsonServer({port: this.localPort, address: this.localAddress, broadcast: true});
     this.udpServer.once("connect", ()=>{
         this.myLocalAddress = this.udpServer.address().address;
-        this.log("My local address " + this.myLocalAddress);
+        console.log("My local address " + this.myLocalAddress);
         this.emit("ready");
     });
     this.udpServer.on("json", (obj, rinfo) => {
@@ -40,7 +40,7 @@ Inherit(UdpServer, EventEmitter, {
         this.sendHello(addressParts.join("."), toPort);
     },
     sendHello : function (addressTo, portTo) {
-        process.log("Send hello from " + this.localAddress +  " to " + addressTo + ":" + portTo);
+        console.log("Send hello from " + this.localAddress +  " to " + addressTo + ":" + portTo);
         this.udpServer.send({
             type: "hello",
             id: this.serviceId,
@@ -221,8 +221,8 @@ function DiscoveryService(config){
         server.once("ready", ()=>{
             server.on("hello", (obj, rinfo) => {
                 if (obj.id == this.serviceId) return;
-                //process.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
-                //process.log(obj);
+                //console.log("Getting hello from " + rinfo.address + ":" + rinfo.port);
+                //console.log(obj);
                 server.sendSeeyou(rinfo.address, rinfo.port, obj.myAddress, obj.myPort);
                 this.registerNode( {
                     id: obj.id,
@@ -238,7 +238,7 @@ function DiscoveryService(config){
             });
             server.on("see-you", (obj, rinfo) => {
                 console.log("Getting See-You from " + rinfo.address + ":" + rinfo.port);
-                //process.log(obj);
+                //console.log(obj);
                 this.registerNode({
                     id: obj.id,
                     type: rinfo.address == obj.myAddress ? "direct": (rinfo.port == obj.myPort ? "shadowed" : "hidden"),
@@ -318,7 +318,7 @@ function DiscoveryService(config){
                     if (node.type == "local"){
                         try {
                             var socket = new JsonSocket(process.getPipe(obj.to), function () {
-                                process.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
+                                console.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
                                 socket.write(obj);
                                 socket.end();
                             });
@@ -341,7 +341,7 @@ function DiscoveryService(config){
                         try {
                             if (this.routerId) {
                                 var socket = new JsonSocket(process.getPipe(this.routerId), function () {
-                                    process.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
+                                    console.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
                                     socket.write(obj);
                                     socket.end();
                                 });
@@ -364,7 +364,7 @@ function DiscoveryService(config){
                     if (node.type == "local"){
                             try {
                                 var socket = new JsonSocket(node.tcpPort, obj.host, function () {
-                                    process.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
+                                    console.log("Udp proxying from " + obj.sourceId + " to " + destinatio);
                                     socket.write(obj);
                                     socket.end();
                                 });
@@ -386,7 +386,7 @@ function DiscoveryService(config){
                 });
             }
         });
-        log("Discovery server at " + server.localAddress + ":" + server.localPort);
+        console.log("Discovery server at " + server.localAddress + ":" + server.localPort);
     });
 
     this.configuredHosts = config.hosts;
@@ -424,12 +424,12 @@ Inherit(DiscoveryService, Service, {
                 });
             }
             if (!existing) {
-                process.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
+                console.log("registered node " + nfo.type + ":" + nfo.serviceType + "#" + nfo.id);
                 this.knownNodes[nfo.id] = nfo;
                 return true;
             } else {
                 if (existing.rank > nfo.rank) {
-                    process.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
+                    console.log("replacing node " + nfo.id + " from " + existing.rank + ":" + existing.type + ":" + existing.parentId + " to " + nfo.rank + ":" + nfo.type + "#" + (nfo.parentId ? nfo.parentId : nfo.id));
                     this.knownNodes[nfo.id] = nfo;
                     return true;
                 }
@@ -451,7 +451,7 @@ Inherit(DiscoveryService, Service, {
     recheckConfiguredServers: function () {
         var self = this;
         this.serverPool.forEach((server)=> {
-            process.log("rechecking server " + server.localAddress);
+            console.log("rechecking server " + server.localAddress);
             server.broadcastHello();
             if (this.configuredHosts && Array.isArray(this.configuredHosts)) {
                 this.configuredHosts.forEach((remotePoint) => {
@@ -466,7 +466,7 @@ Inherit(DiscoveryService, Service, {
         var self = this;
         this.serverPool.forEach((server)=> {
             for (var item in this.knownNodes){
-                process.log("rechecking known node " + item + " from " + server.localAddress);
+                console.log("rechecking known node " + item + " from " + server.localAddress);
                 var node = this.knownNodes[item];
                 if (node.port && node.address && ["self", "local"].indexOf(node.type) < 0 && node.id != self.serviceId) {
                     server.sendHello(node.address, node.port);

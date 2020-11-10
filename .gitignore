@@ -1,0 +1,4 @@
+.idea
+*.key
+*.cert
+node_modules

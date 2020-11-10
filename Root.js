@@ -1,14 +1,10 @@
 var Path = require('path');
-var os = require("os");
-var fs = require('fs');
-var http = require('http');
-var vm = require('vm');
-var ChildProcess = require('child_process');
 require('./Modules/utils.js');
 
 function _parseCmd () {
     var debugMode = false;
     var servicesToStart = [];
+
     function findServiceIndex(selectorObj) {
         if (selectorObj.id){
             return servicesToStart.findIndex(s => s.id == selectorObj.id);
@@ -18,6 +14,7 @@ function _parseCmd () {
         }
         return servicesToStart.findIndex(s => s.type == selectorObj.type);
     }
+
     function copyConfig(to, from, replace){
         if (to && from){
             for (var item in from){
@@ -27,6 +24,7 @@ function _parseCmd () {
             }
         }
     }
+
     function parseConfig(config, key) {
         if (!config) return null;
         if (!config.type){
@@ -34,14 +32,14 @@ function _parseCmd () {
         }
         if (config.id) {
             if (config.id == "auto") {
-                config.id = process.newId();
+                config.id = createUUID();
             }
         } else {
             if (key) {
                 config.id = key;
             }
             else {
-                config.id = process.newId();
+                config.id = createUUID();
             }
         }
         if (!config.path){
@@ -49,6 +47,7 @@ function _parseCmd () {
         }
         return config;
     }
+
     function mergeConfig(config) {
         var index = findServiceIndex(config);
         if (index >= 0){
@@ -58,6 +57,7 @@ function _parseCmd () {
         }
         return config;
     }
+
     try{
         if (process.execArgv[0] && (process.execArgv[0].indexOf("--inspect") >= 0 || process.execArgv[0].indexOf("--debug") >= 0)){
             debugMode = process.execArgv[0].indexOf("--inspect-brk") >= 0 ? "debug" : "inspect";
@@ -163,7 +163,6 @@ function _parseCmd () {
             }
         }
         process.debugMode = typeof v8debug === 'object' || debugMode;
-        // console.log('Frame: servicesToStart ', servicesToStart)
         return servicesToStart;
     }
     catch (err) {
@@ -173,73 +172,17 @@ function _parseCmd () {
     }
 };
 
-function RootContainer() {
-    console.log("RootContainer with ILAB v4.3-xrt");
-    try {
-        var self = this;
-        var servicesToStart = _parseCmd();
-        if (servicesToStart.id){
-            this.id = servicesToStart.id;
+var servicesToStart = _parseCmd();
+if (!servicesToStart.type) servicesToStart.type = "Container";
+var debugMode =  process.debugMode;
+console.log(`Starting ${servicesToStart.type} container.`);
+(() => {
+    const object = require(`./System/${servicesToStart.type}.js`);
+    if (object) {
+        if (object.prototype) {
+            new object(servicesToStart);
         } else {
-            this.id = this.newId();
+            object(servicesToStart);
         }
-        console.log("GlobalID: " + this.id);
-        this.type = "root-container";
-        if (servicesToStart.type){
-            this.type = servicesToStart.type;
-        }
-        if (servicesToStart.tags){
-            this.tags = servicesToStart.tags;
-        }
-        var debugMode =  process.debugMode;
-        var result = this.super();
-        console.log("LocalID: " + this.localId);
-        this.debug("Detected " + servicesToStart.length + " services to start");
-        process.on("error", function (err) {
-            console.error(err);
-            err.handled = true;
-        });
-        var frames = [];
-        for (var i = 0; i < servicesToStart.length; i++) {
-            ((serviceParams)=> {
-                var servicePath = serviceParams.path;
-                if (servicePath) {
-                    if (servicePath.indexOf("http://") != 0 && servicePath.indexOf("https://") != 0) {
-                        if (servicePath.indexOf(".js") != servicePath.length - 3) {
-                            servicePath += ".js";
-                        }
-                        if (servicePath.indexOf("/") < 0 && servicePath.indexOf("\\") < 0) {
-                            servicePath = Path.resolve(process.ServicesPath + servicePath);
-                        } else {
-                            servicePath = Path.resolve(servicePath);
-                        }
-                    }
-                }
-                var frame = this.start(servicePath, serviceParams);
-                if (frame) {
-                    frames.push(new Promise((resolve, reject) => {
-                        process.once("started", (cp) => {
-                            self.log("Started: " + servicePath);
-                            resolve();
-                        });
-                    }));
-                }
-            })(servicesToStart[i]);
-        }
-        Promise.all(frames).then(() => {
-            console.log("All started!");
-        });
-    } catch (err) {
-        console.log("RootError: ");
-        console.error(err);
     }
-};
-
-var Frame = require("./System/FrameContainer.js");
-
-Inherit(RootContainer, Frame, {
-
-});
-
-process.container = new RootContainer();
-module.exports = RootContainer;
+})();

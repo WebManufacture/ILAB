@@ -120,13 +120,15 @@ function JsonSocket() {
 
     this.goStreamMode = (id) => {
         isStream = true;
-        this.netSocket.removeListener('data', dataListener);
-        this.netSocket.removeListener('end', endListener);
+        self.netSocket.removeListener('data', dataListener);
+        self.netSocket.removeListener('end', endListener);
         var obj = { type : "stream-started"};
         if (id){
             obj.id = id;
         }
+        self.write = self.writeBinary;
         self.send(obj);
+        self.netSocket.setEncoding('binary');
         //console.log(this.netSocket.id + " Stream mode " + streamLength);
     };
 
@@ -136,6 +138,18 @@ function JsonSocket() {
         if (!self.closed) {
             if (data != undefined && data != null) {
                 data = JSON.stringify(data) + '\0';
+                socket.write(data);
+                //console.log()
+            }
+            else {
+                self.emit("error", new Error("Error sending data"));
+            }
+        }
+    };
+
+    self.writeBinary = function (data) {
+        if (!self.closed) {
+            if (data != undefined && data != null) {
                 socket.write(data);
                 //console.log()
             }

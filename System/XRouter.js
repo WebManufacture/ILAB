@@ -1,12 +1,5 @@
-var Path = require('path');
-var fs = require('fs');
-var http = require('http');
-var os = require('os');
-var vm = require('vm');
-var ChildProcess = require('child_process');
 var utils = useModule('utils');
 var Selector = useModule('selectors');
-var Router = useModule('Router');
 var EventEmitter = require('events');
 
 /*
@@ -82,9 +75,8 @@ function XRouter() {
     };
 }
 
-
-Inherit(XRouter, {
-    on: function (selector, handler) {
+Inherit(XRouter, EventEmitter, {
+    on(selector, handler) {
         selector = new Selector(selector);
         if (selector.isRoot){
             //Имеет ли это значение тут

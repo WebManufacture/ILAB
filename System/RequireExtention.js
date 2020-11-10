@@ -17,6 +17,10 @@ function prepareArgAspect(func){
 }
 
 //Оставлено для совместимости!
+// 05.02.2018 - A.Semchenkov --- С чем совместимости, Саша !!!???
+// 06.02.2019 - Саша -- О господи, я разговариваю сам с собой в собственном коде!
+// 10.11.2020 - Но всегда приятно предметно поговорить с умным человеком...
+
 process.basePath = process.cwd();
 process.ilabPath = process.basePath;
 if (process.ilabPath.indexOf("/") != process.ilabPath.length - 1) process.ilabPath += "/";
@@ -25,7 +29,6 @@ process.NodesPath = process.ilabPath + "Nodes/";
 process.ModulesPath = process.ilabPath + "Modules/";
 process.ServicesPath = process.ilabPath + "Services/";
 process.SystemPath = process.ilabPath + "System/";
-process.NodeModulesPath = process.execPath.replace("node.exe", "") + "node_modules/";
 
 global.useModule = prepareArgAspect(function(path){
     return require(Path.resolve(process.ModulesPath + path));

@@ -19,11 +19,6 @@
   },
   "homepage": "https://github.com/WebManufacture/ILAB-3.0#readme",
   "dependencies": {
-    "electron": "^6.0.10",
-    "http-proxy": "latest",
-    "npm": "^6.4.1",
-    "serialport": "latest",
-    "usb-detection": "latest",
     "uuid": "^3.2.1"
   }
 }

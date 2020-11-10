@@ -7,29 +7,25 @@ if (!global.Inherit) {
 			Child = window[Child] = function () {
 			};
 		}
-		if (typeof Parent == 'function') {
-			var parentConstructor = Parent;
-			var F = function () {
-			};
-			F.prototype = Parent.prototype;
-			var childProto = Child.prototype = new F();
-			childProto.constructor = Child;
-			childProto.className = Child.name;
-			if (mixin) {
-				for (var item in mixin) {
-					childProto[item] = mixin[item];
-				}
-			}
-			var parentProto = Child.base = Parent.prototype;
-			childProto._base = Parent.prototype;
-			childProto._super = childProto.super = Child.super = Child.super_ = function (args) {
-				this.super = this._super = Parent.super;
-				parentConstructor.apply(this, arguments);
-			};
-			return Child;
-		}
+        if (typeof Parent == 'function') {
+            var F = function () {
+            };
+            F.prototype = Parent.prototype
+            var childProto = Child.prototype = new F();
+            childProto.constructor = Child;
+            if (mixin) {
+                for (var item in mixin) {
+                    childProto[item] = mixin[item];
+                }
+            }
+            Child.base = Parent.prototype;
+            childProto._base = Parent.prototype;
+            childProto._super = Child._super = Child.super_ = function (args) {
+                Child.base.constructor.apply(this, arguments);
+            }
+            return Child;
+        }
 		if (typeof Parent == 'object'){
-			console.log("UTILS: Inheriting from object")
 			var F = function () {};
 			F.prototype = Parent;
 			var childProto = Child.prototype = new F();
@@ -63,6 +59,14 @@ if (!global.Inherit) {
         if (this.base && this.base.constructor && typeof this.base.constructor == "function") return this.base.constructor.hasPrototype(protoName);
         return false;
     };
+}
+
+global.createUUID = function(){
+    var source = '';
+    for (var i = 0; i < 3; i++){
+        source += parseInt((Math.random() + "").replace("0.", "")).toString(16);
+    }
+    return source.slice(0,8) + "-" + source.slice(8,12) + "-" + source.slice(12,16)  + "-" + source.slice(16,20) + "-" + source.slice(20,32);
 }
 
 global.extend = function (Child, Parent) {
@@ -246,4 +250,3 @@ String.prototype.get = function(regex){
 	}
 	return null;	
 };
-

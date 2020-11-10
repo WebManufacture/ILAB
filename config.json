@@ -1,0 +1,11 @@
+{
+  "DiscoveryService":{
+    "id":"a82e072b-0f67-4a12-8901-37c59343fb3f",
+    "hosts": [
+      {
+        "address": "web-manufacture.net",
+        "port": "31337"
+      }
+    ]
+  }
+}

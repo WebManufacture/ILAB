@@ -13,6 +13,7 @@ function Frame(params){
 
     Container.apply(this, arguments);
 
+
     process.container = this;
     process.router = this.router;
 

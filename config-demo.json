@@ -1,0 +1,105 @@
+{
+  "ServicesManager": {
+    "id" : "auto"
+  },
+  "ServicesHttpProxy": {
+    "path":"Services/ServicesHttpProxy.js",
+    "port": 5100
+  },
+  "ServicesWebSocketProxy": {
+    "path":"Services/ServicesWebSocketProxy.js",
+    "port": 5700
+  },
+  "FilesService":{
+    "basepath": ""
+  },
+  "0113489c-8aff-45bf-ba85-88529b6ace62":{
+    "path":"Services/FilesService.js",
+    "basepath": "./Temp/111"
+  },
+  "e8825f10-1d63-43f8-a577-c5df4afeb9e9":{
+    "path":"Services/FilesService.js",
+    "basepath": "./Temp/222"
+  },
+  "ConfigService":{
+    "path":"Services/ConfigService.js",
+    "watchConfigFile" : true,
+    "watchServicesPaths": true,
+    "filesServiceId": "FilesService"
+  },
+  "ConsoleService": {
+    "path":"Services/ConsoleService.js",
+    "port": 5100
+  },
+  "StaticService":{
+    "path":"Services/StaticService.js",
+    "filesServiceId": "FilesService",
+    "rootFile":"klab/fs.html",
+    "port": 80,
+    "keyFile": "./localhost.key",
+    "certFile": "./localhost.cert",
+    "useSecureProtocol": false,
+    "allowOrigin": "*",
+    "allowMethods": "ALL",
+    "allowPreflight" : true,
+    "allowSave": true,
+    "allowBrowse": true,
+    "aliases": {
+
+    }
+  },
+  "StaticService2":{
+    "type":"StaticService",
+    "path":"Services/StaticService.js",
+    "filesServiceId": "0113489c-8aff-45bf-ba85-88529b6ace62",
+    "rootFile":"klab/fs.html",
+    "port": 880,
+    "keyFile": "./localhost.key",
+    "certFile": "./localhost.cert",
+    "useSecureProtocol": false,
+    "allowOrigin": "*",
+    "allowMethods": "ALL",
+    "allowPreflight" : true,
+    "allowSave": true,
+    "allowBrowse": true,
+    "aliases": {
+
+    }
+  }, "StaticService3":{
+    "type":"StaticService",
+    "path":"Services/StaticService.js",
+    "filesServiceId": "FilesService",
+    "rootFile":"klab/fs.html",
+    "port": 443,
+    "keyFile": "./localhost.key",
+    "certFile": "./localhost.cert",
+    "useSecureProtocol": "pem",
+    "allowOrigin": "*",
+    "allowMethods": "ALL",
+    "allowPreflight" : true,
+    "allowSave": true,
+    "allowBrowse": true,
+    "aliases": {
+
+    }
+  },
+  "DiscoveryService":{
+    "hosts" : [
+      {
+        "address": "web-manufacture.net",
+        "port": 31337,
+        "tcpPort": 5600
+      },
+      {
+        "address": "home.web-manufacture.net",
+        "port": 31337,
+        "tcpPort": 5600
+      }
+    ]
+  },
+  "AutoSyncService":{
+    "source":"0113489c-8aff-45bf-ba85-88529b6ace62",
+    "destination":"e8825f10-1d63-43f8-a577-c5df4afeb9e9",
+    "mode":"bidirectional"
+  }
+}
