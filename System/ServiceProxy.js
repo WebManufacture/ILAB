@@ -3,13 +3,14 @@ var EventEmitter = require('events');
 var net = require('net');
 var util = useModule('utils');
 
-ServiceProxy = function(serviceName){
-    this.startParams = arguments;
-    this.serviceId = serviceName;
-    this.state = "detached";
-    this.timeout = 10000; // время ожидания ответа (мс), для удалённых сервисов можно увеличивать, для локальных - уменьшать
-    this.waiting = []; // очередь отправленных сообщений ждущих ответа
-    this.connectionsCount = 0;
+ServiceProxy = function(serviceName, keepConnected){
+    this._startParams = arguments;
+    this._serviceId = serviceName;
+    this._keepConnected = keepConnected;
+    this._state = "detached";
+    this._timeout = 10000; // время ожидания ответа (мс), для удалённых сервисов можно увеличивать, для локальных - уменьшать
+    this._waiting = []; // очередь отправленных сообщений ждущих ответа
+    this._connectionsCount = 0;
     var result = EventEmitter.call(this);
     this.on("error", function () {
 
@@ -41,32 +42,40 @@ ServiceProxy.init = function (port, host) {
     return ServiceProxy._connectingPromise;
 };
 
-ServiceProxy.connect = function (pointer) {
+ServiceProxy.connect = ServiceProxy.GetService = function (pointer, keepAlive) {
     var serviceId = '';
     var port = null;
     var host = 'localhost';
-    if (typeof pointer == "number"){
+    if (typeof pointer == "number") {
         port = pointer;
     }
     if (typeof pointer == "string") {
-        if (pointer.indexOf(":") > 0){
+        if (pointer.indexOf(":") > 0) {
             pointer = pointer.split(':');
             host = pointer[0];
             port = parseInt(pointer[1]);
         }
         else {
             serviceId = pointer;
-            return ServiceProxy.GetService(serviceId);
+            var proxy = new ServiceProxy(serviceId);
+            var pipe = Frame.getPipe(serviceId);
+            return proxy.attach(pipe).then(()=>{
+                if (proxy._tcpPort){
+                    var port = proxy._tcpPort;
+                    console.log("Connecting " + serviceId + " using socket on 127.0.0.1:" + port);
+                    proxy._closeConnection();
+                    proxy = new ServiceProxy(serviceId, keepAlive);
+                    return proxy.attach(port, "127.0.0.1")
+                }
+                return proxy;
+            });
         }
     }
-    var instance = new ServiceProxy(serviceId);
+    var instance = new ServiceProxy(serviceId, keepAlive);
+    console.log("Connecting " + serviceId + " using socket on " + host + ":" + port);
     return instance.attach(port, host);
 };
 
-ServiceProxy.GetService = function (serviceId) {
-    var proxy = new ServiceProxy(serviceId);
-    return proxy.attach(Frame.getPipe(serviceId));
-};
 
 ServiceProxy.GetServices = function () {
     if (!ServiceProxy.instance) {
@@ -122,21 +131,23 @@ Inherit(ServiceProxy, EventEmitter, {
                     console.error(err);
                     socket.removeAllListeners();
                     socket.close();
+                    self.socket = null;
                     self.emit('error', err);
                     reject(err);
                 }
+                var socket = self._socket;
+                if (!self._keepConnected || !self._socket){
+                    var socket = typeof port == "number" ? new JsonSocket(self.port, self.host) : new JsonSocket(self.port);
 
-                var socket = typeof port == "number" ? new JsonSocket(self.port, self.host) : new JsonSocket(self.port);
-
-                socket.once("connect", function () {
-                    try {
-                        socket.send(obj);
-                    }
-                    catch (err) {
-                        raiseError(err);
-                    }
-                });
-
+                    socket.once("connect", function () {
+                        try {
+                            socket.send(obj);
+                        }
+                        catch (err) {
+                            raiseError(err);
+                        }
+                    });
+                }
                 socket.on('error', raiseError);
                 socket.once("close", function (err) {
                     if (err) {
@@ -145,16 +156,18 @@ Inherit(ServiceProxy, EventEmitter, {
                     }
                 });
                 socket.once("json", function (message) {
+                    socket.removeAllListeners();
                     if (message.type == "result") {
-                        socket.removeAllListeners();
-                        socket.close();
+                        if (!self._keepConnected) {
+                            socket.close();
+                        }
                         resolve(message.result);
                     }
                     if (message.type == "stream" && message.id) {
                         socket.goStreamMode();
                         message.stream = socket.netSocket;
                         message.stream.length = message.length;
-                        if (message.encoding){
+                        if (message.encoding) {
                             socket.netSocket.setEncoding(message.encoding);
                         }
                         else {
@@ -168,7 +181,7 @@ Inherit(ServiceProxy, EventEmitter, {
                     if (message.type == "error") {
                         var err = new Error(message.result);
                         console.log("Error while calling " + self.serviceId + ":" + self.port + ":" + methodName);
-                        if (message.stack){
+                        if (message.stack) {
                             err.stack = message.stack;
                         }
                         console.error(err);
@@ -244,7 +257,7 @@ Inherit(ServiceProxy, EventEmitter, {
                     socket.once("connect",function (err) {
                         //console.log(Frame.serviceId + ": Service proxy for " + self.serviceId + " connecting to " + port);
                         try {
-                            socket.write({"type": "startup", args: self.startParams});
+                            socket.write({"type": "startup", args: self._startParams});
                         }
                         catch(err){
                             raiseError(err);
@@ -263,8 +276,15 @@ Inherit(ServiceProxy, EventEmitter, {
                             raiseError(proxyObj.result);
                             return;
                         }
-                        self.serviceId = proxyObj.serviceId;
-                        if (self.serviceId != "ServicesManager") {
+                        self._serviceId = proxyObj.serviceId;
+                        self._serviceType = proxyObj.serviceType;
+                        self._tcpPort = proxyObj.tcpPort;
+                        self._socket = socket;
+                        self._closeConnection = ()=>{
+                            self._socket = null;
+                            socket.close();
+                        };
+                        if (self._serviceId != "ServicesManager") {
                             //console.log(Frame.serviceId + ": Service proxy connected to " + self.serviceId);
                         }
                         for (var item in proxyObj) {
@@ -284,7 +304,10 @@ Inherit(ServiceProxy, EventEmitter, {
                         self._attachEventListener("*");
                         self.attached = true;
                         self.emit("connected", proxyObj);
-                        socket.close();
+                        if (!self._keepConnected) {
+                            self._socket = null;
+                            socket.close();
+                        }
                         resolve(self);
                     });
                 }
@@ -298,7 +321,7 @@ Inherit(ServiceProxy, EventEmitter, {
     },
 
     _attachEventListener: function (eventName) {
-        this.connectionsCount++;
+        this._connectionsCount++;
         var self = this;
         try {
             var promise = new Promise(function (resolve, reject) {
@@ -322,7 +345,7 @@ Inherit(ServiceProxy, EventEmitter, {
                     raiseError(err);
                 });
                 eventSocket.once("close", function (err) {
-                    self.connectionsCount--;
+                    self._connectionsCount--;
                     if (err) {
                         //console.log("EventSocket error " + err + " at " + self.serviceId + ":" + self.port + ":" + self.connectionsCount);
                         setImmediate(() => {

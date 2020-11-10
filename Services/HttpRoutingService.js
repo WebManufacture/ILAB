@@ -4,8 +4,12 @@ var Path = require('path');
 var Url = require('url');
 var http = require('http');
 var https = require('https');
+var stream = require('stream');
+var EventEmitter = require('events');
 var Service = useSystem("Service.js");
+var ServiceProxy = useSystem("Service.js");
 var HttpRouter = useModule('HttpRouter');
+
 
 HttpRoutingService = function(params){
     var result = Service.apply(this, arguments);
@@ -43,28 +47,25 @@ HttpRoutingService = function(params){
     this.server.listen(port);
     console.log("Static service on " + port);
 
-    this.hosts = {
-        ...params.hosts
-    };
 
-    this.StartEndpoint = function (host, path) {
-        return null;
+    this.StartEndpoint = function (params, path) {
+        return serv.fs.Read(this.formatPath(path));
     };
 
     this.Endpoints = function () {
-        return this.hosts;
+        return serv.fs.Browse(this.formatPath(path));
     };
 
-    this.StopEndpoint = function (host) {
-        return null;
+    this.StopEndpoint = function (host, port, path) {
+        return this.concatDir(this.formatPath(path));
     };
 
     this.RoutePath = function (path) {
-
+        return serv.fs.Read(this.formatPath(path));
     };
 
     this.UnroutePath = function (path) {
-
+        return serv.fs.Browse(this.formatPath(path));
     };
 
     return result;
@@ -111,10 +112,7 @@ Inherit(HttpRoutingService, Service, {
         var self = this;
         try{
             if (self.enabled){
-
-
-
-                //self.process(req, res);
+                self.process(req, res);
             }
             else{
                 res.statusCode = 403;
