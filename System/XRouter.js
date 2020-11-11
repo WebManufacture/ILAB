@@ -122,7 +122,12 @@ Inherit(XRouter, EventEmitter, {
         return route;
     },
 
-    un: function (selectorOrHandler) {
+    once(){
+
+    },
+
+    off: function (selectorOrHandler) {
+        this.removeEventListener(selectorOrHandler);
         return this;
     },
 

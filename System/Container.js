@@ -1,5 +1,6 @@
 var Path = require('path');
 var os = require('os');
+var EventEmitter = require('events');
 require(Path.resolve('System/RequireExtention.js'));
 var XRouter = useSystem("XRouter");
 
@@ -12,15 +13,44 @@ process.on('unhandledRejection', (reason, p) => {
     // application specific logging, throwing an error, or other logic here
 });
 
+function parseConfig(config){
+    if (!config) return null;
+    if (!config.type){
+        config.type = "node";
+    }
+    if (config.id) {
+        if (config.id == "auto") {
+            config.id = createUUID();
+        }
+    } else {
+        config.id = config.type;
+    }
+    if (!config.path){
+        config.path = config.type;
+    }
+    if (config.path.indexOf(".js") < 0) {
+        config.path += ".js";
+    }
+    return config;
+}
+
 function Container(config) {
     this.services = [];
-    this.isChild = config && config.isChild != undefined ? config.isChild : process.connected;
-    if (!this.id) this.id = config && config.id ? config.id : this.newId();
+    this.isChild = config && config.isChild != undefined ? config.isChild : process.isChild;
+    if (!this.id) this.id = config && config.id ? config.id : createUUID();
     if (!this.localId) {
         this.localId = config && config.localId ? config.localId : (this.id ? this.id : this.newId() + "").substring(30, 36)
     }
     if (!this.type) this.type = config && config.type ? config.type : "container";
     if (!this.tags) this.tags = config && config.tags ? config.tags : [];
+
+    this.selector = this.type + "#" + this.id;
+    for (var tag of this.tags){
+        this.selector += "." + tag;
+    }
+
+    process.container = this;
+    process.setMaxListeners(100);
 
     XRouter.apply(this, arguments);
 
@@ -45,46 +75,63 @@ function Container(config) {
 
     //Starting services by config
 
-    var servicesToStart = [];
 
-    if (config && config.services){
-        servicesToStart = [...config.services];
-    }
-
-    if (servicesToStart.length) {
-        this.debug("Detected " + servicesToStart.length + " services to start")
-        var startPromises = [];
-        for (var i = 0; i < servicesToStart.length; i++) {
-            ((serviceParams) => {
-                var servicePath = serviceParams.path;
-                if (servicePath) {
-                    if (servicePath.indexOf("http://") != 0 && servicePath.indexOf("https://") != 0) {
-                        if (servicePath.indexOf(".js") != servicePath.length - 3) {
-                            servicePath += ".js";
-                        }
-                        if (servicePath.indexOf("/") < 0 && servicePath.indexOf("\\") < 0) {
-                            servicePath = Path.resolve(process.ServicesPath + servicePath);
-                        } else {
-                            servicePath = Path.resolve(servicePath);
-                        }
+    var startPromises = [];
+    if (config.terminals.length) {
+        this.debug("Detected " + config.terminals.length + " terminals");
+        for (var i = 0; i < config.terminals.length; i++) {
+            ((params) => {
+                var params = parseConfig(params);
+                var path = params.path;
+                if (path) {
+                    if (path.indexOf(".js") != path.length - 3) {
+                        path += ".js";
+                    }
+                    if (path.indexOf("/") < 0 && path.indexOf("\\") < 0) {
+                        path = "Terminals/" + path;
                     }
                 }
-                var service = this.start(servicePath, serviceParams);
-                if (service) {
-                    startPromises.push(new Promise((resolve, reject) => {
-                        service.once("started", () => {
-                            self.log("Started: " + servicePath);
-                            resolve();
-                        });
-                    }));
+                var terminal = this.startModule(Path.resolve(path), params);
+                if (terminal && terminal instanceof Promise) {
+                    startPromises.push(terminal);
                 }
-            })(servicesToStart[i]);
+            })(config.terminals[i]);
         }
-        Promise.all(startPromises).then(() => {
-            this.emit("services-started");
-            console.log("All started!");
-        });
     }
+    Promise.all(startPromises).then(() => {
+        this.emit("termianals-started");
+        console.log("All terminals started!");
+
+        if (config.nodes.length) {
+            this.debug("Detected " + config.nodes.length + " nodes to start");
+            var startPromises = [];
+            for (var i = 0; i < config.nodes.length; i++) {
+                ((params) => {
+                    var path = params.path;
+                    if (path) {
+                        path = Path.resolve(path);
+                        var node = this.start(path, serviceParams);
+                    }
+                    if (node && node instanceof Promise) {
+                        startPromises.push(new Promise(node));
+                    }
+                    if (node && node instanceof EventEmitter) {
+                        startPromises.push(new Promise((resolve, reject) => {
+                            node.once("started", () => {
+                                self.log("Started: " + path);
+                                resolve();
+                            });
+                        }));
+                    }
+                })(config.nodes[i]);
+            }
+            Promise.all(startPromises).then(() => {
+                this.emit("nodes-started");
+                console.log("All nodes started!");
+            });
+        }
+    });
+
 }
 
 Inherit(Container, XRouter, {
@@ -104,10 +151,6 @@ Inherit(Container, XRouter, {
         this.on(from, (message) => {
             this.route(message, to);
         });
-    },
-
-    getPipe: function () {
-        return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + this.localId : '/tmp/ilab-3-' + this.localId;
     },
 
     onSelf: function(selector, handler){
@@ -134,7 +177,7 @@ Inherit(Container, XRouter, {
         return code;
     },
 
-    startService: function (node, params) {
+    startNode: function (node, params) {
         if (node && typeof node == "function") {
             try {
                 if (node.prototype) {
@@ -144,7 +187,7 @@ Inherit(Container, XRouter, {
 
                 }
                 if (node) {
-                    this.registerService(node);
+                    this.registerNode(node);
                 }
                 var message = {
                     type: "control",
@@ -163,6 +206,11 @@ Inherit(Container, XRouter, {
         }
     },
 
+    startModule: function (path, params) {
+        var node = require(path);
+        return node.call(this, params);
+    },
+
     start: function (path, params) {
         try {
             if (!params) params = {};
@@ -179,27 +227,7 @@ Inherit(Container, XRouter, {
                         res.on('data', (chunk) => rawData += chunk);
                         res.on('end', () => {
                             try {
-                                /*
-                                    process.nodePath = process.serviceId ? process.serviceId : "UnknownTempService" + Math.random() + ".js";
-                                    process.nodePath = process.nodePath.replace(/\//ig, '-');
-                                    process.nodePath = process.nodePath.replace(/\\/ig, '-');
-                                    if (process.nodePath.indexOf(".js") != process.nodePath.length - 3) {
-                                        process.nodePath += ".js";
-                                    }
-                                    const tempPath = Path.resolve("./Temp/");
-                                    if (!fs.existsSync(tempPath)){
-                                        fs.mkdirSync(tempPath);
-                                    }
-                                    process.nodePath =  Path.resolve("./Temp/" + process.nodePath);
-                                    fs.writeFile(process.nodePath, rawData, function (err, result) {
-                                        if (err){
-                                            process.fatal(err);
-                                            return;
-                                        }
-                                        process._initFrame();
-                                    });
-                                    */
-                                this.startService(rawData);
+                                this.startNode(rawData);
                             } catch (e) {
                                 this.error(e);
                             }
@@ -212,7 +240,7 @@ Inherit(Container, XRouter, {
                     if (typeof node == "string") {
                         return this.execCode(node, params);
                     } else {
-                        return this.startService(node, params);
+                        return this.startNode(node, params);
                     }
                 }
             }
@@ -251,6 +279,17 @@ Inherit(Container, XRouter, {
             this.send(XRouter.TYPE_ERROR, {message: err, item: null});
         }
         console.error(err);
+    },
+
+    //Old - style service description
+    getDescription(){
+        var obj = { id : this.id };
+        for (var item in this){
+            if (item.indexOf("_") != 0 && typeof (this[item]) == "function" && this.hasOwnProperty(item)){
+                obj[item] = "method";
+            }
+        }
+        return obj;
     }
 });
 

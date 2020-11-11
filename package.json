@@ -18,7 +18,5 @@
     "url": "https://github.com/WebManufacture/ILAB-3.0/issues"
   },
   "homepage": "https://github.com/WebManufacture/ILAB-3.0#readme",
-  "dependencies": {
-    "uuid": "^3.2.1"
-  }
+  "dependencies": {}
 }

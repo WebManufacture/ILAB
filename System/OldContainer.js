@@ -689,7 +689,7 @@ if (Frame.isChild) {
     }, 50);
 
     function runNode(node, serviceId) {
-        proxyService.knownServices[serviceId] = Frame.getPipe(serviceId),
+        proxyService.knownServices[serviceId] = Frame.getPipe(serviceId);
         return Frame._startFrame(node, {serviceId: serviceId, pipeId: Frame.getPipe(serviceId), rootId: "ServicesManager"});
     }
 }
