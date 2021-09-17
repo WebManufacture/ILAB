@@ -205,12 +205,12 @@ XRouter.TYPE_RESPONSE = "response";  //used for streaming, or direct containers 
 XRouter.TYPE_CALL = "call";      //used for RPC
 XRouter.TYPE_EVENT = "event";      //used for RPC
 
-XRouter.TYPE_GET = "get";       //used for RPC
-XRouter.TYPE_SET = "set";       //used for RPC
-XRouter.TYPE_ALL = "all";       //used for RPC
-XRouter.TYPE_SEARCH = "all";       //used for RPC
-XRouter.TYPE_ADD = "add";       //used for RPC
-XRouter.TYPE_DEL = "del";       //used for RPC
+XRouter.TYPE_GET = "get";       //used for XStorage
+XRouter.TYPE_ALL = "all";       //used for XStorage
+XRouter.TYPE_SET = "set";       //used for XStorage
+XRouter.TYPE_INS = "ins";       //used for XStorage
+XRouter.TYPE_ADD = "add";       //used for XStorage
+XRouter.TYPE_DEL = "del";       //used for XStorage
 
 XRouter.TYPE_INFO = "info";     //used for QOS
 XRouter.TYPE_ERROR = "error";     //used for QOS

@@ -194,7 +194,7 @@ function _parseCmd () {
         console.error(err);
         return mainContainer;
     }
-};
+}; 
 
 var nodesToStart = _parseCmd();
 if (!nodesToStart.type) nodesToStart.type = "Container";
