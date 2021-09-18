@@ -1,88 +1,52 @@
 var fs = require('fs');
 var net = require('net');
-var Path = require('path');
-var EventEmitter = require('events');
+useRoot('/Utils/utils.js');
+useRoot('/Utils/selectors.js');
+var XRouter = useRoot('/Utils/XRouter.js');
 
-if (!global.useModule){
-    require("../System/FrameBase.js");
-}
-
-var JsonSocket = useModule('jsonsocket');
-var util = useModule('utils');
-var Selector = useModule('selectors');
-var XRouter = useSystem('XRouter');
-
-Service = function(params){
+Module = function(container, config){
     var self = this;
-    this._config = params ? params : {};
+    this.config = config || {};
+    this.type = config.type;
 
-    this.serviceType = this._config.type ? this._config.type : this.classType;
+    let defaultHandler = container.handler;
 
-    this.GetDescription = function () {
-        return Service.GetDescription(self);
+    const init = (container) => {
+        for (var key in this) {
+            if (!{}.hasOwnProperty(key) && typeof (this[key]) == "function" && key.indexOf("_") != 0 ) {
+                if (key == 'handler') {
+                    container.handler = this.handler;
+                    continue;
+                }
+                container.storage[key] = this[key];
+                container.on(XRouter.TYPE_CALL, "@" + key, this[key]);
+            }
+        }
     };
 
-    this.container = require("container");
-    this.channel = self.serviceType;
+    this.init = init;
 
-    return EventEmitter.call(this);
-};
+    this.load = () => {
 
-Service.GetDescription = function (service) {
-    var obj = { serviceId : service.serviceId };
-    if (service.id){
-        obj.id = service.id;
-    }
-    if (service._eventsDescriptions){
-        obj._events = JSON.parse(JSON.stringify(service._eventsDescriptions));
-    }
-    for (var item in service){
-        if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
-            if (service[item].isStreamMethod){
-                obj[item] = "method";
-            }
-            else {
-                obj[item] = "method";
+    };
+
+    this.unload = () => {
+        container.handler = defaultHandler;
+        for (var key in this) {
+            if (!{}.hasOwnProperty(key) && typeof (this[key]) == "function" && key.indexOf("_") != 0 ) {
+                if (key == 'handler') {
+                    continue;
+                }
+                delete container.storage[key];
+                container.un(XRouter.TYPE_CALL, "@" + key, this[key]);
             }
         }
-    }
-    if (service._config){
-        obj._config = service._config
-    }
-    return obj;
-}
+    };
 
-Service.CreateProxyObject = function (service) {
-    if (!service) return {};
-    if (service.GetDescription) {
-        return service.GetDescription();
-    } else {
-        return Service.GetDescription(service);
-    }
-};
-
-Inherit(Service, EventEmitter, {
-
-    init: function(descriptor){
-        var service = this;
-
-        this.container.onSelf(this.channel, (message, selector)=> {
-            if (!selector) {
-                this.processMessage(message);
-            }
-        });
-
-        this.container.onSelf(this.channel + "/response", (message)=> {
-            this.processResult(message);
-        });
-
-        for (var item in service) {
-            if (service.hasOwnProperty(item) && typeof (service[item]) == "function" && item.indexOf("_") != 0 ) {
-                descriptor[item] = 'method';
-                this._subscribeMethod(service, item);
-            }
-        }
-    },
+    this.getDescription = () => {
+        return Module.GetDescription(self);
+    };
+/*
 
     _subscribeMethod: function(service, name){
         this.container.onSelf("/" + name, (message)=>{
@@ -130,12 +94,12 @@ Inherit(Service, EventEmitter, {
             // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
             var id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
             var obj =
-                {
-                    id : id,
-                    from: "/self/" + self.channel,
-                    to: "/self/" + name + "/call#" + id,
-                    data: args
-                };
+            {
+                id : id,
+                from: "/self/" + self.channel,
+                to: "/self/" + name + "/call#" + id,
+                data: args
+            };
             this.once("result#" + id, (message, xmessage) => {
                 if (message.type == "result") {
                     resolve(message.result);
@@ -149,7 +113,6 @@ Inherit(Service, EventEmitter, {
                     }
                     else {
                         socket.netSocket.setEncoding(null);
-                        /* fix due to issues in node */
                         socket.netSocket._readableState.decoder = null;
                         socket.netSocket._readableState.encoding = null;
                     }
@@ -175,11 +138,11 @@ Inherit(Service, EventEmitter, {
 
     callMethodHandler: function(id, name, args, message){
         var response =
-            {
-                id : id,
-                from: message.to,
-                to: message.from + "/response#" + id,
-            };
+        {
+            id : id,
+            from: message.to,
+            to: message.from + "/response#" + id,
+        };
         var self = this;
         const sendResponse = (data)=> {
             response.data = data;
@@ -231,30 +194,6 @@ Inherit(Service, EventEmitter, {
         return undefined;
     },
 
-    /*
-    emit: function (eventName) {
-        if (eventName != "error" && eventName != "internal-event") {
-            var args = Array.from(arguments);
-            //args.shift();
-            Service.base.emit.call(this, "internal-event", eventName, args);
-        } else {
-            //Self-descriptive events
-            if (!this._eventsDescriptions) this._eventsDescriptions = {};
-            if (!this._eventsDescriptions[eventName]){
-                var args = [];
-                for (var i = 0; i <= arguments.length; i++){
-                    args.push({
-                        type: typeof arguments[i]
-                    });
-                }
-                this.register(eventName, {
-                    args: args
-                });
-            }
-        }
-        Service.base.emit.apply(this, arguments);
-    },*/
-
     register: function (eventName, description) {
         if (eventName) {
             if (!this._eventsDescriptions) this._eventsDescriptions = {};
@@ -267,11 +206,24 @@ Inherit(Service, EventEmitter, {
             if (!this._config) this._config = {};
             this._config[key] = description;
         }
-    },
+    },*/
+};
+
+Module.GetDescription = function (module) {
+    return { source: module.config.path, type: module.type };
+}
+
+Module.CreateProxyObject = function (service) {
+    if (!service) return {};
+    if (service.GetDescription) {
+        return service.GetDescription();
+    } else {
+        return Service.GetDescription(service);
+    }
+};
+
+Inherit(Module, {
+
 });
 
-module.exports = Service;
-
-if (!module.parent) {
-    return new Service();
-}
+module.exports = Module;

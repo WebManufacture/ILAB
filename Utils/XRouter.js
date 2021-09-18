@@ -1,6 +1,6 @@
-var utils = useModule('utils');
-var Selector = useModule('selectors');
 var EventEmitter = require('events');
+var utils = useRoot('/Utils/utils.js');
+var Selector = useRoot('/Utils/selectors.js');
 
 /*
 Node should have next fields:
@@ -76,25 +76,25 @@ function XRouter() {
 }
 
 Inherit(XRouter, EventEmitter, {
-    on(selector, handler) {
+    on(selector, handler, messageType) {
         selector = new Selector(selector);
         if (selector.isRoot){
             //Имеет ли это значение тут
         }
-        return this._subscribe(selector, this.structure, handler);
+        return this.addRoute(selector, messageType, handler);
     },
 
-    once: function (selector, handler) {
+    once: function (selector, handler, messageType) {
         selector = new Selector(selector);
         if (selector.isRoot){
             //Имеет ли это значение тут
         }
-        return this._subscribe(selector, this.structure, (message, route, other)=>{
+        return this.addRoute(selector, messageType, (message, route, other)=>{
             handler.apply(this, arguments);
         });
     },
 
-    _subscribe(selector, route, handler){
+    addRoute(selector, messageType, handler){
         var sel = undefined;
         if (!selector){
             if (!route[undefined]) route[undefined] = [];
@@ -122,11 +122,7 @@ Inherit(XRouter, EventEmitter, {
         return route;
     },
 
-    once(){
-
-    },
-
-    off: function (selectorOrHandler) {
+    un: function (selector, messageType, handler) {
         this.removeEventListener(selectorOrHandler);
         return this;
     },

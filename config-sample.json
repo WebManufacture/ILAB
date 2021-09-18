@@ -1,28 +1,21 @@
 {
-  "ServicesHttpProxy": {
-    "port": 5100
+  "tcp": {
+    "type": "TcpTerminal",
+    "port": 5000
   },
-  "ServicesWebSocketProxy": {
+  "udp": {
+    "type": "UdpTerminal",
+    "port": 31337
+  },
+  "http": {
+    "type": "HttpTerminal",
+    "port": 80
+  },
+  "ws": {
+    "type": "WsTerminal",
     "port": 5700
   },
-  "FilesService":{
-    "basepath": ""
-  },
-  "StaticService":{
-    "filesServiceId": "FilesService",
-    "rootFile":"klab/fs.html",
-    "port": 80,
-    "keyFile": "./localhost.key",
-    "certFile": "./localhost.cert",
-    "useSecureProtocol": false,
-    "allowOrigin": "*",
-    "allowMethods": "ALL",
-    "allowBrowse": true,
-    "aliases": {
-
-    }
-  },
-  "myService":{
-
+  "discovery": {
+    "type": "DiscoveryModule"
   }
 }

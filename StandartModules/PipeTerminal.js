@@ -4,8 +4,7 @@ var JsonSocket = useModule('jsonsocket');
 var XRouter = useSystem('XRouter');
 
 PipeTerminal= function(params){
-    var container = require("container");
-
+    var container = this;
     var alreadyExiting = false;
 
     var exitFunc = () => {
@@ -56,11 +55,9 @@ PipeTerminal= function(params){
     });
 
 
-    getPipe = (serviceId) => {
-        return os.type() == "Windows_NT" ? '\\\\?\\pipe\\' + serviceId : '/tmp/ilab-4-' + serviceId;
-    };
 
-    var pipeId = params.port ? getPipe(params.port) : getPipe(container.id);
+    var pipeId = os.type() == ("Windows_NT" ? '\\\\?\\pipe\\' : '/tmp/');
+    pipeId = params.port ? pipeId + params.port : `pipe-${container.type}-${container.id}-${(Math.random() + '').replace('0.','')}`;
 
     _pipesServerForBaseInteraction = net.createServer({
         allowHalfOpen: false,
@@ -81,7 +78,7 @@ PipeTerminal= function(params){
         }
     });
 
-    _onConnection = (netSocket) => {
+    const _onConnection = (netSocket) => {
         var socket = new JsonSocket(netSocket);
 
         var errorHandler = function(err){
@@ -157,4 +154,5 @@ PipeTerminal= function(params){
         }
     });
 };
+
 module.exports = PipeTerminal;

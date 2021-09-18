@@ -25,22 +25,9 @@ process.basePath = process.cwd();
 process.ilabPath = process.basePath;
 if (process.ilabPath.indexOf("/") != process.ilabPath.length - 1) process.ilabPath += "/";
 process.workingPath =  Path.resolve(getEnvParam('workDir'), process.cwd());
-process.NodesPath = process.ilabPath + "Nodes/";
-process.ModulesPath = process.ilabPath + "Modules/";
-process.ServicesPath = process.ilabPath + "Services/";
-process.SystemPath = process.ilabPath + "System/";
 
-global.useModule = prepareArgAspect(function(path){
-    return require(Path.resolve(process.ModulesPath + path));
-});
-global.useService = prepareArgAspect(function(path){
-    return require(Path.resolve(process.ServicesPath + path));
-});
 global.useRoot = prepareArgAspect(function(path){
     return require(Path.resolve(process.ilabPath + path));
-});
-global.useSystem = prepareArgAspect(function(path){
-    return require(Path.resolve(process.SystemPath + path));
 });
 
 var Module = require('module');

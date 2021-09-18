@@ -1,32 +1,12 @@
 var Path = require('path');
 var os = require('os');
 var EventEmitter = require('events');
-require(Path.resolve('System/RequireExtention.js'));
-var XRouter = useSystem("XRouter");
+var XRouter = require(Path.resolve("./Utils/XRouter.js"));
 
-process.on('uncaughtException', function (ex) {
-    console.error(ex);
-});
-
-process.on('unhandledRejection', (reason, p) => {
-    console.log('Unhandled Rejection at:', p, 'reason:', reason);
-    // application specific logging, throwing an error, or other logic here
-});
-
-function parseConfig(config){
+function parsePath(config){
     if (!config) return null;
-    if (!config.type){
-        config.type = "node";
-    }
-    if (config.id) {
-        if (config.id == "auto") {
-            config.id = createUUID();
-        }
-    } else {
-        config.id = config.type;
-    }
     if (!config.path){
-        config.path = config.type;
+        config.path = Path.resolve(`/StandartModules/${config.type}`);
     }
     if (config.path.indexOf(".js") < 0) {
         config.path += ".js";
@@ -35,108 +15,126 @@ function parseConfig(config){
 }
 
 function Container(config) {
-    this.services = [];
-    this.isChild = config && config.isChild != undefined ? config.isChild : process.isChild;
-    if (!this.id) this.id = config && config.id ? config.id : createUUID();
-    if (!this.localId) {
-        this.localId = config && config.localId ? config.localId : (this.id ? this.id : this.newId() + "").substring(30, 36)
+    config = this.config = config || {};
+    if (config.id == "auto") {
+        config.id = createUUID();
     }
-    if (!this.type) this.type = config && config.type ? config.type : "container";
-    if (!this.tags) this.tags = config && config.tags ? config.tags : [];
-
+    if (!this.id) this.id = config.id || createUUID();
+    if (!this.type) this.type = config.type || "container";
+    if (!this.tags) this.tags = config.tags || [];
     this.selector = this.type + "#" + this.id;
     for (var tag of this.tags){
         this.selector += "." + tag;
     }
-
-    process.container = this;
-    process.setMaxListeners(100);
-
+    const selector = this.selector;
+    const defaultHandler = ()=>{
+        //Default handler
+    }
+    this.handler = config.handler || defaultHandler;
+    this.storage = config.storage || {} //Default storage for sub containers and other
+    this.modules = [];
     XRouter.apply(this, arguments);
 
     var self = this;
 
-    var oldLog = console.log;
-    console.log = function () {
-        var log = arguments[0];
-        if (typeof log == "string" && log.indexOf(self.id) < 0) {
-            arguments[0] = (self.type ? self.type : "") + (self.id ? "#" + (self.localId ? self.localId : self.id) : "") + ": " + log;
-        }
-        oldLog.apply(this, arguments);
+    this.log = function () {
+        const newArguments = [
+            selector,
+            ...arguments
+        ]
+        console.log.apply(this, newArguments);
     };
 
-    this.infoDescriptor = {};
+    this.debug = function () {
+        const newArguments = [
+            selector,
+            ...arguments
+        ]
+        console.debug.apply(this, newArguments);
+    };
 
-    this.follow(this.type + "#" + this.id, "self");
-    this.follow("#" + this.id, "self");
-    this.follow(this.type + "#" + this.localId, "self");
-    this.follow("#" + this.localId, "self");
-    this.follow(this.type, "self");
+    this.info = function () {
+        const newArguments = [
+            selector,
+            ...arguments
+        ]
+        console.info.apply(this, newArguments);
+    };
 
+    this.error = function () {
+        const newArguments = [
+            selector,
+            ...arguments
+        ]
+        console.error.apply(this, newArguments);
+    };
+
+    /*
+        this.follow(this.type + "#" + this.id, "self");
+        this.follow("#" + this.id, "self");
+        this.follow(this.type + "#" + this.localId, "self");
+        this.follow("#" + this.localId, "self");
+        this.follow(this.type, "self");
+    */
     //Starting services by config
-
-
-    var startPromises = [];
-    if (config.terminals.length) {
-        this.debug("Detected " + config.terminals.length + " terminals");
-        for (var i = 0; i < config.terminals.length; i++) {
-            ((params) => {
-                var params = parseConfig(params);
-                var path = params.path;
-                if (path) {
-                    if (path.indexOf(".js") != path.length - 3) {
-                        path += ".js";
-                    }
-                    if (path.indexOf("/") < 0 && path.indexOf("\\") < 0) {
-                        path = "Terminals/" + path;
-                    }
-                }
-                var terminal = this.startModule(Path.resolve(path), params);
-                if (terminal && terminal instanceof Promise) {
-                    startPromises.push(terminal);
-                }
-            })(config.terminals[i]);
-        }
-    }
-    Promise.all(startPromises).then(() => {
-        this.emit("termianals-started");
-        console.log("All terminals started!");
-
-        if (config.nodes.length) {
-            this.debug("Detected " + config.nodes.length + " nodes to start");
-            var startPromises = [];
-            for (var i = 0; i < config.nodes.length; i++) {
-                ((params) => {
-                    var path = params.path;
-                    if (path) {
-                        path = Path.resolve(path);
-                        var node = this.start(path, serviceParams);
-                    }
-                    if (node && node instanceof Promise) {
-                        startPromises.push(new Promise(node));
-                    }
-                    if (node && node instanceof EventEmitter) {
-                        startPromises.push(new Promise((resolve, reject) => {
-                            node.once("started", () => {
-                                self.log("Started: " + path);
-                                resolve();
-                            });
-                        }));
-                    }
-                })(config.nodes[i]);
-            }
-            Promise.all(startPromises).then(() => {
-                this.emit("nodes-started");
-                console.log("All nodes started!");
-            });
-        }
-    });
-
 }
 
 Inherit(Container, XRouter, {
-    newId: function () {
-        return require('uuid/v4')();
+    async init(config){
+        if (config && Array.isArray(config.modules)) {
+            for (var module of config.modules) {
+                this.initModule(parsePath(module));
+            }
+        }
+    },
+
+    async initModule(module){
+        if (!module) return;
+        let result = null;
+        if (typeof module == "function"){
+            if (module.constructor) {
+                result = new module(this);
+            } else {
+                if (module instanceof Promise){
+                    result = await module.call(this, module);
+                } else {
+                    result = module.call(this, module);
+                }
+            }
+            return;
+        }
+        if (typeof module == "object" && module.path) {
+            const object = require(Path.resolve(module.path));
+            if (typeof object == "function") {
+                if (object.constructor) {
+                    result = new object(this, module);
+                } else {
+                    if (object instanceof Promise){
+                        result = await object.call(this, module);
+                    } else {
+                        result = object.call(this, module);
+                    }
+                }
+            }
+        }
+        if (result && typeof result == 'object') this.modules.push(result);
+        return result;
+    },
+
+    async load(){
+        for (var module of this.modules){
+            if (typeof module.load == "function"){
+                await module.load(this);
+            }
+        }
+    },
+
+    async unload(){
+        for (var module of this.modules){
+            if (typeof module.unload == "function"){
+                await module.unload(this);
+            }
+        }
     },
 
     redirect: function(from, to){
@@ -153,22 +151,17 @@ Inherit(Container, XRouter, {
         });
     },
 
-    onSelf: function(selector, handler){
-        return this.on("/self" + (selector.indexOf('/') == 0 ? selector : "/" + selector), handler);
-    },
-
-    registerService(service) {
-        /* на случай если в контракте понадобятся методы класса сервиса, а не только его экземпляра
-         service = service.__proto__;
-         for (var item in service){
-         if (item.indexOf("_") != 0 && typeof (service[item]) == "function" && service.hasOwnProperty(item)){
-         obj[item] = "method";
-         }
-         }
-         */
-        service.init(this.infoDescriptor);
-    },
-
+    //Old - style service description
+    getDescription(){
+        var obj = { id : this.id };
+        for (var item in this){
+            if (item.indexOf("_") != 0 && typeof (this[item]) == "function" && this.hasOwnProperty(item)){
+                obj[item] = "method";
+            }
+        }
+        return obj;
+    }
+/*
     execCode: function (code, params) {
         this.log("Virtual code starting...");
         code = vm.Script(code, {filename: params.nodePath || params.path || "tempNode.vm"});
@@ -248,49 +241,9 @@ Inherit(Container, XRouter, {
             this.error(err);
         }
     },
+*/
 
 
-    fatal: function (err) {
-        if (typeof (err) == "object") {
-            this.send(XRouter.TYPE_FATAL, {message: err.message, item: err.stack});
-        } else {
-            this.send(XRouter.TYPE_FATAL, {message: err, item: null});
-        }
-        console.error(err);
-        setImmediate(function () {
-            process.exit();
-        });
-    },
-
-    debug: function (log) {
-        this.send(XRouter.TYPE_TRACE, {item: log});
-        console.log(log);
-    },
-
-    log: function (log) {
-        this.send(XRouter.TYPE_INFO, {item: log});
-        console.log(log);
-    },
-
-    error: function (err) {
-        if (typeof (err) == "object") {
-            this.send(XRouter.TYPE_ERROR, {message: err.message, item: err.stack});
-        } else {
-            this.send(XRouter.TYPE_ERROR, {message: err, item: null});
-        }
-        console.error(err);
-    },
-
-    //Old - style service description
-    getDescription(){
-        var obj = { id : this.id };
-        for (var item in this){
-            if (item.indexOf("_") != 0 && typeof (this[item]) == "function" && this.hasOwnProperty(item)){
-                obj[item] = "method";
-            }
-        }
-        return obj;
-    }
 });
 
 Container.Statuses = ["new", "killed", "exited", "paused", "reserved", "stopping", "error", "loaded", "started", "working"];

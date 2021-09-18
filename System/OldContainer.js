@@ -46,7 +46,7 @@ Frame.ilabPath = Frame.basePath;
 if (Frame.ilabPath.indexOf("/") != Frame.ilabPath.length - 1) Frame.ilabPath += "/";
 Frame.workingPath =  process.env.workDir == 'string' ? Path.resolve(process.env.workDir) : process.cwd();
 Frame.NodesPath =  Frame.ilabPath + "/Nodes/";
-Frame.ModulesPath = Frame.ilabPath + "/Modules/";
+Frame.ModulesPath = Frame.ilabPath + "/StandartModules/";
 Frame.ServicesPath = Frame.ilabPath + "/Services/";
 Frame.SystemPath = Frame.ilabPath + "/System/";
 Frame.NodeModulesPath = process.execPath.replace("node.exe", "") + "node_modules/";

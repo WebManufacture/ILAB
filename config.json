@@ -1,14 +1,27 @@
-{
-  "terminals": {
-
+[
+  {
+    "type": "PipeTerminal"
   },
-  "DiscoveryService":{
-    "id":"a82e072b-0f67-4a12-8901-37c59343fb3f",
-    "hosts": [
-      {
-        "address": "web-manufacture.net",
-        "port": "31337"
-      }
-    ]
+  {
+    "type": "TcpTerminal",
+    "port": 5000
+  },
+  {
+    "type": "UdpTerminal",
+    "port": 31337
+  },
+  {
+    "type": "HttpTerminal",
+    "port": 80
+  },
+  {
+    "type": "WsTerminal",
+    "port": 5700
+  },
+  {
+    "type": "DiscoveryModule"
+  },
+  {
+    "type": "StaticService"
   }
-}
+]
