@@ -1,21 +1,19 @@
 {
-  "tcp": {
-    "type": "TcpTerminal",
-    "port": 5000
-  },
-  "udp": {
-    "type": "UdpTerminal",
-    "port": 31337
-  },
-  "http": {
-    "type": "HttpTerminal",
-    "port": 80
-  },
-  "ws": {
-    "type": "WsTerminal",
-    "port": 5700
-  },
-  "discovery": {
-    "type": "DiscoveryModule"
+  "modules": {
+    "TcpTerminal": {
+      "port": 5000
+    },
+    "UdpTerminal": {
+      "port": 31337
+    },
+    "HttpTerminal": {
+      "port": 80
+    },
+    "WsTerminal": {
+      "port": 5700
+    },
+    "DiscoveryModule": {
+
+    }
   }
 }

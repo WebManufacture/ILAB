@@ -6,7 +6,7 @@ var XRouter = require(Path.resolve("./Utils/XRouter.js"));
 function parsePath(config){
     if (!config) return null;
     if (!config.path){
-        config.path = Path.resolve(`/StandartModules/${config.type}`);
+        config.path = Path.resolve(`./StandartModules/${config.type}`);
     }
     if (config.path.indexOf(".js") < 0) {
         config.path += ".js";

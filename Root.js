@@ -19,7 +19,7 @@ var Container = useRoot('/System/Container.js');
     function parseConfig(config){
         if (!config) return null;
         if (!config.path){
-            config.path = Path.resolve(`/StandartModules/${config.type}`);
+            config.path = Path.resolve(`./StandartModules/${config.type}`);
         }
         if (config.path.indexOf(".js") < 0) {
             config.path += ".js";
@@ -99,10 +99,12 @@ var Container = useRoot('/System/Container.js');
                         } else {
                             if (typeof configFile == "object") {
                                 if (configFile.modules){
-                                    modulesToStart = [
-                                        ...modulesToStart,
-                                        ...configFile.modules
-                                    ]
+                                    for (var key in configFile.modules){
+                                      modulesToStart.push({
+                                        type: key,
+                                        ...configFile.modules[key]
+                                      })
+                                    }
                                     delete configFile.modules;
                                 }
                                 additionalConfig = {
