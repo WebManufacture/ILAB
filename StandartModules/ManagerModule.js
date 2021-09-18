@@ -171,11 +171,11 @@ function ServicesManager(config, portCountingFunc){
         return mon;
     };
     
-    //For system use! Do not use this method;
+    //For System use! Do not use this method;
     this.Pipe = function(serviceId){
         return new Promise(function(resolve, reject){
             //resolve(process.stdout);
-            reject('For system use! Do not use this method;');
+            reject('For System use! Do not use this method;');
         });
     };
 
