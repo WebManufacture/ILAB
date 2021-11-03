@@ -1,34 +1,98 @@
 var Path = require('path');
 var fs = require('fs');
 var os = require("os");
-const {app, BrowserWindow, ipcMain} = require('electron');
+const {app, Menu, BrowserWindow, ipcMain} = require('electron');
 //process.chdir(Path.resolve('..'));
+
+const { Notification } = require('electron')
 
 let mainWindow = null;
 let mainWindowLoaded = false;
 let mainWindowStarted = false;
+let force_quit = false;
+
+const isMac = process.platform === 'darwin';
+
+// const template = []//just empty template for disable sys menu
+//
+// const menu = Menu.buildFromTemplate(template);
+// Menu.setApplicationMenu(menu);
 
 function createWindow () {
     // Create the browser window.
     mainWindow = win = new BrowserWindow({
-      width: 800,
-      height: 600,
+      width: 1224,
+      height: 740,
+      frame: true,
+
       webPreferences: {
         nodeIntegration: true,
+        contextIsolation: false,
+        enableRemoteModule: true,
+        devTools: true,
       }
     })
 
-    win.loadFile('start.html');
+     //win.removeMenu();
+
     // and load the index.html of the app.
-    let contents = win.webContents;
-    contents.on("dom-ready", ()=>{
+
+    ipcMain.on("dom-ready", ()=>{
+      var currentOS = os.platform();
+
+      if(currentOS == 'win32'){
+        console.log("detected OS : ", currentOS);
+        rootService = require(Path.resolve("./RootService.js"));
+      }else if (currentOS == 'darwin'){
+        console.log("detected OS : ", currentOS);
+        rootService = require(Path.resolve("RootService.js"));
+      }
       mainWindowLoaded = true;
     });
-    //contents.openDevTools();
+
     ipcMain.on("started", ()=>{
-      mainWindowStarted = true;
-      console.log("Main window started");
+        mainWindowStarted = true;
+        console.log("Main window started");
+        if (ilabStarted){
+            sendMessage("services-started");
+        }
     });
+
+    ipcMain.on("open-dev", ()=>{
+        win.webContents.openDevTools();
+    });
+
+    ipcMain.on("maximize-message", function (event, data){
+        win.maximize();
+    });
+
+    ipcMain.on("unmaximize-message", function (event, data){
+        win.unmaximize();
+    });
+
+    ipcMain.on("minimize-message", function (event, data){
+        win.minimize();
+    });
+
+    ipcMain.on("close-ready", function(){
+        force_quit = true;
+        console.log("Readu to close window");
+    });
+
+    mainWindow.on('close', function(e){
+        console.log("Tryes to close window");
+        mainWindow.removeMenu();
+        if(!force_quit){
+            e.preventDefault();
+            console.log("Preventing close window");
+            sendMessage("closing");
+        } else {
+          console.log("Accepting close window");
+        }
+    });
+
+    win.loadFile('start.html');
+
 }
 
 _errorHandler = function(err){
@@ -73,64 +137,92 @@ _sendWithDelay = (name, args)=>{
 
 sendError = (args)=>{
   _sendWithDelay("server-error", args);
-}
+};
 
 sendLog = (args)=>{
   _sendWithDelay("console", args);
-}
+};
 
 sendMessage = (name, args)=>{
   if (mainWindow && mainWindowStarted){
     _send(name, args);
   }
-}
+};
 
 var _oldLog = console.log;
 console.log = function () {
-    const args = [];
-    for (var i = 0; i < arguments.length; i++){
-      args.push(arguments[i]);
+    if (process.connected){
+        const args = [];
+        for (var i = 0; i < arguments.length; i++){
+          args.push(arguments[i]);
+        }
+        sendLog(args);
     }
-    sendLog(args);
+
     _oldLog.apply(this, arguments);
 };
 
 var _oldLogError = console.error;
 console.error = function () {
-    const args = [];
-    for (var i = 0; i < arguments.length; i++){
-      args.push(arguments[i]);
+    if (process.connected){
+        const args = [];
+        for (var i = 0; i < arguments.length; i++){
+          args.push(arguments[i]);
+        }
+        sendError(args);
     }
-    sendError(args);
     _oldLogError.apply(this, arguments);
 };
 
-function connectService(service){
+app.on('close', function (e) {
+    console.log("Closing app...");
+});
 
-}
+// You can use 'before-quit' instead of (or with) the close event
+app.on('before-quit', function (e) {
+    console.log("Before quit app...");
+});
 
-app.on('ready', createWindow);
-
-app.on('window-all-closed', function() {
+app.on('window-all-closed', function(e) {
+    console.log("Window closed...");
     app.quit();
     process.exit();
 });
 
 ipcMain.on('critical-error', (event, args) => {
   _oldLog(args);
-})
+});
 
 if (process.argv.length < 2){
   process.argv.push("");
   process.argv.push("--config=electron-config.json");
+  var currentOS = os.platform();
+  if(currentOS == 'win32'){
+    process.chdir(Path.resolve("Resources/app/"));
+  }
 } else {
   process.argv.push("--config=electron-config.json");
 }
 
+var ilabStarted = false;
+
 process.once("ilab-started", () => {
+  ilabStarted = true;
   sendLog("services-started");
   sendMessage("services-started");
 });
 
-console.log("CurrentDir: ", Path.resolve('.'));
-const rootService = require(Path.resolve("RootService.js"));
+
+app.on('ready',() => {
+  var pipeName = os.type() == "Windows_NT" ? '\\\\?\\pipe\\ServicesManager' : '/tmp/ilab-3-ServicesManager';
+  if (!fs.existsSync(pipeName)){
+    createWindow();
+  } else {
+    const notification = {
+       title: 'ILab App',
+       body: 'Other ILab application already working.'
+     }
+     new Notification(notification).show();
+    process.exit();
+  }
+});
