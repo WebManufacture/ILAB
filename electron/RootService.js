@@ -2,9 +2,9 @@ var Path = require('path');
 var os = require("os");
 
 function _init() {
-    require('./../../ExtProjects/LedControl/Modules/utils.js');
+    require('./..//Modules/utils.js');
     //var ForkingService = useSystem('ForkingService');
-    var Service = require('./../../ExtProjects/LedControl/System/Service.js');
+    var Service = require('./../System/Service.js');
 
 
     function _parseCmd () {

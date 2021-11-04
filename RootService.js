@@ -2,9 +2,10 @@ var Path = require('path');
 var os = require("os");
 
 function _init() {
-    useModule('utils.js');
+    require('./Modules/utils.js');
     //var ForkingService = useSystem('ForkingService');
-    var Service = useSystem('Service');
+    var Service = require('./System/Service.js');
+
 
 
     function _parseCmd () {

@@ -2,7 +2,6 @@ var Path = require('path');
 var fs = require('fs');
 var os = require("os");
 const {app, Menu, BrowserWindow, ipcMain} = require('electron');
-//process.chdir(Path.resolve('..'));
 
 const { Notification } = require('electron')
 
@@ -38,15 +37,7 @@ function createWindow () {
     // and load the index.html of the app.
 
     ipcMain.on("dom-ready", ()=>{
-      var currentOS = os.platform();
-
-      if(currentOS == 'win32'){
-        console.log("detected OS : ", currentOS);
-        rootService = require(Path.resolve("./RootService.js"));
-      }else if (currentOS == 'darwin'){
-        console.log("detected OS : ", currentOS);
-        rootService = require(Path.resolve("RootService.js"));
-      }
+      rootService = require(Path.resolve("../RootService.js"));
       mainWindowLoaded = true;
     });
 
@@ -76,7 +67,7 @@ function createWindow () {
 
     ipcMain.on("close-ready", function(){
         force_quit = true;
-        console.log("Readu to close window");
+        console.log("Ready to close window");
     });
 
     mainWindow.on('close', function(e){

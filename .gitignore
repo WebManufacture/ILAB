@@ -2,6 +2,7 @@ node_modules
 dist
 package-lock.json
 config.json
+*-config.json
 *_config.json
 config_*.json
 **/electron/dist
@@ -11,4 +12,4 @@ config_*.json
 *.pfx
 SSLCert.*
 .idea
-Temp/*.*
+Temp/*

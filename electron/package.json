@@ -48,7 +48,7 @@
       {
         "from": "..",
         "to": ".",
-        "filter":[
+        "filter": [
           "*.js",
           "electron-config.json"
         ]
