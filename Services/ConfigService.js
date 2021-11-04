@@ -40,7 +40,7 @@ function ConfigService(params) {
 
     this.Save = function (data) {
         return new Promise(function (resolve, reject) {
-            fs.writeFile(Path.resolve(self.configPath), JSON.stringify(self.store), function (err) {
+            fs.writeFile(self.configPath, JSON.stringify(self.store), function (err) {
                 if (err) {
                     reject(err);
                 }
@@ -54,7 +54,7 @@ function ConfigService(params) {
         if (filesService) {
             self.filesService = filesService;
             if (params.watchConfigFile) {
-                filesService.Watch(Path.resolve(self.configPath), false).then((fpath) => {
+                filesService.Watch(self.configPath, false).then((fpath) => {
                     filesService.on("watch:" + fpath, (change, path) => {
                         if (change == "change") {
                             self.reloadStore(true, true);
@@ -133,8 +133,10 @@ Inherit(ConfigService, Service, {
     },
 
     reloadStore(doCheck, doReload) {
-        var newStore = JSON.parse(fs.readFileSync(Path.resolve("./config.json"), 'utf8'));
         var self = this;
+		var path = this.configPath;
+		console.log("Reload config path: ", path);
+        var newStore = JSON.parse(fs.readFileSync(path, 'utf8'));
         if (doCheck) {
             let servicesToStart = [];
             for (const serviceId in newStore) {
@@ -188,7 +190,9 @@ Inherit(ConfigService, Service, {
     },
 
     loadStore: function (serviceId) {
-        this.store = JSON.parse(fs.readFileSync(Path.resolve(this.configPath ? this.configPath : "./config.json"), 'utf8'));
+		var path = this.configPath;
+		console.log("Load config: ", path);
+        this.store = JSON.parse(fs.readFileSync(path, 'utf8'));
         return serviceId ? this.store[serviceId] : this.store;
     }
 });

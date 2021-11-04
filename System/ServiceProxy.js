@@ -185,6 +185,7 @@ Inherit(ServiceProxy, EventEmitter, {
                         console.log("Error while calling " + self._serviceId + ":" + self.port + ":" + methodName + ( message.stack ? " with stack " : " no stack "));
                         if (message.stack) {
                             err.stack = message.stack;
+                            console.error(err);
                         }
                         self.emit('error', err);
                         reject(err);

@@ -40,7 +40,7 @@ HttpProxyService = function(params){
         return false;
     });
     ServicesManager.on("service-started", function (serviceId, config, description) {
-        console.log("HttpProxy catch service start: " + serviceId);
+        //console.log("HttpProxy catch service start: " + serviceId);
         self.services[serviceId] = description.tcpPort;
         self.addServiceHandler(serviceId, description.tcpPort);
         if (serviceId != description.serviceType){

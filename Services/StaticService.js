@@ -259,7 +259,7 @@ Inherit(StaticContentService, Service, {
                                      encoding = 'utf8';
                                      }*/
                                     serv.fs.ReadStream(fpath, encoding).then((stream) => {
-                                        //stream.setEncoding('bi');
+                                        //stream.setEncoding('binary');
                                         res.setHeader("request-id", stream.id);
                                         if (ext) {
                                             res.setHeader("Content-Type", ext);
@@ -364,6 +364,7 @@ Inherit(StaticContentService, Service, {
         } catch (e) {
             res.statusCode = 500;
             res.end(e.message);
+            console.error(e);
         }
     },
 

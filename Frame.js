@@ -7,6 +7,7 @@ var vm = require('vm');
 var net = require('net');
 var ChildProcess = require('child_process');
 //require('child-process-debug');
+var dateStart = new Date().valueOf();
 
 if (!global.Frame) {
     Frame = {isChild: process.isChild === undefined ? true : process.isChild};
@@ -20,6 +21,39 @@ function prepareArgAspect(func){
         return func(path);
     }
 }
+
+function twoDigit(num){
+	if (num < 10){
+		return "0" + num;
+	}
+	return "" + num;
+}
+
+Date.prototype.formatDateTime = function(){
+	return this.formatDate() + " " + this.formatTime();
+};
+
+Date.prototype.formatTime = function(withMilliseconds){
+	if (withMilliseconds){
+		return twoDigit(this.getHours()) + ":" + twoDigit(this.getMinutes()) + ":" + twoDigit(this.getSeconds()) + "." + this.getMilliseconds();
+	}
+	else{
+		return twoDigit(this.getHours()) + ":" + twoDigit(this.getMinutes()) + ":" + twoDigit(this.getSeconds());
+	}
+};
+
+Date.prototype.formatDate = function(separator, reverse){
+	var date = twoDigit(this.getDate());
+	var month = twoDigit(this.getMonth() + 1);
+	if (!separator){ separator = "-" }
+	if (reverse){
+		return date + separator + month + separator + this.getFullYear();
+	}
+	else
+	{
+		return this.getFullYear() + separator + month + separator + date;
+	}
+};
 
 global.useModule = Frame.useModule = prepareArgAspect(function(path){
     return require(Path.resolve(Frame.ModulesPath + path));
@@ -301,7 +335,9 @@ Frame._startFrame = function (node) {
                         var oldLog = console.log;
                         console.log = function () {
                             if (typeof arguments[0] == "string" && arguments[0].indexOf(Frame.serviceId) != 0) {
-                                arguments[0] = Frame.serviceId + ": " + arguments[0];
+                            	var runtime = (new Date().valueOf() - dateStart) + " ";
+                            	var prefix = (new Date()).formatDateTime() + " " + Frame.serviceId + ": ";
+                                arguments[0] = prefix + arguments[0];
                             }
                             oldLog.apply(this, arguments);
                         };
