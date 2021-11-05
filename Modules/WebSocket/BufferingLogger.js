@@ -1,7 +1,7 @@
 var noop = function(){};
 
 module.exports.BufferingLogger = function createBufferingLogger(identifier, uniqueID) {
-    var logFunction = require('debug')(identifier);
+    var logFunction = function(){};
     if (logFunction.enabled) {
         var logger = new BufferingLogger(identifier, uniqueID, logFunction);
         var debug = logger.log.bind(logger);

@@ -15,7 +15,6 @@
  ***********************************************************************/
 
 const util = require('util');
-var debug = require('debug')('websocket:server');
 var EventEmitter = require('events').EventEmitter;
 var WebSocketRequest = require('./WebSocketRequest');
 

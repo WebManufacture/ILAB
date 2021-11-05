@@ -6,7 +6,6 @@ ServiceProxy = function(serviceName){
     this.waiting = []; // очередь отправленных сообщений ждущих ответа
     this.connectionsCount = 0;
     this.handlers = {};
-    this.connected = false;
 };
 
 ServiceProxy.Connect = function(url, serviceId){
@@ -76,55 +75,95 @@ ServiceProxy.CreateProxyObject = function (service) {
 };
 
 ServiceProxy.prototype = {
+    _getSocket(){
+        var self = this;
+        if (this.tunnel) return this.tunnel;
+
+        function raiseError(err) {
+            console.error("Socket error on " + self.url + " while calling " + self.serviceId);
+            console.log(err);
+            socket.close();
+            self.emit('error', err);
+        }
+
+        var socket = new WebSocket(self.url);
+        socket.onerror = raiseError;
+        socket.onclose = function (event) {
+            this.tunnel = null;
+            if (event.wasClean) {
+                console.log('Соединение закрыто чисто');
+            } else {
+                console.error('Обрыв соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
+            }
+        };
+        socket.onmessage = function (message) {
+            message = JSON.parse(message.data);
+            self.emit("message", message);
+        };
+        window.addEventListener("close", ()=>{
+          socket.close();
+        })
+        self.tunnel = socket;
+        return socket;
+    },
+
     _callMethod : function (methodName, args) {
         var self = this;
         return new Promise(function (resolve, reject) {
             try {
                 function raiseError(err) {
-                    console.error("Socket error on " + self.url + " while calling " + self.serviceId + ":" + methodName);
+                    console.error("Error on " + self.url + " while calling " + self.serviceId + ":" + methodName);
                     console.log(err);
-                    socket.close();
-                    self.emit('error', err);
-                    reject(err);
                 }
+
+                const socket = self._getSocket();
 
                 // при использовании промисов, ответа на сообщения мы ждём ВСЕГДА (что идеологически правильнее)
                 var obj = { "type" : "method", name : methodName, args : args};
                 //Сделаем ID немного иначе и тогда будет можно на него положиться
                 obj.id = Date.now().valueOf() + (Math.random()  + "").replace("0.", "");
-                var socket = new WebSocket(self.url);
-                socket.onopen = function () {
-                    try {
-                        setTimeout(function() {
-                            socket.send(JSON.stringify(obj));
-                        }, 10);
-                    }
-                    catch (err) {
-                        raiseError(err);
-                    }
-                };
-                socket.onerror = raiseError;
-                socket.onclose = function (event) {
-                    if (event.wasClean) {
-                        console.log('Соединение закрыто чисто');
-                    } else {
-                        console.error('Обрыв соединения' + ' Код: ' + event.code + ' причина: ' + event.reason); // например, "убит" процесс сервера
-                    }
-                };
-                socket.onmessage = function (message) {
-                    message = JSON.parse(message.data);
-                    if (message.type == "result") {
-                        socket.close();
+
+                function messageHandler(message) {
+                    if (message.type == "result" && message.id == obj.id) {
+                        self.un("message", messageHandler);
                         resolve(message.result);
                     }
-                    if (message.type == "stream" && message.id) {
+                    if (message.type == "stream" && message.id == obj.id) {
+                        self.un("message", messageHandler);
+                        socket.onmessage = null;
+                        self.tunnel = null;
                         resolve(socket);
                     }
-                    if (message.type == "error") {
-                        socket.close();
-                        raiseError(message)
+                    if (message.type == "error" && message.id == obj.id) {
+                        self.un("message", messageHandler);
+                        raiseError(message);
+                        reject(err);
                     }
                 };
+
+                self.on("message", messageHandler);
+
+                function sendPacket(){
+                  if (socket.readyState == 1){
+                    socket.send(JSON.stringify(obj));
+                  } else {
+                    setTimeout(function() {
+                      try{
+                        sendPacket();
+                      }
+                      catch (err) {
+                        raiseError(err);
+                      }
+                    }, 10);
+                  }
+                }
+
+                try {
+                  sendPacket();
+                }
+                catch (err) {
+                    raiseError(err);
+                }
             }
             catch (err) {
                 self.emit('error', err);
@@ -177,7 +216,7 @@ ServiceProxy.prototype = {
                 try {
                     var socket = new WebSocket(url);
                     socket.onopen = function(event){
-                        console.log(self.serviceId + ": Service proxy opened connection to " + url);
+                        //console.log(self.serviceId + ": Service proxy opened connection to " + url);
                         try {
                             socket.send(JSON.stringify({"type": "startup", args: self.startParams}));
                         }
@@ -189,6 +228,7 @@ ServiceProxy.prototype = {
                         console.error("Socket error at " + self.serviceId + ":" + url);
                         console.log(event);
                         self.emit('error', event);
+                        //socket.tunnel = null;
                         socket.close();
                         reject(err);
                     };
@@ -203,10 +243,6 @@ ServiceProxy.prototype = {
                             for (var item in proxyObj){
                                 if (proxyObj[item] == "method") {
                                     self._createFakeMethod(item, proxyObj[item]);
-                                } else {
-                                  if (self[item] === undefined){
-                                    self[item] = proxyObj[item];
-                                  }
                                 }
                             }
                             if (typeof callback == "function") {
@@ -216,6 +252,7 @@ ServiceProxy.prototype = {
                             console.log(proxyObj);
                             self.emit("connected", proxyObj);
                             socket.close();
+                            //self.tunnel = socket;
                             resolve(self);
                         } else {
                             console.log(proxyObj.result);
@@ -225,6 +262,7 @@ ServiceProxy.prototype = {
                         }
                     };
                     socket.onclose = function (event, isError) {
+                        //self.tunnel = null;
                         if (event.wasClean) {
                             console.log('Соединение закрыто чисто');
                         } else {
@@ -246,7 +284,8 @@ ServiceProxy.prototype = {
         try {
             var promise = new Promise(function (resolve, reject) {
                 function raiseError(err) {
-                    console.error("Event socket error at " + ":" + self.url + (self.serviceId ?  " -- " + self.serviceId : ""), err);
+                    console.error("Event socket error at " + self.serviceId + ":" + self.url);
+                    console.log(err);
                     self.emit('error', err);
                     eventSocket.close();
                     reject(err);
@@ -254,14 +293,13 @@ ServiceProxy.prototype = {
                 var eventSocket = this.eventSocket = new WebSocket(self.url);
                 eventSocket.onopen = function () {
                     try {
-                        console.log(self.serviceId + ": EventListener attached to " + self.url + " : " + eventName);
+                        //console.log(self.serviceId + ": EventListener attached to " + self.url + " : " + eventName);
                         eventSocket.send(JSON.stringify({"type": "subscribe", name: eventName}));
                     }
                     catch (err){
                         raiseError(err);
                     }
                     resolve("subscribed");
-                    self.connected = true;
                 };
                 var messageHandlerFunction = function (message) {
                     message = JSON.parse(message.data);
@@ -270,21 +308,12 @@ ServiceProxy.prototype = {
                     }
                     if (message.type == "error") {
                         raiseError(message);
-                        if (message.close){
-                            eventSocket.onclose = null;
-                            eventSocket.close();
-                            self.emit("event-close", message);
-                        }
-                    }
-                    if (message.type == "external-error"){
-                        self.emit.apply(self, message.args);
                     }
                 };
                 eventSocket.onerror = raiseError;
                 eventSocket.onmessage = messageHandlerFunction;
                 eventSocket.onclose = function (event) {
                     self.connectionsCount--;
-                    self.connected = false;
                     if (event.wasClean) {
                         console.log('Event cоединение закрыто чисто');
                         setTimeout(()=>{
