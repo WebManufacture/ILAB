@@ -7,19 +7,5 @@
   },
   "FilesService":{
     "basepath": ""
-  },
-  "StaticService":{
-    "filesServiceId": "FilesService",
-    "port": 80,
-    "useSecureProtocol": false,
-    "allowOrigin": "*",
-    "allowMethods": "ALL",
-    "allowBrowse": true,
-    "aliases": {
-
-    }
-  },
-  "myService":{
-
   }
 }

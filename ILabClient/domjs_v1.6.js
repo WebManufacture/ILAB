@@ -4253,7 +4253,7 @@ if (!UsingDOM("Modules")) {
 
 	M.prepareUrl = function(url){
 		if (!url) return null;
-		url = url.toLowerCase();
+		//url = url.toLowerCase();
 		url = url.replace("%modules%", M.ModulesUrl);
 		for (var ns in M.Namespaces){
 		    var namespace = M.Namespaces[ns];
@@ -4269,7 +4269,7 @@ if (!UsingDOM("Modules")) {
 	}
 
 	M.GetModuleByUrl = function(url) {
-		return M.aget("url", M.prepareUrl(url), ".module");
+		return M.aget("low-url", M.prepareUrl(url).toLowerCase(), ".module");
 	};
 
 	M.GetModuleContainsUrl = function(url) {
@@ -4293,8 +4293,9 @@ if (!UsingDOM("Modules")) {
 	M.CreateModule = function(url, state) {
 		url = M.prepareUrl(url);
 		var module = M._div(".module");
+		module.setAttribute("low-url", url.toLowerCase());
 		module._add("." + state);
-		url = url.toLowerCase();
+		//url = url.toLowerCase();
 		module.url = url;
 		module._set("@url", module.url);
 		module.isScript = url.ends(".js");
@@ -4538,6 +4539,7 @@ WS.Header._add(scripts[i]);
 		}
 		module.from = cmod;
 		M.info("load-module", url, " from ", cmod);
+		//M.OnModuleLoad.fire(module.url, module);
 		M.OnModuleLoad.fire(module.url.toLowerCase(), module);
 		if (window.SysAjax){
 			SysAjax.LoadModule(url, module, cache, M.moduleLoaded);
@@ -4672,7 +4674,11 @@ data = mod.html();
 		if (script._is(".deffered")) return true;
 		M.info("script-exec", module.url, " from ", from);
 		try {
+			//import(script.innerHTML);
+			//var f = new Function(script.innerHTML);
+			//var result = f();
 			var result = EvalInContext(script.innerHTML, module);
+			//module.add("<script type='module'>" + script.innerHTML + "</script>");
 			if (!module.evaledScripts) module.evaledScripts = [];
 			module.evaledScripts.push(script.innerHTML);
 			if (!module.scriptResults) module.scriptResults = [];
@@ -4970,34 +4976,31 @@ if (!UsingDOM("Contexts")) {
 	};
 
 	C.ProcessContext = function(element, context, param1) {
-		if (typeof element == "object" && element instanceof HTMLElement) {
-            var url = element._get("@url");
-            if (context.OnlyChilds != undefined && context.OnlyChilds) {
-                var tags = element.childs(context.Selector);
-            }
-            else {
-                var tags = element._all(context.Selector);
-            }
-            var processed = 0;
-            if (!context.onlyChilds && !context.OnlyChilds && !context.onlyContent && context.processSelf) {
-                if (element._is(context.Selector)) {
-                    if (element._is(".jasp-processed-" + context.ContextId)) {
-                        L.LogWarn("Context " + context.ContextId + "(" + context.Selector + ") already processed on " + element.ToString(), "Jasp.js");
-                    }
-                    C.info("proc-found", element.ToString());
-                    if (element._is(".jasp-processing-" + context.ContextId)) {
-                        L.LogWarn("Context " + context.ContextId + "(" + context.Selector + ") in progress on " + element.ToString(), "Jasp.js");
-                    } else {
-                        processed += C.ProcessNode(element, context, element, param1);
-                    }
-                }
-            }
-            for (var i = 0; i < tags.length; i++) {
-                processed += C.ProcessNode(tags[i], context, element, param1)
-            }
-            return processed;
-        }
-        return 0;
+		var url = element._get("@url");
+		if (context.OnlyChilds != undefined && context.OnlyChilds) {
+			var tags = element.childs(context.Selector);
+		}
+		else {
+			var tags = element._all(context.Selector);
+		}
+		var processed = 0;
+		if (!context.onlyChilds && !context.OnlyChilds && !context.onlyContent && context.processSelf){
+		    if (element._is(context.Selector)){
+        		if (element._is(".jasp-processed-" + context.ContextId)) {
+        			L.LogWarn("Context " + context.ContextId + "(" + context.Selector + ") already processed on " + element.ToString(), "Jasp.js");
+        		}
+        		C.info("proc-found", element.ToString());
+        		if (element._is(".jasp-processing-" + context.ContextId)) {
+        			L.LogWarn("Context " + context.ContextId + "(" + context.Selector + ") in progress on " + element.ToString(), "Jasp.js");
+        		} else {
+    		        processed += C.ProcessNode(element, context, element, param1);
+        		}
+		    }
+		}
+		for (var i = 0; i < tags.length; i++) {
+			processed += C.ProcessNode(tags[i], context, element, param1)
+		}
+		return processed;
 	};
 
 	C.ProcessNode = function(elem, context, parentElement, param1){
@@ -5665,7 +5668,8 @@ ServiceProxy.prototype = {
                         resolve(message.result);
                     }
                     if (message.type == "stream" && message.id) {
-                        resolve(socket);
+                        message.stream = socket.netSocket;
+                        resolve(message.stream);
                     }
                     if (message.type == "error") {
                         raiseError(message)

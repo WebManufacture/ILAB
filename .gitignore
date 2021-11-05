@@ -5,7 +5,8 @@ config.json
 *-config.json
 *_config.json
 config_*.json
-**/electron/dist
+**/build
+**/dist
 **/node_modules
 *.cert
 *.key

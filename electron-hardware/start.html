@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<head>
+
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+
+    <title>ILAB</title>
+
+    <link
+              href="../ILabClient/System.default.css"
+              rel="stylesheet"
+      />
+      <script
+              src="../ILabClient/domjs_v1.6.js"
+              type="text/javascript"
+      ></script>
+      <script
+              src="../ILabClient/WebSocketProxy.js"
+              type="text/javascript"
+      ></script>
+      <script
+              src="../ILabClient/ui.js"
+              type="text/javascript"
+      ></script>
+
+      <link rel="shortcut icon" href="../favicon.ico" type="image/x-icon"/>
+      <link
+              href="https://fonts.googleapis.com/icon?family=Material+Icons"
+              rel="stylesheet"
+      />
+
+      <script src="start.js" type="text/javascript"></script>
+      <script>
+        var ilabStarted = false;
+        if (window.require) {
+            window.electron = require("electron");
+
+            electron.ipcRenderer.on("console", function (event, data) {
+                console.log(">>", data);
+            });
+
+            electron.ipcRenderer.on("server-error", function (event, data) {
+                console.log(">> server-error:", data);
+            });
+
+            electron.ipcRenderer.on("services-started", function (event, data) {
+                console.log(">> services-started");
+                ilabStarted = true;
+            });
+
+            window.addEventListener("close", (event)=>{
+                event.preventDefault();
+                windowClosing();
+            });
+
+            function windowClosing(){
+                electron.ipcRenderer.send("close-ready");
+                window.close();
+            };
+
+            electron.ipcRenderer.on("closing", function (){
+                windowClosing();
+            });
+
+            // electron.ipcRenderer.on("maximize-message", function (event, data){
+            //     window.electron.maximize();
+            //     console.log("win maxim");
+            // });
+
+            function callDevConsole() {
+                electron.ipcRenderer.send("open-dev");
+                if (window.DOM){
+                    window.debugMode = true;
+                    DOM.all(".debug-item").show();
+                }
+            }
+        } else {
+            ilabStarted = true;
+        }
+      </script>
+
+</head>
+<body>
+  <!--include url='http://services.web-manufacture.net/SysUtils/Log.htm'></include-->
+  <include url='../ILabClient/Components/Toolbars.htm'></include>
+  <include url='../ILabClient/Components/Notification.htm'></include>
+  <include url='../ILabClient/Components/HtmlElements.htm'></include>
+  <!--include url='http://services.web-manufacture.net/Authentication/Authentication.htm'></include-->
+  <div class='toolbar vertical fixed with-titles' id='HeaderBar'>
+    <div class='menuitem file-manager-button'
+         onclick="window.location='../ILabClient/Monitor.htm'">
+         <span class="material-icons">settings</span>
+        Управление сервером
+    </div>
+    <div class='menuitem file-manager-button'
+         icon="http://system.web-manufacture.net/images/folderopened_yellow.png">
+        KLAB
+    </div>
+    <div class='menuitem file-manager-button'
+         icon="http://system.web-manufacture.net/images/delete-mini.png">
+        HLAB
+    </div>
+    <div class="menuitem round"
+         icon="http://system.web-manufacture.net/images/ButtonUSSR.png">
+        RoboPlatform
+    </div>
+    <div class="menuitem round"
+         icon="http://system.web-manufacture.net/images/ButtonUSSR.png">
+        CNC
+    </div>
+  </div>
+
+  <script>
+    if (window.electron) {
+        electron.ipcRenderer.send("started");
+    }
+  </script>
+</body>
