@@ -9,6 +9,7 @@ let mainWindow = null;
 let mainWindowLoaded = false;
 let mainWindowStarted = false;
 let force_quit = false;
+let closeInterval = null;
 
 const isMac = process.platform === 'darwin';
 
@@ -37,7 +38,7 @@ function createWindow () {
     // and load the index.html of the app.
 
     ipcMain.on("dom-ready", ()=>{
-      rootService = require(Path.resolve("../RootService.js"));
+      rootService = require(Path.resolve("RootService.js"));
       mainWindowLoaded = true;
     });
 
@@ -75,7 +76,13 @@ function createWindow () {
         mainWindow.removeMenu();
         if(!force_quit){
             e.preventDefault();
-            console.log("Preventing close window");
+            console.log("Preventing close window, timer started");
+            closeInterval = setTimeout(()=>{
+              console.log("Close window timer...");
+              force_quit = true;
+              app.quit();
+              process.exit();
+            }, 100);
             sendMessage("closing");
         } else {
           console.log("Accepting close window");
@@ -83,7 +90,6 @@ function createWindow () {
     });
 
     win.loadFile('start.html');
-
 }
 
 _errorHandler = function(err){
@@ -184,17 +190,6 @@ ipcMain.on('critical-error', (event, args) => {
   _oldLog(args);
 });
 
-if (process.argv.length < 2){
-  process.argv.push("");
-  process.argv.push("--config=electron-config.json");
-  var currentOS = os.platform();
-  if(currentOS == 'win32'){
-    process.chdir(Path.resolve("Resources/app/"));
-  }
-} else {
-  process.argv.push("--config=electron-config.json");
-}
-
 var ilabStarted = false;
 
 process.once("ilab-started", () => {
@@ -206,14 +201,26 @@ process.once("ilab-started", () => {
 
 app.on('ready',() => {
   var pipeName = os.type() == "Windows_NT" ? '\\\\?\\pipe\\ServicesManager' : '/tmp/ilab-3-ServicesManager';
-  if (!fs.existsSync(pipeName)){
-    createWindow();
-  } else {
+
+  if (fs.existsSync(pipeName)){
     const notification = {
        title: 'ILab App',
        body: 'Other ILab application already working.'
      }
      new Notification(notification).show();
     process.exit();
+    return;
   }
+
+  if (process.argv.length < 2){
+    process.argv.push("");
+    process.argv.push("--config=electron-config.json");
+    process.chdir(Path.resolve("Resources/app/"));
+  } else {
+    console.log("Developer mode: ", process.cwd());
+    //process.chdir(Path.resolve(".."));
+    process.argv.push("--config=electron-config.json");
+    console.log("Developer mode: ", process.cwd());
+  }
+  createWindow();
 });
