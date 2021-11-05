@@ -10,6 +10,7 @@ let mainWindowLoaded = false;
 let mainWindowStarted = false;
 let force_quit = false;
 let closeInterval = null;
+let rootServicePath = "RootService";
 
 const isMac = process.platform === 'darwin';
 
@@ -37,18 +38,6 @@ function createWindow () {
 
     // and load the index.html of the app.
 
-    ipcMain.on("dom-ready", ()=>{
-      rootService = require(Path.resolve("RootService.js"));
-      mainWindowLoaded = true;
-    });
-
-    ipcMain.on("started", ()=>{
-        mainWindowStarted = true;
-        console.log("Main window started");
-        if (ilabStarted){
-            sendMessage("services-started");
-        }
-    });
 
     ipcMain.on("open-dev", ()=>{
         win.webContents.openDevTools();
@@ -190,6 +179,19 @@ ipcMain.on('critical-error', (event, args) => {
   _oldLog(args);
 });
 
+ipcMain.on("dom-ready", ()=>{
+  rootService = require(rootServicePath);
+  mainWindowLoaded = true;
+});
+
+ipcMain.on("started", ()=>{
+    mainWindowStarted = true;
+    console.log("Main window started");
+    if (ilabStarted){
+        sendMessage("services-started");
+    }
+});
+
 var ilabStarted = false;
 
 process.once("ilab-started", () => {
@@ -215,11 +217,12 @@ app.on('ready',() => {
   if (process.argv.length < 2){
     process.argv.push("");
     process.argv.push("--config=electron-config.json");
-    process.chdir(Path.resolve("Resources/app/"));
+    process.chdir(Path.resolve(".."));
   } else {
     //process.chdir(Path.resolve(".."));
     process.argv.push("--config=electron-config.json");
     console.log("Developer mode: ", process.cwd());
   }
+  rootServicePath = Path.resolve(rootServicePath);
   createWindow();
 });

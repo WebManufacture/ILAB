@@ -1,9 +1,9 @@
 {
-  "name": "Ilab-Electron",
+  "name": "Hlab-Electron",
   "version": "3.8.2",
   "electronVersion": "^9.1.0",
-  "description": "ILab Electron Server app",
-  "publishName": "ILab-Electron",
+  "description": "HLab Electron Server app",
+  "publishName": "HLab-Electron",
   "main": "electron-root.js",
   "author": "Semchenkov Alexander",
   "license": "CREATIVE COMMON",
@@ -20,42 +20,60 @@
     "dist": "electron-builder"
   },
   "build": {
-    "appId": "ilab-electron",
-    "mac": {
-      "category": "your.app.category.type"
-    },
-    "extraFiles": [
-      {
-        "from": "Assets",
-        "to": "resources"
-      },
+    "appId": "hlab-electron",
+    "asar": false,
+    "files": [
+      "**/*",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!.editorconfig",
+      "!**/._*",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
       {
         "from": "../Modules",
-        "to": "Modules"
+        "to": "../Modules"
       },
       {
         "from": "../Services",
-        "to": "Services"
+        "to": "../Services"
       },
       {
         "from": "../System",
-        "to": "System"
+        "to": "../System"
       },
       {
         "from": "../ILabClient",
-        "to": "ILabClient"
-      },
-      {
+        "to": "../ILabClient"
+      },{
         "from": "..",
         "to": ".",
         "filter": [
           "*.js",
           "electron-config.json"
         ]
-      }
+      },
+      "../*.js",
+      "../electron-config.json",
+      "electron-config.json"
     ],
+    "extraFiles": [
+
+    ],
+    "mac": {
+      "category": "application"
+    },
+    "linux": {
+      "icon": "../favicon-310x310.png",
+      "category": "application"
+    },
     "win": {
-      "icon": "favicon.ico",
+      "icon": "../favicon.ico",
       "target": [
         {
           "target": "nsis",
