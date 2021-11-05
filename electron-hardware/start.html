@@ -5,22 +5,10 @@
 
     <title>ILAB</title>
 
-    <link
-              href="../ILabClient/System.default.css"
-              rel="stylesheet"
-      />
-      <script
-              src="../ILabClient/domjs_v1.6.js"
-              type="text/javascript"
-      ></script>
-      <script
-              src="../ILabClient/WebSocketProxy.js"
-              type="text/javascript"
-      ></script>
-      <script
-              src="../ILabClient/ui.js"
-              type="text/javascript"
-      ></script>
+    <link href="../ILabClient/System.default.css" rel="stylesheet"/>
+      <script src="../ILabClient/domjs_v1.6.js" type="text/javascript"></script>
+      <script src="../ILabClient/WebSocketProxy.js"  type="text/javascript"></script>
+      <script src="../ILabClient/ui.js" type="text/javascript"></script>
 
       <link rel="shortcut icon" href="../favicon.ico" type="image/x-icon"/>
       <link
@@ -68,11 +56,15 @@
 
             function callDevConsole() {
                 electron.ipcRenderer.send("open-dev");
+                setTimeout(()=>{
+                  //require('devtron').install();
+                }, 2000);
                 if (window.DOM){
                     window.debugMode = true;
                     DOM.all(".debug-item").show();
                 }
             }
+
         } else {
             ilabStarted = true;
         }
@@ -87,8 +79,15 @@
   <!--include url='http://services.web-manufacture.net/Authentication/Authentication.htm'></include-->
   <div class='toolbar vertical fixed with-titles' id='HeaderBar'>
     <div class='menuitem file-manager-button'
-         onclick="window.location='../ILabClient/Monitor.htm'">
+         onclick="callDevConsole()">
          <span class="material-icons">settings</span>
+    </div>
+    <div class='menuitem file-manager-button'
+         onclick="window.location='chrome://inspect/#devices'">
+         <span class="material-icons">settings</span>
+    </div>
+    <div class='menuitem file-manager-button'
+         onclick="window.location='../ILabClient/Monitor.htm'">
         Управление сервером
     </div>
     <div class='menuitem file-manager-button'

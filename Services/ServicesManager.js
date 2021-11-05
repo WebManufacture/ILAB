@@ -79,16 +79,20 @@ function ServicesManager(config, portCountingFunc){
         return debugPort;
     };
 
-    this.StartService = function (service) {
+    this.StartService = function (service, params) {
         if (!service) return null;
         console.log("Starting service:", service);
         if (typeof service == "object") {
-            return self.startServiceAsync(service.id, service).then(function (service) {
+            return self.startServiceAsync(service.id, service).then(function (service, serviceId, params, serviceType) {
                 return service.description;
+            }).catch((err)=>{
+                throw err;
             });
         } else {
-            return self.startServiceAsync(service, this.params[service]).then(function (service) {
+            return self.startServiceAsync(service, params || this.params[service]).then(function (service, serviceId, params, serviceType) {
                 return service.description;
+            }).catch((err)=>{
+                throw err;
             });
         }
     };
@@ -343,19 +347,24 @@ Inherit(ServicesManager, Service, {
                 serviceId = params.id;
             }
         }
+        console.log("Starting " + serviceId, params);
         this.params[serviceId] = params;
-        //console.log("Starting " + serviceId);
         var promise = new Promise((resolve, reject) =>{
             try {
                 if (this.isServiceLoaded(serviceId)){
                     service = this.services[serviceId];
                     if (service.code < ForkMon.STATUS_WORKING) {
+                        console.log("Waiting service start:", serviceId);
                         service.once("service-started", function (serviceId, config, description) {
                             service.removeListener("error", reject);
                             resolve(service, serviceId, config, description);
                         });
-                        service.once("error", reject);
-                        service.start(params);
+                        service.once("error", (err)=>{
+                          console.log("Rejecting service start:", err);
+                          reject(err)
+                        });
+                        const cp = service.start(params);
+                        console.log("debug port: ", cp.debugPort);
                     }
                     else{
                         reject("Service already working");
@@ -366,14 +375,19 @@ Inherit(ServicesManager, Service, {
                         service.removeListener("error", reject);
                         resolve(service, serviceId, config, description);
                     });
+                    console.log("Service starting:", serviceId);
                     if (service) {
-                        service.once("error", reject);
+                        service.once("error", (err)=>{
+                          console.log("Rejecting service start:", err);
+                          reject(err)
+                        });
                     } else {
                         reject("Can not find service " + serviceId);
                     }
                 }
             }
             catch (err){
+                console.log("Catch rejecting service start:", err);
                 if (service) {
                     service.removeListener("error", reject);
                 }

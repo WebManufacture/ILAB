@@ -11,7 +11,7 @@ function ForkMon(path, args, env){
     this.env = env;
     this.args = args;
     this.code = ForkMon.STATUS_NEW;
-    this.killTimeout = 4000;
+    this.killTimeout = 1000;
     var fork = this;
     EventEmitter.call(this);
     this.on("start", function(message){
@@ -21,7 +21,7 @@ function ForkMon(path, args, env){
         fork.stop();
     });
     process.once("exit", ()=>{
-        this.exit();
+        this.exitImmediate();
     })
 };
 
@@ -35,12 +35,12 @@ ForkMon.STATUS_STOPPING = 6;
 ForkMon.STATUS_WORKING = 7;
 
 Inherit(ForkMon, EventEmitter, {
-    start : function(params){
+    start : function(params, callback){
         if (this.code >= ForkMon.STATUS_WORKING){
             throw "trying to start working node";
         }
         if (typeof (params) == 'function'){
-            var callback = params;
+            callback = params;
             params = null;
         }
         if (!params) params = {};
@@ -63,11 +63,26 @@ Inherit(ForkMon, EventEmitter, {
         if (params && params.cwd){
             options.cwd = params.cwd;
         };
-        if (Frame.debugMode && process.debugPort){
-            options.execArgv = ["--inspect-brk=" + (parseInt(process.debugPort) + Math.floor(Math.random()*1000))];
+        let debugPort = 0;
+        if (Frame.debugMode || params.debug){
+            if (process.debugPort){
+              debugPort = process.debugPort + Math.floor(Math.random()*1000);
+            }
+            debugPort = (params.debugPort || parseInt(params.debug)) || debugPort ;
+            if (debugPort && !isNaN(debugPort)){
+              console.log("debugging uding --inspect-brk=" + debugPort);
+              options.execArgv = ["--inspect-brk=" + debugPort];
+            } else {
+              console.log("debugging uding --inspect");
+              options.execArgv = ["--inspect"];
+            }
         }
         var cp = this.process = ChildProcess.fork(this.path, this.args, options);
+        cp.debugPort = debugPort;
         this.code = ForkMon.STATUS_WORKING;
+        cp.on("error", function(err){
+            fork._errorEvent.apply(fork, arguments);
+        });
         if (callback){
             var fork = this;
             this.once("started", function(){
@@ -76,11 +91,8 @@ Inherit(ForkMon, EventEmitter, {
         }
         this.emit("started", ForkMon.STATUS_WORKING);
         var fork = this;
-        cp.on("exit", function(){
+        cp.on("exit", function(err){
             fork._exitEvent.apply(fork, arguments);
-        });
-        cp.on("error", function(){
-            fork._errorEvent.apply(fork, arguments);
         });
         cp.on("message", function(msg){
             fork._messageEvent.apply(fork, arguments);
@@ -149,13 +161,21 @@ Inherit(ForkMon, EventEmitter, {
             var self = this;
             var proc = this.process;
             var exited = false;
-            this.process.send("EXIT-REQUEST");
+            try{
+              this.process.send("EXIT-REQUEST");
+            }catch(err){
+              console.log("process-exit:SIGINT");
+              self.emit("killing", "ForkMon: " + self.id + " KILLED BY PIPE ERROR!");
+              proc.kill('SIGKILL');
+              self.emit("exited", ForkMon.STATUS_KILLED);
+              return;
+            }
             //console.log("process-exit:EXIT-REQUEST");
             var exitTimeout = setTimeout(function(){
                 if (!exited){
-                    console.log("process-exit:SIGINT");
+                    console.log("process-exit:SIGKILL");
                     self.emit("killing", "ForkMon: " + self.id + " KILLED BY TIMEOUT!");
-                    proc.kill('SIGINT');
+                    proc.kill('SIGKILL');
                     self.emit("exited", ForkMon.STATUS_KILLED);
                 }
             }, self.killTimeout);
@@ -163,6 +183,14 @@ Inherit(ForkMon, EventEmitter, {
                 exited = true;
                 clearTimeout(exitTimeout);
             });
+        }
+    },
+
+    exitImmediate : function(){
+        if (this.process && this.process.connected){
+            var self = this;
+            var proc = this.process;
+            proc.kill('SIGINT');
         }
     }
 });

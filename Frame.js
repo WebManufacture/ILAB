@@ -646,12 +646,16 @@ if (Frame.isChild) {
     Frame.configFilePath = getEnvParam("configFilePath");
     var nodesConfig = Frame._parseCmd();
     Frame.setId(Frame.serviceId);
+    /*
     if (Frame.servicePipe) {
         Frame._pipesServerForBaseInteraction = net.createServer({
             allowHalfOpen: false,
             pauseOnConnect: false
         });
         try {
+            if (fs.existsSync(Frame.servicePipe)){
+              throw new Error("Pipe " + Frame.servicePipe + " already exists");
+            }
             Frame._pipesServerForBaseInteraction.listen(Frame.servicePipe, function (socket) {
                 Frame.log("Listening frame pipe " + Frame.servicePipe);
             });
@@ -675,10 +679,12 @@ if (Frame.isChild) {
             });
         }
         catch (error) {
-            console.error("Cannot start frame pipe server " + Frame.servicePipe, error.message);
+          console.error("Cannot start frame pipe server " + Frame.servicePipe, error.message);
+          process.send({type: "error", message: err.message, item: err.stack});
+          Frame.fatal(error);
         }
     }
-
+    */
     Frame.send({type: "control", state: "loaded",serviceId: Frame.serviceId, servicePipe: Frame.servicePipe, pipe: Frame.pipeId, config : nodesConfig });
     if (nodesConfig && nodesConfig.length) {
         if (!Frame.nodePath) {

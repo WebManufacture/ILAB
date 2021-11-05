@@ -23,11 +23,11 @@
     "uuid": "^3.2.1"
   },
   "devDependencies": {
+    "electron": "^15.3.0",
+    "electron-builder": "^22.7.0",
     "node-hid": "^1.3.0",
     "npm": "^6.4.1",
     "serialport": "latest",
-    "usb-detection": "latest",
-    "electron": "^9.1.0",
-    "electron-builder": "^22.7.0"
+    "usb-detection": "latest"
   }
 }

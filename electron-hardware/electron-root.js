@@ -41,6 +41,7 @@ function createWindow () {
 
     ipcMain.on("open-dev", ()=>{
         win.webContents.openDevTools();
+        //require('devtron').install();
     });
 
     ipcMain.on("maximize-message", function (event, data){

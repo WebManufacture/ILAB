@@ -1,6 +1,6 @@
 //hardware
 if (window.WS){
-    WS.DOMload(() => {
+    WS.DOMload(async () => {
         if (ilabStarted) {
             RunUIServices();
         } else {
@@ -21,9 +21,9 @@ if (window.WS){
     });
 }
 
-function RunUIServices() {
-
-  
+async function RunUIServices() {
+              sm = await ServiceProxy.Connect("ServicesManager");
+            return sm;
 }
 
 function closeWindow() {

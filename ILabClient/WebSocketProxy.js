@@ -8,13 +8,13 @@ ServiceProxy = function(serviceName){
     this.handlers = {};
 };
 
-ServiceProxy.Connect = function(url, serviceId){
+ServiceProxy.Connect = async function(url, serviceId){
     if (url.indexOf("ws://") < 0){
         serviceId = url;
         if (ServiceProxy.connected){
             url = ServiceProxy.url;
         } else {
-            url = "ws://localhost:5700/"
+            url = "ws://localhost:5700"
         }
     } else {
 
@@ -137,7 +137,7 @@ ServiceProxy.prototype = {
                     if (message.type == "error" && message.id == obj.id) {
                         self.un("message", messageHandler);
                         raiseError(message);
-                        reject(err);
+                        reject(new Error(message.message, message.stack));
                     }
                 };
 
@@ -175,7 +175,7 @@ ServiceProxy.prototype = {
 
     _createFakeMethod : function(methodName) {
         var self = this;
-        var method = self[methodName] = function () {
+        var method = self[methodName] = function async () {
             let callbackHandler = null;
             let errorHandler = null;
             let args = [];

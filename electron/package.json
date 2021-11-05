@@ -50,7 +50,8 @@
       {
         "from": "../ILabClient",
         "to": "../ILabClient"
-      },{
+      },
+      {
         "from": "..",
         "to": ".",
         "filter": [
@@ -62,9 +63,7 @@
       "../electron-config.json",
       "electron-config.json"
     ],
-    "extraFiles": [
-
-    ],
+    "extraFiles": [],
     "mac": {
       "category": "application"
     },
@@ -89,7 +88,8 @@
     "uuid": "^3.2.1"
   },
   "devDependencies": {
-    "electron-builder":"22.7.0",
-    "electron": "^15.3.0"
+    "devtron": "^1.4.0",
+    "electron": "^15.3.0",
+    "electron-builder": "22.7.0"
   }
 }
