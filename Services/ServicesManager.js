@@ -76,6 +76,7 @@ function ServicesManager(config, portCountingFunc){
               debugMode : "debug"
             });
         }
+        ChildProcess.exec(`"C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" ${Path.resolve('ILabClient\\debug.html')}`);
         return debugPort;
     };
 

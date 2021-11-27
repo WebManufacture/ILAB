@@ -64,7 +64,7 @@ Inherit(ForkMon, EventEmitter, {
             options.cwd = params.cwd;
         };
         let debugPort = 0;
-        if (Frame.debugMode || params.debug){
+        if (Frame.debugMode || params.debug || params.debugMode == "debug"){
             if (process.debugPort){
               debugPort = process.debugPort + Math.floor(Math.random()*1000);
             }

@@ -1,10 +1,7 @@
 var Path = require('path');
 var fs = require('fs');
 var os = require("os");
-const {app, Menu, BrowserWindow, ipcMain} = require('electron');
-
-const { Notification } = require('electron')
-
+const {app, Menu, BrowserWindow, ipcMain, Notification} = require('electron');
 let mainWindow = null;
 let mainWindowLoaded = false;
 let mainWindowStarted = false;
@@ -25,14 +22,13 @@ function createWindow () {
       width: 1224,
       height: 740,
       frame: true,
-
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
         enableRemoteModule: true,
         devTools: true,
       }
-    })
+    });
 
      //win.removeMenu();
 
@@ -41,7 +37,6 @@ function createWindow () {
 
     ipcMain.on("open-dev", ()=>{
         win.webContents.openDevTools();
-        //require('devtron').install();
     });
 
     ipcMain.on("maximize-message", function (event, data){
@@ -216,12 +211,12 @@ app.on('ready',() => {
   }
 
   if (process.argv.length < 2){
+      console.log("product mode");
     process.argv.push("");
     process.argv.push("--config=electron-config.json");
     process.chdir(Path.resolve(".."));
   } else {
-    //process.chdir(Path.resolve(".."));
-    process.argv.push("--config=electron-config.json");
+    process.chdir(Path.resolve(".."));
     console.log("Developer mode: ", process.cwd());
   }
   rootServicePath = Path.resolve(rootServicePath);
