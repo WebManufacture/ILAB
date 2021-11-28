@@ -1,16 +1,13 @@
+const {app, Menu, BrowserWindow, Notification, ipcMain} = require('electron');
 var Path = require('path');
 var fs = require('fs');
 var os = require("os");
-const {app, Menu, BrowserWindow, ipcMain} = require('electron');
-
-const { Notification } = require('electron')
 
 let mainWindow = null;
 let mainWindowLoaded = false;
 let mainWindowStarted = false;
 let force_quit = false;
 let closeInterval = null;
-let rootServicePath = "RootService";
 
 const isMac = process.platform === 'darwin';
 
@@ -19,7 +16,7 @@ const isMac = process.platform === 'darwin';
 // const menu = Menu.buildFromTemplate(template);
 // Menu.setApplicationMenu(menu);
 
-function createWindow () {
+function createWindow(htmlPage) {
     // Create the browser window.
     mainWindow = win = new BrowserWindow({
       width: 1224,
@@ -32,7 +29,7 @@ function createWindow () {
         enableRemoteModule: true,
         devTools: true,
       }
-    })
+    });
 
      //win.removeMenu();
 
@@ -56,31 +53,36 @@ function createWindow () {
         win.minimize();
     });
 
-    ipcMain.on("close-ready", function(){
-        force_quit = true;
-        console.log("Ready to close window");
-    });
+    if (startConfig.lazyClose) {
+        ipcMain.on("close-ready", function(){
+            force_quit = true;
+            console.log("Ready to close window");
+        });
 
-    mainWindow.on('close', function(e){
-        console.log("Tryes to close window");
-        mainWindow.removeMenu();
-        if(!force_quit){
-            e.preventDefault();
-            console.log("Preventing close window, timer started");
-            closeInterval = setTimeout(()=>{
-              console.log("Close window timer...");
-              force_quit = true;
-              app.quit();
-              process.exit();
-            }, 100);
-            sendMessage("closing");
-        } else {
-          console.log("Accepting close window");
-        }
-    });
+        mainWindow.on('close', function (e) {
+            console.log("Tryes to close window");
+            mainWindow.removeMenu();
+            if (!force_quit) {
+                e.preventDefault();
+                console.log("Preventing close window, timer started");
+                closeInterval = setTimeout(()=> {
+                    console.log("Close window timer...");
+                    force_quit = true;
+                    app.quit();
+                    process.exit();
+                }, 100);
+                sendMessage("closing");
+            } else {
+                console.log("Accepting close window");
+            }
+        });
+    }
 
-    win.loadFile('start.html');
+    win.loadFile(htmlPage);
 }
+
+var logDept = [];
+var _logSendingTimeout = null;
 
 _errorHandler = function(err){
     if (process.connected){
@@ -93,16 +95,13 @@ _errorHandler = function(err){
     console.error(err);
 };
 
-var logDept = [];
-var _logSendingTimeout = null;
-
-var _send = (name, args)=>{
+_send = (name, args)=>{
   try{
     mainWindow.webContents.send(name, JSON.stringify(args));
   } catch(e){
     console.error(e);
   }
-}
+};
 
 _sendWithDelay = (name, args)=>{
   if (mainWindow && mainWindowLoaded){
@@ -137,6 +136,7 @@ sendMessage = (name, args)=>{
 };
 
 var _oldLog = console.log;
+
 console.log = function () {
     if (process.connected){
         const args = [];
@@ -161,39 +161,57 @@ console.error = function () {
     _oldLogError.apply(this, arguments);
 };
 
-app.on('close', function (e) {
-    console.log("Closing app...");
-});
+let rootService = null;
+let ilabStarted = false;
+let startConfig = {
+    debugMode: false,
+    pageToStart: "start.html",
+    waitDom: false,
+    lazyClose: false
+};
 
-// You can use 'before-quit' instead of (or with) the close event
-app.on('before-quit', function (e) {
-    console.log("Before quit app...");
-});
+if (startConfig.lazyClose) {
+    // You can use 'before-quit' instead of (or with) the close event
+    app.on('before-quit', function (e) {
+        console.log("Before quit app...");
+    });
 
-app.on('window-all-closed', function(e) {
-    console.log("Window closed...");
+    app.on('window-all-closed', function (e) {
+        console.log("Window closed...");
+        app.quit();
+        process.exit();
+    });
+} else {
+    app.on('close', function (e) {
+        console.log("Closing app...");
+        app.quit();
+        process.exit();
+    });
+}
+
+ipcMain.on('critical-error', (event, args) => {
+    _oldLog(args);
     app.quit();
     process.exit();
 });
 
-ipcMain.on('critical-error', (event, args) => {
-  _oldLog(args);
-});
-
-ipcMain.on("dom-ready", ()=>{
-  rootService = require(rootServicePath);
-  mainWindowLoaded = true;
+ipcMain.on("dom-ready", () => {
+    if (startConfig.waitDom && startConfig.rootServicePath){
+        console.log("Starting root: ", startConfig.rootServicePath);
+        rootService = require(startConfig.rootServicePath);
+    }
+    console.log("Main window loaded");
+    mainWindowLoaded = true;
 });
 
 ipcMain.on("started", ()=>{
     mainWindowStarted = true;
     console.log("Main window started");
+    sendMessage("start-config", startConfig);
     if (ilabStarted){
         sendMessage("services-started");
     }
 });
-
-var ilabStarted = false;
 
 process.once("ilab-started", () => {
   ilabStarted = true;
@@ -201,29 +219,125 @@ process.once("ilab-started", () => {
   sendMessage("services-started");
 });
 
+function checkAndStoreArg(arg, key, configParamName){
+    if (!configParamName) configParamName = key;
+    if (arg.indexOf("--" + key) === 0) {
+        if (arg.indexOf("=") > 0) {
+            startConfig[configParamName] = arg.split("=")[1];
+        } else {
+            if (!startConfig.hasOwnProperty(configParamName)) {
+                startConfig[configParamName] = true;
+            }
+        }
+        console.log("Arg: ",arg);
+        return true;
+    }
+    return false;
+}
+
+function parseConfigFile(fileName){
+    try{
+        var configFile = require(Path.resolve(fileName));
+        if (typeof configFile == "object") {
+            for (var key in configFile) {
+                if (!startConfig.hasOwnProperty(key)) startConfig[key] = configFile[key];
+            }
+        }
+    } catch (error) {
+        console.error("Parsing config file error", error);
+    }
+}
+
+function parseCommandArguments () {
+    try{
+        for (var i = 2; i <= process.argv.length; i++) {
+            var arg = process.argv[i];
+            if (!arg) continue;
+
+            if (arg.indexOf("--inspect") >= 0 || arg.indexOf("--debug") >= 0 ) {
+                startConfig.debugMode = arg.indexOf("--inspect-brk") >= 0 || arg.indexOf("--debug") >= 0 ? "debug" : "inspect";
+                console.log("Debug mode: " + startConfig.debugMode);
+                continue;
+            }
+            if (arg === "--new") {
+                startConfig.useNewStart = true;
+                continue;
+            }
+            if (checkAndStoreArg(arg, "page", "pageToStart")) {
+                continue;
+            }
+            if (checkAndStoreArg(arg, "script", "scriptToStart")) {
+                continue;
+            }
+            if (checkAndStoreArg(arg, "waitDom", "waitDom")) {
+                continue;
+            }
+            if (checkAndStoreArg(arg, "lazyClose", "lazyClose")) {
+                continue;
+            }
+            if (checkAndStoreArg(arg, "port")) {
+                continue;
+            }
+            if (checkAndStoreArg(arg, "rootService", "rootServicePath")) {
+                continue;
+            }
+            if (checkAndStoreArg(arg, "ilab", "ilab")) {
+                if (!startConfig.rootServicePath) startConfig.rootServicePath = "RootService.js";
+                continue;
+            }
+            if (checkAndStoreArg(arg, "config", "configFileName")) {
+                // используется config.json если аргументом идёт флаг --config (а не --config=someconfig.json)
+                if (startConfig.configFileName === true) startConfig.configFileName = "config.json";
+                // если уже используется конфиг -- то однозначно нужен ILab и rootService
+                console.log("Using config: ", startConfig.configFileName);
+                if (!startConfig.rootServicePath) startConfig.rootServicePath = "RootService.js";
+                parseConfigFile(startConfig.configFileName);
+                continue;
+            }
+            if (arg.indexOf(".htm") >= 0 || arg.indexOf(".htm") >= 0) {
+                startConfig.pageToStart = arg;
+            }
+        }
+        return startConfig;
+    }
+    catch (err) {
+        console.log("RootError: ");
+        console.error(err);
+        return startConfig;
+    }
+};
 
 app.on('ready',() => {
-  var pipeName = os.type() == "Windows_NT" ? '\\\\?\\pipe\\ServicesManager' : '/tmp/ilab-3-ServicesManager';
+    var pipeName = os.type() == "Windows_NT" ? '\\\\?\\pipe\\ServicesManager' : '/tmp/ilab-3-ServicesManager';
 
-  if (fs.existsSync(pipeName)){
-    const notification = {
-       title: 'ILab App',
-       body: 'Other ILab application already working.'
-     }
-     new Notification(notification).show();
-    process.exit();
-    return;
-  }
+    if (fs.existsSync(pipeName)){
+        const notification = {
+           title: 'ILab App',
+           body: 'Other ILab application already working.'
+        }
+        new Notification(notification).show();
+        process.exit();
+        return;
+    }
 
-  if (process.argv.length < 2){
-    process.argv.push("");
-    process.argv.push("--config=electron-config.json");
-    process.chdir(Path.resolve(".."));
-  } else {
-    //process.chdir(Path.resolve(".."));
-    process.argv.push("--config=electron-config.json");
-    console.log("Developer mode: ", process.cwd());
-  }
-  rootServicePath = Path.resolve(rootServicePath);
-  createWindow();
+    if (process.argv.length < 2){
+        console.log("Product mode: ", process.cwd());
+        process.argv.push("");
+        process.argv.push("--config=config.json");
+        process.chdir(Path.resolve(".."));
+    } else {
+        console.log("Developer mode: ", process.cwd());
+    }
+
+    parseCommandArguments();
+
+    if (!startConfig.waitDom && startConfig.rootServicePath){
+        console.log("Starting root without dom: ", startConfig.rootServicePath);
+        rootService = require(Path.resolve(startConfig.rootServicePath));
+    }
+    if (startConfig.pageToStart) {
+        createWindow(startConfig.pageToStart);
+    } else {
+
+    }
 });

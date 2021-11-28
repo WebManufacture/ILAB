@@ -22,8 +22,8 @@ if (window.WS){
 }
 
 async function RunUIServices() {
-              sm = await ServiceProxy.Connect("ServicesManager");
-            return sm;
+    sm = await ServiceProxy.Connect("ServicesManager");
+    return sm;
 }
 
 function closeWindow() {

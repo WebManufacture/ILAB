@@ -196,14 +196,30 @@ https://docs.google.com/presentation/d/12lofdEfT3a1tk7b0iFUifS8nZMYA_Oq3sWZD_mGP
     npm i -g electron-builder
     cd ..
 
-Для запуска приложения electron, находясь в папке ILAB-3.0 необходимо выполнить вот что:
+Для запуска простого приложения electron, находясь в папке ILAB-3.0 необходимо выполнить вот что:
+    electron electron\electron-root.js
 
-    electron electron/electron-root.js
+Для запуска простого приложения с сервером ILab в бекграунде:
+    electron electron\electron-root.js --ilab
+
+Для запуска простого приложения с конфигурацией ILab (при использовании конфиг, ILab стартует автоматически)
+    electron electron\electron-root.js --config=electron\hardware-config.json
+
+Также вы можете указать другую стартовую страницу:
+    electron electron\electron-root.js hlab-start.html --config=electron\hardware-config.json
+    (достаточно просто имени html или htm файла в аргументах в любом месте)
+
+Другие возможные параметры командной строки:
+    --rootService[=file]   // позволяет указать имя или путь к другому "rootService" для ILab
+    --page[=pageToStart]   // задает стартовую страницу (файл любого расширения);
+    --script=scriptFile    // задает стартовый скрипт на странице;
+    --waitDom              // задерживает старт сервера ILab до загрузки скриптов на странице
+    --lazyClose            // реализовывает механизм "сложного" закрытия страницы (не используйте если не знаете как это работает)
 
 Для сборки приложения нужно воспользоваться другой командой (если вы уже в папке Electron)
 
     cd electron
-    electron-builder build --win
+    electron-builder
     cd ..
 
 АРХИТЕКТУРА ILAB 3.0

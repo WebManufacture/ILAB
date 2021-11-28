@@ -9,24 +9,22 @@ ServiceProxy = function(serviceName){
 };
 
 ServiceProxy.Connect = async function(url, serviceId){
-    if (url.indexOf("ws://") < 0){
-        serviceId = url;
+    if (url.indexOf("ws://") < 0 && url.indexOf("wss://")){
         if (ServiceProxy.connected){
-            url = ServiceProxy.url;
+            url = ServiceProxy.url + "/" + url;
         } else {
-            url = "ws://localhost:5700"
+            url = "ws://localhost:5700/" + url
         }
+    }
+    if (!serviceId){
+        const elems = url.split("/");
+        serviceId = elems[elems.length - 1];
+        var proxy = new ServiceProxy(serviceId);
+        return proxy.attach(url);
     } else {
-
+        var proxy = new ServiceProxy(serviceId);
+        return proxy.attach(url + "/" + serviceId);
     }
-    var proxy = new ServiceProxy(serviceId);
-    if (serviceId){
-        serviceId = "/" + serviceId;
-    }
-    else{
-        serviceId = '';
-    }
-    return proxy.attach(url + serviceId);
 };
 
 ServiceProxy.connected = false;
