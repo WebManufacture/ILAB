@@ -76,6 +76,11 @@ function createWindow(htmlPage) {
                 console.log("Accepting close window");
             }
         });
+    } else {
+        mainWindow.on('close', function (e) {
+            process.exit();
+            app.quit();
+        });
     }
 
     win.loadFile(htmlPage);
@@ -178,14 +183,14 @@ if (startConfig.lazyClose) {
 
     app.on('window-all-closed', function (e) {
         console.log("Window closed...");
-        app.quit();
         process.exit();
+        app.quit();
     });
 } else {
     app.on('close', function (e) {
         console.log("Closing app...");
-        app.quit();
         process.exit();
+        app.quit();
     });
 }
 
@@ -218,6 +223,14 @@ process.once("ilab-started", () => {
   sendLog("services-started");
   sendMessage("services-started");
 });
+
+process.on("error", (err) => {
+    const notification = {
+        title: 'ILab Error',
+        body: err.message
+    }
+    const notify = new Notification(notification).show();
+})
 
 function checkAndStoreArg(arg, key, configParamName){
     if (!configParamName) configParamName = key;
@@ -282,7 +295,9 @@ function parseCommandArguments () {
                 continue;
             }
             if (checkAndStoreArg(arg, "ilab", "ilab")) {
-                if (!startConfig.rootServicePath) startConfig.rootServicePath = "RootService.js";
+                if (!startConfig.rootServicePath) {
+                    startConfig.rootServicePath = "RootService.js";
+                }
                 continue;
             }
             if (checkAndStoreArg(arg, "config", "configFileName")) {
@@ -290,7 +305,9 @@ function parseCommandArguments () {
                 if (startConfig.configFileName === true) startConfig.configFileName = "config.json";
                 // если уже используется конфиг -- то однозначно нужен ILab и rootService
                 console.log("Using config: ", startConfig.configFileName);
-                if (!startConfig.rootServicePath) startConfig.rootServicePath = "RootService.js";
+                if (!startConfig.rootServicePath) {
+                    startConfig.rootServicePath = "RootService.js";
+                }
                 parseConfigFile(startConfig.configFileName);
                 continue;
             }
@@ -321,11 +338,14 @@ app.on('ready',() => {
     }
 
     if (process.argv.length < 2){
+        startConfig.startMode = "product";
         console.log("Product mode: ", process.cwd());
         process.argv.push("");
         process.argv.push("--config=config.json");
-        process.chdir(Path.resolve(".."));
+        //process.chdir(Path.resolve("./resources/"));
     } else {
+        startConfig.startMode = "develop";
+        //process.chdir(Path.resolve(".."));
         console.log("Developer mode: ", process.cwd());
     }
 

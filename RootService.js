@@ -6,8 +6,6 @@ function _init() {
     //var ForkingService = useSystem('ForkingService');
     var Service = require('./System/Service.js');
 
-
-
     function _parseCmd () {
         var debugMode = false;
         var servicesToStart = [];
@@ -298,6 +296,7 @@ function _init() {
         } catch (err) {
             console.log("RootError: ", err.message);
             console.error(err);
+            process.emit("error", err);
         }
     };
 

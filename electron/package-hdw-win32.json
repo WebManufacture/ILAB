@@ -37,15 +37,15 @@
       "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}",
       {
         "from": "../Modules",
-        "to": "../Modules"
+        "to": "../../Modules"
       },
       {
         "from": "../Services",
-        "to": "../Services"
+        "to": "../../Services"
       },
       {
         "from": "../System",
-        "to": "../System"
+        "to": "../../System"
       },
       {
         "from": "../ILabClient",
@@ -53,32 +53,43 @@
       },
       {
         "from": "..",
-        "to": ".",
+        "to": "../..",
         "filter": [
           "*.js",
           "electron-config.json"
         ]
       },
-      "../*.js",
-      "../electron-config.json",
-      "electron-config.json"
+      {
+        "from": ".",
+        "to": "../..",
+        "filter": [
+          "*.htm",
+          "*.html",
+          "*.js",
+          "*.png",
+          "config.json"
+        ]
+      },
+      "../*.html",
+      "*config.json"
     ],
     "extraFiles": [],
     "mac": {
-      "icon": "../favicon-310x310.png",
+      "icon": "favicon.png",
       "category": "application"
     },
     "linux": {
-      "icon": "../favicon-310x310.png",
+      "icon": "favicon.png",
       "category": "application"
     },
     "win": {
-      "icon": "../favicon-310x310.png",
+      "icon": "favicon.png",
       "target": [
         {
           "target": "nsis",
           "arch": [
-            "x64", "ia64"
+            "x64",
+            "ia32"
           ]
         }
       ]
