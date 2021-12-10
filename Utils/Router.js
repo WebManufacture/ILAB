@@ -9,9 +9,9 @@ function MapNode(parentPath){
 
 Router = function(timeout){
 	this.HandlersIndex = [];
-	this.Handlers = {};
+  this.Handlers = new MapNode("/");;
 	this.basePath = "";
-    this.Enabled = true;
+  this.Enabled = true;
 	this.WaitingContexts = {};
 	this.WaitingContextsCount = 0;
 	this.ProcessingContexts = {};
@@ -21,58 +21,43 @@ Router = function(timeout){
 };
 
 Router.prototype = {
-    on : function(path, handler){
-		var phase = "_default";
-		return this["for"](phase, path, handler);
-    },
-
-    un : function(handler){
-        var phase = "_default";
-        if (!this.Handlers[phase]) return;
-        return this._removeHandler(this.Handlers[phase], handler);
-    },
-
-	"for" : function(phase, path, handler){
-		if (!this.Handlers[phase]){
-			this.HandlersIndex.push(phase);
-			this.Handlers[phase] = new MapNode("/");
-		}
-		return this._addHandler(this.Handlers[phase], path.toLowerCase(), handler);
+	on : function(path, handler){
+	  return this["for"](path, handler);
 	},
-	
-	map : function(phase, map){
-		if (!this.Handlers[phase]){
-			this.HandlersIndex.push(phase);
-			this.Handlers[phase] = new MapNode("/");
-		}
+
+	un : function(handler){
+	    return this._removeHandler(this.Handlers, handler);
+	},
+
+	"for" : function(path, handler){
+		return this._addHandler(this.Handlers, path.toLowerCase(), handler);
+	},
+
+	map : function(map){
 		if (map){
 			for (var path in map){
-				this._addHandler(this.Handlers[phase], path.toLowerCase(), map[path]);
+				this._addHandler(this.Handlers, path.toLowerCase(), map[path]);
 			}
 		}
 	},
-	
+
 	GetContext: function(selector, data){
 		var context = new RoutingContext(selector, this.basePath, data);
 		context.debugMode = this.debugMode;
 		return context;
 	},
 
-    do: function(selector, data){
-        return this.Process(this.GetContext(selector, data));
-    },
+  do: function(selector, data){
+      return this.Process(this.GetContext(selector, data));
+  },
 
 	Process: function(context){
 		this.ProcessingContextsCount++;
 		this.ProcessingContexts[context.id] = context;
 		context.router = this;
-		for (var i = 0; i < this.HandlersIndex.length; i++){
-			var phase = this.HandlersIndex[i];
-			context.phases.push(phase);
-			context.callPlans[phase] = [];
-			context.getCallPlan(context.callPlans[phase], this.Handlers[phase], 0);
-			context.log("callPlan[", phase, "] : ", context.callPlans[phase].length);
-		}	
+		context.callPlans = [];
+		context.getCallPlan(context.callPlans, this.Handlers, 0);
+		context.log("callPlan : ", context.callPlans.length);
 		context.callPhaseChain(0);
 		return context;
 	},
@@ -90,16 +75,16 @@ Router.prototype = {
         				if (arr[i] === handler){
         					arr.splice(i, 1);
         					return;
+							}
 						}
 					}
-				}
-				else{
-        			this._removeHandler(root[key], handler);
+					else{
+	        			this._removeHandler(root[key], handler);
+					}
 				}
 			}
-		}
     },
-	
+
 	_addHandler : function(root, path, handler){
 		if (!handler){
 			return null;
@@ -119,7 +104,7 @@ Router.prototype = {
 		}
 		return this._addHandlerInternal(root, parts, handler, '/');
 	},
-	
+
 	_addHandlerInternal : function(root, parts, handler, endHandlerSymbol){
 		//console.log("calling addhandler! " + JSON.stringify(parts) + " " + endHandlerSymbol);
 		var parentPath = root["//"];
@@ -127,7 +112,7 @@ Router.prototype = {
 		for (var i = 0; i < parts.length; i++){
 			var p = parts[i];
 			if (p == ""){
-				break;	
+				break;
 			}
 			parentPath = parentPath + p + "/";
 			if (!cg[p + "/"]){
@@ -177,11 +162,11 @@ RoutingContext = function(selector, rootPath, data){
 
 global.RoutingContext.phaseTimeout = 30;
 
-global.RoutingContext.prototype = {	
+global.RoutingContext.prototype = {
 	getCallPlan : function(callPlan, mapNode, pathNum){
 		if (!mapNode) {
 			//this.log("CallPlan: Node not found");
-			return ;	
+			return ;
 		}
 		this.getHandlers(callPlan, mapNode, mapNode[">"], ">", pathNum);
 		if (pathNum < this.paths.length){
@@ -189,11 +174,11 @@ global.RoutingContext.prototype = {
 			this.getCallPlan(callPlan, mapNode[path], pathNum + 1);
 		}
 		else{
-			this.getHandlers(callPlan, mapNode, mapNode['/'], "/", pathNum);	
+			this.getHandlers(callPlan, mapNode, mapNode['/'], "/", pathNum);
 		}
 		this.getHandlers(callPlan, mapNode, mapNode["<"], "<", pathNum);
 	},
-	
+
 	getHandlers : function(callPlan, mapNode, handlers, path, pathNum){
 		var result = false;
 		if (handlers && handlers.length > 0){
@@ -225,12 +210,12 @@ global.RoutingContext.prototype = {
 				else{
 					this.log("CallPlan ",pathNum, ": ", mapNode["//"], path, " NULL handler!");
 				}
-			}	
+			}
 		}
 		return result;
 	},
-		
-	callPhaseChain : function(phaseNum, numSpaces){		
+
+	callPhaseChain : function(phaseNum, numSpaces){
 		var context = this;
 		if (!numSpaces) numSpaces = 0;
 		var maxSpaces = 5000/RoutingContext.phaseTimeout;
@@ -250,9 +235,9 @@ global.RoutingContext.prototype = {
 			phaseNum = 0;
 		}
 		if (this.phaseProcessed){
-			if (phaseNum < this.phases.length){			
+			if (phaseNum < this.phases.length){
 				var phaseName = this.phases[phaseNum];
-				
+
 				this.callPlan = this.callPlans[phaseName];
 				this.phaseProcessed = false;
 				this.handlerNum = -1;
@@ -265,7 +250,7 @@ global.RoutingContext.prototype = {
 						this.callPhaseChain(phaseNum + 1, numSpaces + 1);
 					}
 					else{
-						this.finishHandler(this);	
+						this.finishHandler(this);
 					}
 				}
 				else{
@@ -274,7 +259,7 @@ global.RoutingContext.prototype = {
 							this.router.WaitingContexts[this.id] = this;
 							this.router.WaitingContextsCount++;
 						}
-						this._currentTimeout = setTimeout(function(){					
+						this._currentTimeout = setTimeout(function(){
 							context.log("New Phase ", phaseNum, " [", context.phases[phaseNum], "] WAITING!", numSpaces);
 							context.callPhaseChain(phaseNum, numSpaces + 1);
 						}, RoutingContext.phaseTimeout);
@@ -295,7 +280,7 @@ global.RoutingContext.prototype = {
 					this.router.WaitingContexts[this.id] = this;
 					this.router.WaitingContextsCount++;
 				}
-				this._currentTimeout = setTimeout(function(){					
+				this._currentTimeout = setTimeout(function(){
 					context.log("Last Phase ", phaseNum, " [", context.phases[phaseNum], "] WAITING!", numSpaces);
 					context.callPhaseChain(phaseNum, numSpaces + 1);
 				}, RoutingContext.phaseTimeout);
@@ -306,12 +291,12 @@ global.RoutingContext.prototype = {
 		}
 		this.log("Phase ", phaseNum, " Exited");
 	},
-	
+
 	"abort" : function(){
 		this._aborted = true;
 		clearTimeout(this._currentTimeout);
 	},
-	
+
 	"continue" : function(){
 		var context = this;
 		if (context.phaseProcessed || context.stop){return true;}
@@ -358,7 +343,7 @@ global.RoutingContext.prototype = {
 			return true;
 		}
 	},
-	
+
 	finishHandler : function(context){
 		context.log("complete: ", new Date());
 		if (!this._aborted){
@@ -370,22 +355,22 @@ global.RoutingContext.prototype = {
 			}
 		}
 	},
-	
+
 	write : function(result){
 		if (!this.endResult) this.endResult = "";
 		this.endResult += result;
 	},
-	
-	
-	setHeader : function(header, value){		
+
+
+	setHeader : function(header, value){
 		if (this.finalized || this.res.headersSent) return;
 		return this.res.setHeader(header, value);
 	},
-	
-	getHeader : function(header){		
+
+	getHeader : function(header){
 		return this.req.headers[header];
 	},
-	
+
 	finish : function(result, encoding){
 		if (this.completed) return;
 		this.completed = true;
@@ -393,7 +378,7 @@ global.RoutingContext.prototype = {
 		this.endResult = result;
 		this.encoding = encoding;
 	},
-	
+
 	_abortProcessing : function(){
 		if (this.router){
 			this.log("RoutingContext aborted");
@@ -412,7 +397,7 @@ global.RoutingContext.prototype = {
         if (this.finalized) return;
         this.finalized = true;
 	},
-	
+
 	_finish : function(status, result){
 		if (this.router){
 			if (this.router.WaitingContexts[this.id]){
@@ -430,11 +415,11 @@ global.RoutingContext.prototype = {
         if (this.finalized) return;
         this.finalized = true;
 	},
-	
+
 	getLogSpaces : function(num){
 		var lgstr = "";
 		if (num > 20) {
-			num = 20;	
+			num = 20;
 			lgstr = "+";
 		}
 		for (var i = 1; i <= num; i++){
@@ -442,7 +427,7 @@ global.RoutingContext.prototype = {
 		}
 		return lgstr;
 	},
-	
+
 	log : function(){
 		var lgstr = "";
 		if (this.debugMode && this.debugMode == "trace"){
@@ -454,14 +439,14 @@ global.RoutingContext.prototype = {
 		}
 		return lgstr;
 	},
-	
+
 	formatLog : function(text){
 		if (typeof text == 'string') return text;
 		//if (text instanceof Date) return this.formatLog(text.date + 1, ".", text.month + 1, ".", text.fullYear,"  ", text.hours,":",text.minutes,":",text.seconds,".",text.milliseconds);
-		if (typeof text == 'object') return JSON.stringify(text);		
+		if (typeof text == 'object') return JSON.stringify(text);
 		return text + "";
 	},
-	
+
 	formatLogs : function(){
 		var lgstr = "\n";
 		for (var i = 0; i < this.logs.length; i++){
@@ -469,16 +454,16 @@ global.RoutingContext.prototype = {
 		}
 		return lgstr;
 	},
-	
+
 	formatError : function(error){
         if (typeof  error == "string") return error;
 		return error.message + "\n" + error.stack
 	},
-	
+
 	error : function(error){
 		return this._finishWithError(error);
 	},
-	
+
 	_finishWithError : function(error){
 		if (this.logger){
 			this.logger.warn(error);
