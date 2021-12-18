@@ -1,6 +1,6 @@
 {
   "name": "ilab",
-  "version": "3.9.1",
+  "version": "3.8.3",
   "electronVersion": "0.33.1",
   "description": "ILab server",
   "publishName": "ILab",
