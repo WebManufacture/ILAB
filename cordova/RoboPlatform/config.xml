@@ -8,9 +8,9 @@
         Web-Manufacture core team
     </author>
     <content src="index.html" />
-    <plugin name="cordova-plugin-bluetooth-serial" />
     <plugin name="cordova-plugin-device" />
     <plugin name="cordovarduino" />
+    <plugin name="cordova-plugin-bluetooth-serial" />
     <plugin name="org.vangulik.usb.hid" />
     <access origin="*" />
     <allow-intent href="http://*/*" />
