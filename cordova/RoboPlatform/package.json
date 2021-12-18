@@ -1,0 +1,51 @@
+{
+  "dependencies": {},
+  "devDependencies": {
+    "cordova-android": "^6.4.0",
+    "cordova-plugin-battery-status": "^2.0.3",
+    "cordova-plugin-bluetooth-serial": "file:plugins/cordova-plugin-bluetooth-serial",
+    "cordova-plugin-camera": "^4.1.0",
+    "cordova-plugin-chrome-apps-common": "^1.0.7",
+    "cordova-plugin-chrome-apps-sockets-tcp": "^1.3.7",
+    "cordova-plugin-chrome-apps-sockets-udp": "^1.3.0",
+    "cordova-plugin-device": "^2.0.3",
+    "cordova-plugin-file": "^6.0.2",
+    "cordova-plugin-geolocation": "^4.1.0",
+    "cordova-plugin-media": "^5.0.3",
+    "cordova-plugin-media-capture": "^3.0.3",
+    "cordova-plugin-network-information": "^3.0.0",
+    "cordova-plugin-screen-orientation": "^3.0.2",
+    "cordova-plugin-usb-hid": "git+https://github.com/tijmenvangulik/cordova-usb-hid.git",
+    "cordova-plugin-vibration": "^3.1.1",
+    "cordova-plugin-webserver": "git+https://github.com/bykof/cordova-plugin-webserver.git",
+    "cordovarduino": "0.0.10",
+    "es6-promise-plugin": "^4.2.2"
+  },
+  "cordova": {
+    "plugins": {
+      "cordova-plugin-bluetooth-serial": {},
+      "cordovarduino": {},
+      "cordova-plugin-device": {},
+      "org.vangulik.usb.hid": {},
+      "cordova-plugin-camera": {
+        "ANDROID_SUPPORT_V4_VERSION": "27.+"
+      },
+      "cordova-plugin-file": {},
+      "cordova-plugin-battery-status": {},
+      "cordova-plugin-geolocation": {
+        "GPS_REQUIRED": "false"
+      },
+      "cordova-plugin-media": {},
+      "cordova-plugin-media-capture": {},
+      "cordova-plugin-network-information": {},
+      "cordova-plugin-vibration": {},
+      "cordova-plugin-screen-orientation": {},
+      "cordova-plugin-chrome-apps-sockets-tcp": {},
+      "cordova-plugin-chrome-apps-sockets-udp": {},
+      "cordova-plugin-webserver": {}
+    },
+    "platforms": [
+      "android"
+    ]
+  }
+}

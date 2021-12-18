@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta name="format-detection" content="telephone=no">
+        <meta name="msapplication-tap-highlight" content="no">
+        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">
+
+        <title>ILab-3.8</title>
+        <script src="http://domjs.web-manufacture.net/v2.0?join=true" type="text/javascript"></script>
+        <link href="http://domjs.web-manufacture.net/System.default.css" rel="stylesheet">
+        <script type="text/javascript" src="http://domjs.web-manufacture.net/ui.js"></script>
+
+        <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+        <link rel="stylesheet" type="text/css" href="index.css">
+
+        <script type="text/javascript" src="cordova.js"></script>
+        <script type="text/javascript" src="index.js"></script>
+        <script type="text/javascript">
+            function loadApp(){
+                M.LoadModule("http://android.web-manufacture.net/managerapp.htm");
+            }
+
+            function goHome(){
+                window.location.href = "selector_page.html?url=" + encodeURI("http://android.web-manufacture.net/test.htm");
+            }
+        </script>
+    </head>
+    <body>
+        <include url='http://services.web-manufacture.net/UI/HtmlElements.htm'></include>
+        <div id="app">
+            <h1>ILab 3.8</h1>
+            <div id="deviceready" class="blink">
+                <p id='listeningElement' class="event listening">Connecting to Device</p>
+                <p id='receivedElement' class="event received invisible">Device is Ready</p>
+            </div>
+        </div>
+        <div id="content">
+
+        </div>
+        <footer id="buttons">
+            <div class="btn-ira ok" onclick="loadApp()">ManagerApp</div>
+            <div class="btn-ira ok" onclick="goHome()">Home</div>
+        </footer>
+    </body>
+</html>
+

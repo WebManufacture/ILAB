@@ -1,0 +1,47 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+    <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width">
+
+    <title>ILab-3.8</title>
+    <script src="http://domjs.web-manufacture.net/v2.0?join=true" type="text/javascript"></script>
+    <link href="http://domjs.web-manufacture.net/System.default.css" rel="stylesheet">
+    <script type="text/javascript" src="http://domjs.web-manufacture.net/ui.js"></script>
+
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+    <link rel="stylesheet" type="text/css" href="index.css">
+
+    <script type="text/javascript" src="cordova.js"></script>
+</head>
+<body>
+    <script type="text/javascript">
+        if (window.location.href.indexOf("?url=") >=0 ){
+            var uri = window.location.href.split("?url=")[1];
+            if (uri) uri = decodeURI(uri);
+            console.log("loading uri:", uri);
+            //document.body.innerHTML = `<div class="html-content" url="${uri}"></div>`
+
+            var xhr = new XMLHttpRequest();
+            xhr.open("GET", uri, false);  // synchronous request
+            xhr.send(null);
+            document.body.innerHTML = (xhr.responseText);
+            if (WS){
+                WS.DOMload(function(){
+                    M.ParseModule(WS.Body);
+                });
+            } else {
+                window.onload = function(){
+                    WS.DOMload(function(){
+                        M.ParseModule(WS.Body);
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+
